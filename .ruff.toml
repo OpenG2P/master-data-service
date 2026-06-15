@@ -1,0 +1,9 @@
+# Shared ruff config for the python packages (master-data-api).
+# ruff is used as a LINTER only (black is the formatter); keep line-length in
+# sync with black so lint rules agree with the formatter.
+line-length = 110
+
+[lint.per-file-ignores]
+# __init__.py files intentionally re-export names for the package's public API,
+# which ruff would otherwise flag as F401 "imported but unused".
+"__init__.py" = ["F401"]

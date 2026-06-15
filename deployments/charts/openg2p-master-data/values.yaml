@@ -1,0 +1,147 @@
+global:
+  masterDataHostname: master-data.qa.openg2p.org
+  # Database
+  postgresqlHost: commons-postgresql
+  # Underscores to follow postgresql conventions
+  # The complicated logic below is just to ensure that when chart is installed
+  # as master-data, we don't want the database to be called master_data_master_data
+  masterDataDB:  '{{ if eq .Release.Name "master-data" }}master_data{{ else }}{{ printf "%s_master_data" .Release.Name | replace "-" "_" }}{{ end }}'
+  masterDataDBPort: 5432
+  masterDataDBUser: '{{ if eq .Release.Name "master-data" }}master_data_user{{ else }}{{ printf "%s_master_data_user" .Release.Name | replace "-" "_" }}{{ end }}'
+  masterDataDBSecret: '{{ if eq .Release.Name "master-data" }}master-data{{ else }}{{ .Release.Name }}-master-data{{ end }}'
+  masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
+
+postgres-init:
+  enabled: true
+  postgresql:
+    host: '{{ tpl .Values.global.postgresqlHost $ }}'
+    port: 5432
+    existingSecret: commons-postgresql
+    existingSecretPostgresPasswordKey: postgres-password
+  databases:
+    - name: '{{ tpl .Values.global.masterDataDB $ }}'
+      user: '{{ tpl .Values.global.masterDataDBUser $ }}'
+      secret: '{{ tpl .Values.global.masterDataDBSecret $ }}'
+      secretUserPasswordKey: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+      extensions:
+        - 'pg_trgm'
+
+masterDataAPI:
+  enabled: true
+  nameOverride: master-data-api
+  hostname: '{{ tpl .Values.global.masterDataHostname $ }}'
+
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  updateStrategy:
+    type: RollingUpdate
+  serviceAccount:
+    create: false
+    name: ""
+  image:
+    repository: openg2p/master-data-api
+    tag: "develop"
+    pullPolicy: Always
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: false
+    runAsUser: 1001
+    runAsNonRoot: true
+
+  openapiRootPath: /
+
+  service:
+    type: ClusterIP
+    port: 80
+    externalTrafficPolicy: Cluster
+
+  istio:
+    enabled: true
+    virtualservice:
+      enabled: true
+      host: ""
+      gateway: "internal"
+      destination: '{{ .Release.Name }}-master-data-api'
+      destinationPort: '{{ .Values.masterDataAPI.service.port }}'
+      prefix: '{{ .Values.openapiRootPath }}/'
+      rewriteUri: "/"
+    gateway:
+      enabled: false
+      host: ""
+      ingressController:
+        istio: ingressgateway
+      httpTlsRedirect: false
+      httpEnabled: true
+      httpsEnabled: false
+      tls:
+        mode: SIMPLE
+        credentialName: ""
+
+  envVars:
+    GEN2_MASTER_DATA_API_DB_HOSTNAME: '{{ tpl .Values.global.postgresqlHost $ }}'
+    GEN2_MASTER_DATA_API_DB_DBNAME: '{{ tpl .Values.global.masterDataDB $ }}'
+    GEN2_MASTER_DATA_API_DB_PORT: '{{ .Values.global.masterDataDBPort }}'
+    GEN2_MASTER_DATA_API_DB_USERNAME: '{{ tpl .Values.global.masterDataDBUser $ }}'
+    GEN2_MASTER_DATA_API_PORT: '{{ .Values.containerPort }}'
+    GEN2_MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
+
+  envVarsFrom:
+    GEN2_MASTER_DATA_API_DB_PASSWORD:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
+        key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+
+
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+  postgresCheckerInit:
+    enabled: true
+    image:
+      repository: jbergknoff/postgresql-client
+      tag: latest
+      pullPolicy: IfNotPresent
+    command:
+    - 'sh'
+    args:
+    - '-c'
+    - 'until pg_isready -U ${GEN2_MASTER_DATA_API_DB_USERNAME} -h ${GEN2_MASTER_DATA_API_DB_HOSTNAME} -p ${GEN2_MASTER_DATA_API_DB_PORT:-5432} -d ${GEN2_MASTER_DATA_API_DB_DBNAME:-masterDatadb}; do sleep 3; done'
+    containerSecurityContext:
+      enabled: false
+
+  containerPort: 8000

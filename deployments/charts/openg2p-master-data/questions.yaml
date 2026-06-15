@@ -1,0 +1,38 @@
+questions:
+- variable: global.masterDataHostname
+  description: Hostname under which Master Data service will be accessed
+  type: string
+  label: Master Data Hostname
+  group: General
+
+
+# Master Data DB
+- variable: global.postgresqlHost
+  description: Master Data database hostname
+  type: string
+  label: Master Data Database Hostname
+  group: Master Data Database
+
+- variable: global.masterDataDB
+  description: Master Data Database
+  type: string
+  label: Master Data Database
+  group: Master Data Database
+
+- variable: global.masterDataDBUser
+  description: Master Data database user
+  type: string
+  label: Master Data Database User
+  group: Master Data Database
+
+- variable: global.masterDataDBSecret
+  description: Master Data database user Kubernetes secret
+  type: string
+  label: Master Data Database User Secret
+  group: Master Data Database
+
+- variable: global.masterDataDBUserPasswordKey
+  description: Master Data database user password key
+  type: string
+  label: Master Data Database User Password Key
+  group: Master Data Database

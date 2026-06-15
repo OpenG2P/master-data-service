@@ -1,0 +1,41 @@
+name: pre-commit
+
+# Each consolidated area is checked with its own pre-commit config, scoped to
+# ONLY that area's files (via git ls-files of the path). The python package
+# uses the root config; docker/ and deployments/ use their own lightweight
+# configs so the python hooks (black/ruff/check-yaml) never run over Dockerfiles
+# or Helm templates.
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: master-data-api
+            config: .pre-commit-config.yaml
+          - project: docker
+            config: docker/.pre-commit-config.yaml
+          - project: deployments
+            config: deployments/.pre-commit-config.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pre-commit
+      - name: Run pre-commit for ${{ matrix.project }}
+        shell: bash
+        run: |
+          if [ -z "$(git ls-files -- '${{ matrix.project }}/')" ]; then
+            echo "No tracked files under ${{ matrix.project }}/ — nothing to check."
+            exit 0
+          fi
+          git ls-files -z -- '${{ matrix.project }}/' | xargs -0 pre-commit run \
+            --config '${{ matrix.config }}' \
+            --show-diff-on-failure --files

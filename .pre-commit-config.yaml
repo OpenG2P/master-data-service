@@ -1,0 +1,59 @@
+exclude: |
+  (?x)
+  # We don't want to mess with tool-generated files
+  .svg$|/tests/([^/]+/)?cassettes/|^.copier-answers.yml$|^.github/|
+  # docker/ and deployments/ keep their own (lightweight) pre-commit configs;
+  # the python hooks (black/ruff) must not reformat Dockerfiles or Helm templates
+  ^docker/|^deployments/|
+  # Maybe reactivate this when all README files include prettier ignore tags?
+  ^README\.md$|
+  # Repos using Sphinx to generate docs don't need prettying
+  ^docs/_templates/.*\.html$|
+  # You don't usually want a bot to modify your legal texts
+  (LICENSE.*|COPYING.*)
+default_language_version:
+  python: python3
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: debug-statements
+    - id: fix-encoding-pragma
+      args: ["--remove"]
+    - id: check-case-conflict
+    - id: check-docstring-first
+    - id: check-executables-have-shebangs
+    - id: check-merge-conflict
+    - id: check-symlinks
+    - id: check-toml
+    - id: check-yaml
+      args:
+      - --unsafe
+    - id: mixed-line-ending
+      args: ["--fix=lf"]
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.11.0
+    hooks:
+      - id: pyupgrade
+        args:
+        - --py3-plus
+        - --keep-runtime-typing
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        args:
+        - --line-length=110
+  # black is the sole formatter (line-length 110). ruff is used only as a
+  # LINTER — ruff-format is intentionally NOT enabled, since two formatters
+  # (black at 110 vs ruff-format at its 88 default) reformat each other and
+  # never converge. ruff's settings (line-length 110, __init__.py F401 ignore)
+  # live in the root .ruff.toml.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.7
+    hooks:
+      - id: ruff-check
+        args:
+        - --fix
