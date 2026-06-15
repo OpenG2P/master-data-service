@@ -95,9 +95,7 @@ class G2PGeoController(BaseController):
             )
         except Exception as e:
             _logger.error("Error getting geo levels: %s", str(e), exc_info=True)
-            return self.request_response_helper.construct_geo_levels_error_response(
-                e, get_geo_levels_request
-            )
+            return self.request_response_helper.construct_geo_levels_error_response(e, get_geo_levels_request)
 
     @cache(expire=_config.cache_expire_seconds, key_builder=cache_key_builder_geo_level_values)
     async def get_g2p_geo_level_values(
@@ -110,9 +108,7 @@ class G2PGeoController(BaseController):
             level_id = payload.level_id
             parent_level_value_id = payload.parent_level_value_id
 
-            geo_level_values = await self.geo_service.get_geo_level_values(
-                level_id, parent_level_value_id
-            )
+            geo_level_values = await self.geo_service.get_geo_level_values(level_id, parent_level_value_id)
 
             _logger.debug("Geo level values: %s", geo_level_values)
 

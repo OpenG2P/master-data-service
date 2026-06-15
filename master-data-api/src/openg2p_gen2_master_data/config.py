@@ -5,9 +5,7 @@ from . import __version__
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="gen2_master_data_api_", env_file=".env", extra="allow"
-    )
+    model_config = SettingsConfigDict(env_prefix="gen2_master_data_api_", env_file=".env", extra="allow")
 
     openapi_title: str = "OpenG2P Gen 2 Master Data"
     openapi_description: str = """

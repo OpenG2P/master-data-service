@@ -26,7 +26,7 @@ class Initializer(BaseInitializer):
 
         G2PGeoService()
         G2PPartnerService()
-        
+
         G2PGeoController().post_init()
         G2PPartnerController().post_init()
 

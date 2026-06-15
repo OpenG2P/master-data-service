@@ -13,6 +13,7 @@ from ..schemas import (
 _config = None
 try:
     from ..config import Settings
+
     _config = Settings.get_config()
 except Exception:
     pass
@@ -24,24 +25,24 @@ class G2PGeoService(BaseService):
     async def get_geo_levels(self, parent_level_id: Optional[str] = None) -> List[GeoLevelData]:
         """
         Get geo levels, optionally filtered by parent_level_id.
-        
+
         Args:
             parent_level_id: Optional parent level ID to filter by
-            
+
         Returns:
             List of GeoLevelData
         """
         async with get_session_maker()() as session:
             query = select(G2PGeoLevel)
-            
+
             if parent_level_id is not None and parent_level_id != "":
                 query = query.where(G2PGeoLevel.parent_level_id == parent_level_id)
             else:
                 # Get top-level entries with null parent_level_id
                 query = query.where(G2PGeoLevel.parent_level_id.is_(None))
-            
+
             levels = (await session.execute(query)).scalars().all()
-            
+
             return [
                 GeoLevelData(
                     level_id=level.level_id,
@@ -56,17 +57,17 @@ class G2PGeoService(BaseService):
     ) -> List[GeoLevelValueData]:
         """
         Get geo level values for a specific level, optionally filtered by parent_level_value_id.
-        
+
         Args:
             level_id: The level ID to get values for
             parent_level_value_id: Optional parent level value ID to filter by
-            
+
         Returns:
             List of GeoLevelValueData
         """
         async with get_session_maker()() as session:
             query = select(G2PGeoLevelValue).where(G2PGeoLevelValue.level_id == level_id)
-            
+
             if parent_level_value_id is not None and parent_level_value_id != "":
                 query = query.where(G2PGeoLevelValue.parent_level_value_id == parent_level_value_id)
             else:
@@ -79,9 +80,8 @@ class G2PGeoService(BaseService):
                     )
                 )
 
-            
             values = (await session.execute(query)).scalars().all()
-            
+
             return [
                 GeoLevelValueData(
                     level_value_id=value.level_value_id,

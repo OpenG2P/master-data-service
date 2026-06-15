@@ -48,9 +48,7 @@ class G2PPartnerController(BaseController):
 
             _logger.debug("Partners: %s", partners)
 
-            return self.request_response_helper.construct_partners_success_response(
-                request, partners
-            )
+            return self.request_response_helper.construct_partners_success_response(request, partners)
         except Exception as e:
             _logger.error("Error getting all partners: %s", str(e), exc_info=True)
             return self.request_response_helper.construct_partners_error_response(e, request)
@@ -68,10 +66,7 @@ class G2PPartnerController(BaseController):
 
             _logger.debug("Partner: %s", partner)
 
-            return self.request_response_helper.construct_partner_success_response(
-                request, partner
-            )
+            return self.request_response_helper.construct_partner_success_response(request, partner)
         except Exception as e:
             _logger.error("Error getting partner: %s", str(e), exc_info=True)
             return self.request_response_helper.construct_partner_error_response(e, request)
-

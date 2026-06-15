@@ -1,3 +1,3 @@
-# OpenG2P Gen2 Master Data
+# OpenG2P Master Data
 
-Helm Chart of OpenG2P Gen2 Master Data Service
+See [docs](https://docs.openg2p.org)

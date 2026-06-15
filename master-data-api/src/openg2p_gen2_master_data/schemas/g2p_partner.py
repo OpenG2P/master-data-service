@@ -59,4 +59,3 @@ class G2PPartnerResponseBody(G2PResponseBody):
 
 class G2PPartnerResponse(G2PResponse):
     response_body: Optional[G2PPartnerResponseBody] = None
-

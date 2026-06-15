@@ -30,11 +30,11 @@ class RequestResponseHelper(BaseService):
     ) -> GetGeoLevelsResponse:
         """
         Construct a success response for get_g2p_geo_levels API.
-        
+
         Args:
             g2p_request: The G2P request object
             levels: List of geo level data to return
-            
+
         Returns:
             GetGeoLevelsResponse with success status
         """
@@ -65,11 +65,11 @@ class RequestResponseHelper(BaseService):
     ) -> GetGeoLevelsResponse:
         """
         Construct an error response for get_g2p_geo_levels API.
-        
+
         Args:
             error: The exception that occurred
             g2p_request: Optional G2P request object
-            
+
         Returns:
             GetGeoLevelsResponse with error status
         """
@@ -109,11 +109,11 @@ class RequestResponseHelper(BaseService):
     ) -> GetGeoLevelValuesResponse:
         """
         Construct a success response for get_g2p_geo_level_values API.
-        
+
         Args:
             g2p_request: The G2P request object
             values: List of geo level value data to return
-            
+
         Returns:
             GetGeoLevelValuesResponse with success status
         """
@@ -144,11 +144,11 @@ class RequestResponseHelper(BaseService):
     ) -> GetGeoLevelValuesResponse:
         """
         Construct an error response for get_g2p_geo_level_values API.
-        
+
         Args:
             error: The exception that occurred
             g2p_request: Optional G2P request object
-            
+
         Returns:
             GetGeoLevelValuesResponse with error status
         """
@@ -188,11 +188,11 @@ class RequestResponseHelper(BaseService):
     ) -> G2PPartnersResponse:
         """
         Construct a success response for get_all_partners API.
-        
+
         Args:
             g2p_request: The G2P request object
             partners: List of partner data to return
-            
+
         Returns:
             G2PPartnersResponse with success status
         """
@@ -223,11 +223,11 @@ class RequestResponseHelper(BaseService):
     ) -> G2PPartnersResponse:
         """
         Construct an error response for get_all_partners API.
-        
+
         Args:
             error: The exception that occurred
             g2p_request: Optional G2P request object
-            
+
         Returns:
             G2PPartnersResponse with error status
         """
@@ -267,11 +267,11 @@ class RequestResponseHelper(BaseService):
     ) -> G2PPartnerResponse:
         """
         Construct a success response for get_partner API.
-        
+
         Args:
             g2p_request: The G2P request object
             partner: Partner data to return
-            
+
         Returns:
             G2PPartnerResponse with success status
         """
@@ -302,11 +302,11 @@ class RequestResponseHelper(BaseService):
     ) -> G2PPartnerResponse:
         """
         Construct an error response for get_partner API.
-        
+
         Args:
             error: The exception that occurred
             g2p_request: Optional G2P request object
-            
+
         Returns:
             G2PPartnerResponse with error status
         """
