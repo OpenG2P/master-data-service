@@ -1,0 +1,76 @@
+name: Publish Master Data DB Seed Docker
+
+# Builds the Master Data db-seed image. It clones openg2p-data at build time and
+# ships a Python geo loader. The image tag is this repo's ref (branch name or git
+# tag) — so a build on `develop` publishes the `develop` tag.
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "**"
+    paths:
+      - 'docker/db-seed/**'
+      - '.github/workflows/docker-build-db-seed.yml'
+  workflow_dispatch:
+    inputs:
+      openg2p_data_branch:
+        description: "openg2p-data git branch to clone"
+        default: "2.0"
+        type: string
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    name: Docker - ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: master-data-db-seed
+            image: openg2p/master-data-db-seed
+            dockerfile: docker/db-seed/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.docker_hub_actor }}
+          password: ${{ secrets.docker_hub_token }}
+
+      - name: Derive image tag from repo ref
+        id: meta
+        shell: bash
+        run: |
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push - ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            OPENG2P_DATA_BRANCH=${{ inputs.openg2p_data_branch || '2.0' }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ steps.meta.outputs.created }}
+          tags: ${{ matrix.image }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+            org.opencontainers.image.authors=${{ github.repository_owner }}
+            org.opencontainers.image.source=${{ github.repository }}@${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.tag }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+            org.opencontainers.image.title=${{ matrix.image }}
+            org.opencontainers.image.description=OpenG2P Master Data DB seed image
+            org.openg2p.service.name=${{ matrix.name }}
