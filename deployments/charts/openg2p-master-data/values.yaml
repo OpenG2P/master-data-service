@@ -145,3 +145,13 @@ masterDataAPI:
       enabled: false
 
   containerPort: 8000
+
+# Post-install/post-upgrade Job that seeds geo reference data into the
+# master-data Postgres (g2p_geo_levels, g2p_geo_level_values).
+dbSeed:
+  enabled: true
+  loadGeoData: true
+  image:
+    repository: openg2p/master-data-db-seed
+    tag: "develop"
+    pullPolicy: IfNotPresent
