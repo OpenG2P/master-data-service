@@ -25,7 +25,7 @@ class G2PGeoLevelValue(BaseORMModel):
         nullable=False,
         index=True,
     )
-    level_value_mnemonic: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    level_value_mnemonic: Mapped[str] = mapped_column(String, nullable=False, index=True)
     parent_level_value_id: Mapped[str] = mapped_column(
         String,
         nullable=True,
