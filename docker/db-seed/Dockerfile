@@ -21,11 +21,8 @@ ENV GIT_COMMIT=${GIT_COMMIT} \
     BUILD_TIME=${BUILD_TIME} \
     OPENG2P_DATA_DIR=/openg2p-data
 
-RUN apk add --no-cache python3 py3-pip git
 
-COPY docker/db-seed/requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
+RUN apk add --no-cache python3 py3-psycopg2 git
 
 # Clone openg2p-data (shared geo reference CSVs).
 RUN git clone --depth 1 -b ${OPENG2P_DATA_BRANCH} ${OPENG2P_DATA_REPO} /openg2p-data \
