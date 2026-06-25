@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Load geo reference data into the Master Data Postgres.
 
-Reads (from the openg2p-data repo cloned into the image):
-- /openg2p-data/geo/geo_hierarchy.csv  -> g2p_geo_levels
-- /openg2p-data/geo/{Country,Region,District,Ward,Village}.csv -> g2p_geo_level_values
+Reads a single flat, human-readable CSV from the openg2p-data repo (cloned into
+the image):
+- /openg2p-data/geo/geo.csv  (columns: country,region,district,ward,village)
 
-The level-value CSVs carry (level_value_id, level_value_mnemonic,
-parent_level_value_id) but NOT level_id — the loader injects it per file using the
-LEVEL_VALUE_FILES map below (which mirrors geo_hierarchy.csv).
+The CSV has NO ids — one row per village with its parent names denormalized. This
+loader derives the hierarchy and stable slug-path ids (e.g.
+"kamuntu/kilima/karamu/uzima/billyu") and populates:
+- g2p_geo_levels        (l0..l4 = country..village, with parent links)
+- g2p_geo_level_values  (one row per distinct node, keyed by its path id)
 
-Inserts use ON CONFLICT DO NOTHING on the primary key, so re-running (e.g. on a
-Helm post-upgrade hook) is idempotent.
+Names are not unique (villages/wards repeat), so the unique key is the path id, not
+the mnemonic. Inserts use ON CONFLICT DO NOTHING on the primary key, so re-running
+(e.g. on a Helm post-upgrade hook) is idempotent.
 """
 
 import csv
@@ -21,16 +24,10 @@ from pathlib import Path
 import psycopg2
 
 OPENG2P_DATA_DIR = Path(os.environ.get("OPENG2P_DATA_DIR", "/openg2p-data"))
-GEO_DIR = OPENG2P_DATA_DIR / "geo"
+GEO_FILE = OPENG2P_DATA_DIR / "geo" / "geo.csv"
 
-# (filename, level_id) — level_id matches geo_hierarchy.csv, loaded parent-first.
-LEVEL_VALUE_FILES = [
-    ("Country.csv", "l0"),
-    ("Region.csv", "l1"),
-    ("District.csv", "l2"),
-    ("Ward.csv", "l3"),
-    ("Village.csv", "l4"),
-]
+# Ordered geo levels, matching the columns of geo.csv (root -> leaf).
+GEO_LEVELS = ["country", "region", "district", "ward", "village"]
 
 
 def env(name: str) -> str:
@@ -41,15 +38,52 @@ def env(name: str) -> str:
     return value
 
 
-def _read_csv_rows(path: Path) -> list:
-    if not path.is_file():
-        print(f"[load-geo-data] Missing file: {path}", file=sys.stderr)
+def _slug(name: str) -> str:
+    return name.strip().lower().replace(" ", "_")
+
+
+def _path_id(names: list) -> str:
+    return "/".join(_slug(n) for n in names)
+
+
+def _read_geo():
+    """Parse geo.csv -> (level_rows, value_rows).
+
+    level_rows: [{level_id, level_mnemonic, parent_level_id}]  (l0..l4)
+    value_rows: [{level_value_id, level_id, level_value_mnemonic,
+                  parent_level_value_id}]  (distinct nodes, parent-first)
+    """
+    if not GEO_FILE.is_file():
+        print(f"[load-geo-data] Missing file: {GEO_FILE}", file=sys.stderr)
         sys.exit(1)
-    with path.open(newline="", encoding="utf-8") as f:
-        out = []
+
+    level_rows = [
+        {
+            "level_id": f"l{depth}",
+            "level_mnemonic": level_name,
+            "parent_level_id": f"l{depth - 1}" if depth > 0 else None,
+        }
+        for depth, level_name in enumerate(GEO_LEVELS)
+    ]
+
+    # Insertion order preserves parent-first ordering per row; dedupe by path id.
+    values: dict = {}
+    with GEO_FILE.open(newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            out.append({k: (v if v != "" else None) for k, v in row.items()})
-        return out
+            names = [row[level] for level in GEO_LEVELS]
+            parent_id = None
+            for depth, level_name in enumerate(GEO_LEVELS):
+                node_id = _path_id(names[: depth + 1])
+                if node_id not in values:
+                    values[node_id] = {
+                        "level_value_id": node_id,
+                        "level_id": f"l{depth}",
+                        "level_value_mnemonic": names[depth],
+                        "parent_level_value_id": parent_id,
+                    }
+                parent_id = node_id
+
+    return level_rows, list(values.values())
 
 
 def insert_geo_levels(cur, rows: list) -> int:
@@ -65,9 +99,8 @@ def insert_geo_levels(cur, rows: list) -> int:
     return len(rows)
 
 
-def insert_geo_level_values(cur, rows: list, level_id: str) -> int:
+def insert_geo_level_values(cur, rows: list) -> int:
     for r in rows:
-        r["level_id"] = level_id
         cur.execute(
             """
             INSERT INTO g2p_geo_level_values
@@ -82,6 +115,8 @@ def insert_geo_level_values(cur, rows: list, level_id: str) -> int:
 
 
 def main() -> None:
+    levels, values = _read_geo()
+
     conn = psycopg2.connect(
         host=env("PGHOST"),
         port=os.environ.get("PGPORT", "5432"),
@@ -92,14 +127,10 @@ def main() -> None:
     try:
         with conn:
             with conn.cursor() as cur:
-                levels = _read_csv_rows(GEO_DIR / "geo_hierarchy.csv")
                 n = insert_geo_levels(cur, levels)
                 print(f"[load-geo-data] g2p_geo_levels: {n} rows")
-
-                for fname, level_id in LEVEL_VALUE_FILES:
-                    rows = _read_csv_rows(GEO_DIR / fname)
-                    n = insert_geo_level_values(cur, rows, level_id)
-                    print(f"[load-geo-data] g2p_geo_level_values <- {fname} ({level_id}): {n} rows")
+                n = insert_geo_level_values(cur, values)
+                print(f"[load-geo-data] g2p_geo_level_values: {n} rows")
     finally:
         conn.close()
     print("[load-geo-data] Completed.")
