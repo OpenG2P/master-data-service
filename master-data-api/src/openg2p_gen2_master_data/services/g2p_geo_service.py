@@ -52,6 +52,26 @@ class G2PGeoService(BaseService):
                 for level in levels
             ]
 
+    async def get_all_geo_levels(self) -> List[GeoLevelData]:
+        """
+        Get all geo levels with their parent level IDs.
+
+        Returns:
+            List of GeoLevelData
+        """
+        async with get_session_maker()() as session:
+            query = select(G2PGeoLevel)
+            levels = (await session.execute(query)).scalars().all()
+
+            return [
+                GeoLevelData(
+                    level_id=level.level_id,
+                    level_mnemonic=level.level_mnemonic,
+                    parent_level_id=level.parent_level_id,
+                )
+                for level in levels
+            ]
+
     async def get_geo_level_values(
         self, level_id: str, parent_level_value_id: Optional[str] = None
     ) -> List[GeoLevelValueData]:
