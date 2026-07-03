@@ -8,6 +8,9 @@ from ..schemas import (
     GetGeoLevelsRequest,
     GetGeoLevelsResponse,
     GetGeoLevelsResponseBody,
+    GetAllGeoLevelsRequest,
+    GetAllGeoLevelsResponse,
+    GetAllGeoLevelsResponseBody,
     GeoLevelValueData,
     GetGeoLevelValuesRequest,
     GetGeoLevelValuesResponse,
@@ -98,6 +101,85 @@ class RequestResponseHelper(BaseService):
         )
 
         return GetGeoLevelsResponse(
+            response_header=response_header,
+            response_body=response_body,
+        )
+
+    def construct_all_geo_levels_success_response(
+        self,
+        g2p_request: GetAllGeoLevelsRequest,
+        levels: List[GeoLevelData],
+    ) -> GetAllGeoLevelsResponse:
+        """
+        Construct a success response for get_all_g2p_geo_levels API.
+
+        Args:
+            g2p_request: The G2P request object
+            levels: List of geo level data to return
+
+        Returns:
+            GetAllGeoLevelsResponse with success status
+        """
+        request_id = g2p_request.request_header.request_id if g2p_request.request_header else ""
+
+        response_header = G2PResponseHeader(
+            request_id=request_id,
+            response_status=G2PResponseStatus.SUCCESS,
+            response_error_code="",
+            response_error_message="",
+            response_timestamp=datetime.now(),
+        )
+
+        response_body = GetAllGeoLevelsResponseBody(
+            pagination_response=None,
+            response_payload=levels,
+        )
+
+        return GetAllGeoLevelsResponse(
+            response_header=response_header,
+            response_body=response_body,
+        )
+
+    def construct_all_geo_levels_error_response(
+        self,
+        error: Exception,
+        g2p_request: GetAllGeoLevelsRequest = None,
+    ) -> GetAllGeoLevelsResponse:
+        """
+        Construct an error response for get_all_g2p_geo_levels API.
+
+        Args:
+            error: The exception that occurred
+            g2p_request: Optional G2P request object
+
+        Returns:
+            GetAllGeoLevelsResponse with error status
+        """
+        if hasattr(error, "code") and hasattr(error, "message"):
+            error_code = str(error.code)
+            error_message = error.message
+        else:
+            error_code = "500"
+            error_message = str(error)
+
+        request_id = ""
+        if g2p_request and g2p_request.request_header:
+            request_id = g2p_request.request_header.request_id
+
+        response_header = G2PResponseHeader(
+            request_id=request_id,
+            response_status=G2PResponseStatus.ERROR,
+            response_error_code=error_code,
+            response_error_message=error_message,
+            response_timestamp=datetime.now(),
+        )
+
+        response_body = GetAllGeoLevelsResponseBody(
+            pagination_response=None,
+            response_payload=[],
+        )
+
+        return GetAllGeoLevelsResponse(
             response_header=response_header,
             response_body=response_body,
         )

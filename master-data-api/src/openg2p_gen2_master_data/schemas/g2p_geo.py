@@ -38,6 +38,28 @@ class GetGeoLevelsResponse(G2PResponse):
     response_body: GetGeoLevelsResponseBody
 
 
+# Get All Geo Levels Request/Response
+class GetAllGeoLevelsRequestPayload(BaseModel):
+    pass
+
+
+class GetAllGeoLevelsRequestBody(G2PRequestBody):
+    request_payload: GetAllGeoLevelsRequestPayload
+
+
+class GetAllGeoLevelsRequest(G2PRequest):
+    request_body: GetAllGeoLevelsRequestBody
+
+
+class GetAllGeoLevelsResponseBody(G2PResponseBody):
+    response_payload: List[GeoLevelData]
+
+
+class GetAllGeoLevelsResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: GetAllGeoLevelsResponseBody
+
+
 # Geo Level Value Data
 class GeoLevelValueData(BaseModel):
     level_value_id: str

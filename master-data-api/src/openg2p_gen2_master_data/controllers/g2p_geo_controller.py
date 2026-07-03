@@ -12,6 +12,8 @@ from ..helpers import RequestResponseHelper
 from ..schemas import (
     GetGeoLevelsRequest,
     GetGeoLevelsResponse,
+    GetAllGeoLevelsRequest,
+    GetAllGeoLevelsResponse,
     GetGeoLevelValuesRequest,
     GetGeoLevelValuesResponse,
 )
@@ -72,6 +74,13 @@ class G2PGeoController(BaseController):
         )
 
         self.router.add_api_route(
+            "/get_all_g2p_geo_levels",
+            self.get_all_g2p_geo_levels,
+            responses={200: {"model": GetAllGeoLevelsResponse}},
+            methods=["POST"],
+        )
+
+        self.router.add_api_route(
             "/get_g2p_geo_level_values",
             self.get_g2p_geo_level_values,
             responses={200: {"model": GetGeoLevelValuesResponse}},
@@ -96,6 +105,25 @@ class G2PGeoController(BaseController):
         except Exception as e:
             _logger.error("Error getting geo levels: %s", str(e), exc_info=True)
             return self.request_response_helper.construct_geo_levels_error_response(e, get_geo_levels_request)
+
+    async def get_all_g2p_geo_levels(
+        self,
+        get_all_geo_levels_request: GetAllGeoLevelsRequest,
+    ) -> GetAllGeoLevelsResponse:
+        _logger.debug("Get All Geo Levels Request: %s", get_all_geo_levels_request)
+        try:
+            geo_levels = await self.geo_service.get_all_geo_levels()
+
+            _logger.debug("All geo levels: %s", geo_levels)
+
+            return self.request_response_helper.construct_all_geo_levels_success_response(
+                get_all_geo_levels_request, geo_levels
+            )
+        except Exception as e:
+            _logger.error("Error getting all geo levels: %s", str(e), exc_info=True)
+            return self.request_response_helper.construct_all_geo_levels_error_response(
+                e, get_all_geo_levels_request
+            )
 
     @cache(expire=_config.cache_expire_seconds, key_builder=cache_key_builder_geo_level_values)
     async def get_g2p_geo_level_values(
