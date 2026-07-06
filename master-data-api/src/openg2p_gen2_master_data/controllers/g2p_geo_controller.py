@@ -8,7 +8,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from ..services import G2PGeoService
-from ..helpers import RequestResponseHelper
+from ..helpers import RequestResponseHelper, get_data_policy_mnemonics
+from iam_core.user_auth.helpers import require_permissions
 from ..schemas import (
     GetGeoLevelsRequest,
     GetGeoLevelsResponse,
@@ -51,10 +52,18 @@ def cache_key_builder_geo_level_values(
     """Custom key builder for get_g2p_geo_level_values endpoint."""
     prefix = f"{namespace}:{func.__module__}:{func.__name__}"
     req_body = kwargs.get("get_geo_level_values_request")
+    body_hash = ""
     if req_body:
         body_hash = hashlib.md5(req_body.model_dump_json().encode()).hexdigest()
-        return f"{prefix}:{body_hash}"
-    return prefix
+
+    policy_key = ""
+    http_request = kwargs.get("http_request")
+    if http_request is not None:
+        policy_key = ",".join(sorted(get_data_policy_mnemonics(http_request)))
+    elif request is not None:
+        policy_key = ",".join(sorted(get_data_policy_mnemonics(request)))
+
+    return f"{prefix}:{body_hash}:{policy_key}"
 
 
 class G2PGeoController(BaseController):
@@ -126,8 +135,10 @@ class G2PGeoController(BaseController):
             )
 
     @cache(expire=_config.cache_expire_seconds, key_builder=cache_key_builder_geo_level_values)
+    @require_permissions({})
     async def get_g2p_geo_level_values(
         self,
+        http_request: Request,
         get_geo_level_values_request: GetGeoLevelValuesRequest,
     ) -> GetGeoLevelValuesResponse:
         _logger.debug("Get Geo Level Values Request: %s", get_geo_level_values_request)
@@ -136,7 +147,11 @@ class G2PGeoController(BaseController):
             level_id = payload.level_id
             parent_level_value_id = payload.parent_level_value_id
 
-            geo_level_values = await self.geo_service.get_geo_level_values(level_id, parent_level_value_id)
+            geo_level_values = await self.geo_service.get_geo_level_values(
+                level_id,
+                parent_level_value_id,
+                policy_mnemonics=get_data_policy_mnemonics(http_request),
+            )
 
             _logger.debug("Geo level values: %s", geo_level_values)
 

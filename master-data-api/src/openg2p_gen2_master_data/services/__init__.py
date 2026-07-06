@@ -1,2 +1,3 @@
 from .g2p_geo_service import G2PGeoService
 from .g2p_partner_service import G2PPartnerService
+from .g2p_data_policy_service import G2PDataPolicyService

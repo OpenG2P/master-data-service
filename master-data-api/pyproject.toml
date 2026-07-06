@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
   "openg2p-fastapi-common >=1.1.4",
+  "iam-core",
   "asyncpg",
   "psycopg2",
   "fastapi-cache2",
