@@ -78,9 +78,7 @@ class GeoLevelValuePolicyRepository:
         if allowed_subtree_ids is not None:
             if not allowed_subtree_ids:
                 return false()
-            conditions.append(
-                G2PGeoLevelValue.level_value_id.in_(allowed_subtree_ids)
-            )
+            conditions.append(G2PGeoLevelValue.level_value_id.in_(allowed_subtree_ids))
 
         level_value_mnemonics: set[str] = set()
         for path_map in path_maps:
@@ -89,9 +87,7 @@ class GeoLevelValuePolicyRepository:
                 level_value_mnemonics.update(values)
 
         if level_value_mnemonics:
-            conditions.append(
-                G2PGeoLevelValue.level_value_mnemonic.in_(level_value_mnemonics)
-            )
+            conditions.append(G2PGeoLevelValue.level_value_mnemonic.in_(level_value_mnemonics))
 
         if not conditions:
             return None
@@ -128,9 +124,7 @@ class GeoLevelValuePolicyRepository:
         allowed: set[str] = set()
 
         for path_map in path_maps:
-            anchor_ids = await self._resolve_path_anchor_ids(
-                session, path_map, level_order
-            )
+            anchor_ids = await self._resolve_path_anchor_ids(session, path_map, level_order)
             if not anchor_ids:
                 continue
             allowed.update(await self._collect_ancestor_ids(session, anchor_ids))
@@ -165,9 +159,7 @@ class GeoLevelValuePolicyRepository:
 
     async def _load_level_mnemonic_order(self, session: AsyncSession) -> list[str]:
         """Return level mnemonics from root to leaf using ``parent_level_id``."""
-        result = await session.execute(
-            select(G2PGeoLevel).order_by(G2PGeoLevel.level_id)
-        )
+        result = await session.execute(select(G2PGeoLevel).order_by(G2PGeoLevel.level_id))
         levels = result.scalars().all()
         if not levels:
             return []
@@ -199,11 +191,7 @@ class GeoLevelValuePolicyRepository:
         level_order: list[str],
     ) -> list[str]:
         """Find deepest level_value_id nodes that satisfy a path map."""
-        active_levels = [
-            level
-            for level in level_order
-            if level in path_map and path_map[level]
-        ]
+        active_levels = [level for level in level_order if level in path_map and path_map[level]]
         if not active_levels:
             return []
 
@@ -320,9 +308,7 @@ class GeoLevelValuePolicyRepository:
                 paths.extend(self._extract_path_maps_from_node(child))
             return self._dedupe_path_maps(paths)
 
-        child_path_lists = [
-            self._extract_path_maps_from_node(child) for child in children
-        ]
+        child_path_lists = [self._extract_path_maps_from_node(child) for child in children]
         child_path_lists = [paths for paths in child_path_lists if paths]
         if not child_path_lists:
             return []
@@ -363,9 +349,7 @@ class GeoLevelValuePolicyRepository:
         for path_map in path_maps:
             if not GeoLevelValuePolicyRepository._is_valid_path_map(path_map):
                 continue
-            key = tuple(
-                sorted((level, tuple(values)) for level, values in path_map.items())
-            )
+            key = tuple(sorted((level, tuple(values)) for level, values in path_map.items()))
             if key in seen:
                 continue
             seen.add(key)

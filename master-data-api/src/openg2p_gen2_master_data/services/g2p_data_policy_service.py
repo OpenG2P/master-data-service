@@ -32,7 +32,7 @@ class G2PDataPolicyService(BaseService):
         result = await session.execute(
             select(G2PRegistryDataPolicy).where(
                 G2PRegistryDataPolicy.policy_mnemonic.in_(list(policy_mnemonics)),
-                G2PRegistryDataPolicy.policy_target == "GEO"
+                G2PRegistryDataPolicy.policy_target == "GEO",
             )
         )
         policies = result.scalars().all()
@@ -62,14 +62,10 @@ class G2PDataPolicyService(BaseService):
         if len(allow_expressions) == 1:
             nodes.append(allow_expressions[0])
         elif len(allow_expressions) > 1:
-            nodes.append(
-                {"type": "GROUP", "operator": "OR", "children": allow_expressions}
-            )
+            nodes.append({"type": "GROUP", "operator": "OR", "children": allow_expressions})
 
         for disallow_expression in disallow_expressions:
-            nodes.append(
-                {"type": "GROUP", "operator": "NOT", "children": [disallow_expression]}
-            )
+            nodes.append({"type": "GROUP", "operator": "NOT", "children": [disallow_expression]})
 
         if not nodes:
             return None
