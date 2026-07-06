@@ -22,7 +22,19 @@ class Settings(BaseSettings):
     db_password: str = "password"
     db_hostname: str = "localhost"
     db_port: int = 5432
-    db_dbname: str = "openg2p_gen2_master_data_db"
+    db_dbname: str = "master_data"
 
     # Cache settings
     cache_expire_seconds: int = 300  # 5 minutes default
+
+    # Registry database (read-only: g2p_registry_data_policies for GEO policy resolution)
+    registry_db_driver: str = "postgresql+asyncpg"
+    registry_db_username: str = "postgres"
+    registry_db_password: str = "CY1sVoaC16"
+    registry_db_hostname: str = "localhost"
+    registry_db_port: int = 5433
+    registry_db_dbname: str = "nsr"
+
+    # IAM authentication (JWT validation + DP_ role extraction)
+    auth_provider_api_url: str | None = None
+    keycloak_client_id: str | None = None

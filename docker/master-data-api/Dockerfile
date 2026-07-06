@@ -4,6 +4,7 @@ FROM python:3.12.11-alpine3.22
 # workflow input. The master-data code is installed from the LOCAL in-repo
 # source, so the image always reflects the current branch.
 ARG FASTAPI_COMMON_REF=1.1
+ARG IAM_SERVICE_REF=1.3
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
  && apk add --no-cache bash git gettext libpq-dev libmagic
@@ -12,7 +13,8 @@ WORKDIR /app
 
 # External libs (openg2p-fastapi-common)
 RUN pip install --no-cache-dir \
-    "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common"
+    "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
+    "git+https://github.com/openg2p/iam-service@${IAM_SERVICE_REF}#subdirectory=iam-core"
 
 # Local master-data source (build context = repo root). Remaining deps resolve
 # from PyPI via the package's pyproject.
