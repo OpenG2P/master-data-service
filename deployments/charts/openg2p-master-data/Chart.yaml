@@ -2,7 +2,7 @@ apiVersion: v2
 name: openg2p-master-data
 description: Helm chart for OpenG2P Master Data Service
 type: application
-version: 0.0.0-develop
+version: 1.0.0-develop
 dependencies:
 - name: common
   repository: https://openg2p.github.io/openg2p-helm
