@@ -9,7 +9,7 @@ from starlette.responses import Response
 
 from ..services import G2PGeoService
 from ..helpers import RequestResponseHelper, get_data_policy_mnemonics
-from iam_core.user_auth.helpers import require_permissions
+from iam_core.user_auth.decorators import require_permissions
 from ..schemas import (
     GetGeoLevelsRequest,
     GetGeoLevelsResponse,
