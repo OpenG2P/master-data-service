@@ -56,7 +56,7 @@ masterDataAPI:
     name: ""
   image:
     repository: openg2p/master-data-api
-    tag: "develop"
+    tag: "1.0"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
