@@ -18,9 +18,15 @@ global:
   registryDBSecret: nsr
   registryDBUserPasswordKey: nsr-db-user
 
-  # IAM (JWT + DP_ roles) — override per environment
+  # IAM (JWT validation, DP_ role extraction, session refresh) — override per environment
   authClientId: registry-staff-portal
   authProviderApiUrl: http://iam-staff-portal-api
+
+  # Registry Redis URL — must be the same Redis used by the registry staff portal
+  # (and IAM staff portal) for OAuth refresh-token / session storage.
+  # Required when requests include the X-Session-Id cookie (browser SSO flow).
+  # Override to match your registry deployment, e.g. redis://<release>-redis-master:6379/0
+  redisUrl: redis://registry-redis-master:6379/0
 
 postgres-init:
   enabled: true
@@ -107,7 +113,10 @@ masterDataAPI:
     GEN2_MASTER_DATA_API_REGISTRY_DB_PORT: '{{ .Values.global.registryDBPort | default 5432 }}'
     GEN2_MASTER_DATA_API_REGISTRY_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
     GEN2_MASTER_DATA_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    # iam-core settings (COMMON_ prefix)
     COMMON_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
+    # Registry Redis: refresh sessions for registry staff users (X-Session-Id cookie)
+    COMMON_AUTH_REDIS_URL: '{{ tpl .Values.global.redisUrl $ }}'
 
   envVarsFrom:
     GEN2_MASTER_DATA_API_DB_PASSWORD:

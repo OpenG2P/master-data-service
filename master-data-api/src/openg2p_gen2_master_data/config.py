@@ -30,11 +30,15 @@ class Settings(BaseSettings):
     # Registry database (read-only: g2p_registry_data_policies for GEO policy resolution)
     registry_db_driver: str = "postgresql+asyncpg"
     registry_db_username: str = "postgres"
-    registry_db_password: str = "CY1sVoaC16"
+    registry_db_password: str = "password"
     registry_db_hostname: str = "localhost"
-    registry_db_port: int = 5433
+    registry_db_port: int = 5432
     registry_db_dbname: str = "nsr"
 
-    # IAM authentication (JWT validation + DP_ role extraction)
+    # IAM authentication (JWT validation + DP_ role extraction).
+    # Middleware is wired in main.py via iam-core; most auth settings use the
+    # COMMON_ env prefix (e.g. COMMON_AUTH_PROVIDER_API_URL, COMMON_AUTH_REDIS_URL).
+    # COMMON_AUTH_REDIS_URL must point to the registry deployment's Redis — the same
+    # instance where registry staff portal stores OAuth refresh tokens / sessions.
     auth_provider_api_url: str | None = None
     keycloak_client_id: str | None = None
