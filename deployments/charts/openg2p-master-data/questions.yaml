@@ -36,3 +36,53 @@ questions:
   type: string
   label: Master Data Database User Password Key
   group: Master Data Database
+
+# Registry DB (GEO data-policy resolution — read-only connection to g2p_registry_data_policies)
+- variable: global.registryDB
+  description: Registry database name (source of GEO data policies)
+  type: string
+  label: Registry Database
+  group: Registry Database
+
+- variable: global.registryDBPort
+  description: Registry database port
+  type: int
+  label: Registry Database Port
+  group: Registry Database
+
+- variable: global.registryDBUser
+  description: Registry database user (read-only access sufficient)
+  type: string
+  label: Registry Database User
+  group: Registry Database
+
+- variable: global.registryDBSecret
+  description: Kubernetes secret containing the registry database user password
+  type: string
+  label: Registry Database User Secret
+  group: Registry Database
+
+- variable: global.registryDBUserPasswordKey
+  description: Key within the registry database secret for the user password
+  type: string
+  label: Registry Database User Password Key
+  group: Registry Database
+
+# IAM (JWT validation, DP_ roles, session refresh)
+- variable: global.authClientId
+  description: Keycloak client ID whose resource_access roles are read from the JWT (GEN2_MASTER_DATA_API_KEYCLOAK_CLIENT_ID)
+  type: string
+  label: Keycloak Client ID
+  group: IAM
+
+- variable: global.authProviderApiUrl
+  description: IAM staff portal API URL for JWKS / token validation (COMMON_AUTH_PROVIDER_API_URL)
+  type: string
+  label: IAM Provider API URL
+  group: IAM
+
+- variable: global.redisUrl
+  description: Registry Redis URL for OAuth session / refresh-token storage (COMMON_AUTH_REDIS_URL). Must match the Redis used by registry staff portal.
+  type: string
+  label: Registry Redis URL
+  group: IAM
