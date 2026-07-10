@@ -3,7 +3,7 @@ FROM python:3.12.11-alpine3.22
 # External OpenG2P library ref (not part of this repo). Override via build-arg /
 # workflow input. The master-data code is installed from the LOCAL in-repo
 # source, so the image always reflects the current branch.
-ARG FASTAPI_COMMON_REF=1.1
+ARG FASTAPI_COMMON_REF=develop
 ARG IAM_SERVICE_REF=1.3
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
