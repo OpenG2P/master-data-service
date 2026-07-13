@@ -11,6 +11,10 @@ global:
   masterDataDBSecret: '{{ if eq .Release.Name "master-data" }}master-data{{ else }}{{ .Release.Name }}-master-data{{ end }}'
   masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
 
+  # IAM (JWT validation + DP_ role -> permission resolution). Consumed by
+  # iam-core's auth middleware via its COMMON_* env; override per environment.
+  authClientId: registry-staff-portal
+  authProviderApiUrl: http://iam-staff-portal-api
 
 postgres-init:
   enabled: true
@@ -92,6 +96,9 @@ masterDataAPI:
     GEN2_MASTER_DATA_API_DB_USERNAME: '{{ tpl .Values.global.masterDataDBUser $ }}'
     GEN2_MASTER_DATA_API_PORT: '{{ .Values.containerPort }}'
     GEN2_MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
+    # Read by iam-core's auth middleware (env_prefix "common_").
+    COMMON_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    COMMON_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
 
   envVarsFrom:
     GEN2_MASTER_DATA_API_DB_PASSWORD:
