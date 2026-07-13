@@ -13,7 +13,6 @@ from iam_core.user_auth.middleware import (
     ResolvePermissionMiddleware,
     ValidateAndRefreshTokenMiddleware,
 )
-from iam_core.user_auth.data_policy_middleware import DataPolicyMiddleware
 
 IAMInitializer()
 initializer = Initializer()
@@ -24,11 +23,7 @@ _config = Settings.get_config()
 app = initializer.return_app()
 
 # Middleware order (last added = outermost on inbound):
-# ValidateAndRefreshToken -> ResolvePermission -> DataPolicy -> app
-app.add_middleware(
-    DataPolicyMiddleware,
-    client_id=_config.keycloak_client_id,
-)
+# ValidateAndRefreshToken -> ResolvePermission -> app
 app.add_middleware(
     ResolvePermissionMiddleware,
     client_id=_config.keycloak_client_id,

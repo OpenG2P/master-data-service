@@ -2,17 +2,14 @@ import logging
 from typing import List, Optional
 
 from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 from openg2p_fastapi_common.service import BaseService
 
-from ..engine import get_registry_session_maker, get_session_maker
+from ..engine import get_session_maker
 from ..models import G2PGeoLevel, G2PGeoLevelValue
-from ..repositories import GeoLevelValuePolicyRepository
 from ..schemas import (
     GeoLevelData,
     GeoLevelValueData,
 )
-from .g2p_data_policy_service import G2PDataPolicyService
 
 _config = None
 try:
@@ -28,7 +25,6 @@ _logger = logging.getLogger(_config.logging_default_logger_name if _config else 
 class G2PGeoService(BaseService):
     def __init__(self) -> None:
         super().__init__()
-        self._geo_policy_repo = GeoLevelValuePolicyRepository()
 
     async def get_geo_levels(self, parent_level_id: Optional[str] = None) -> List[GeoLevelData]:
         """
@@ -84,7 +80,6 @@ class G2PGeoService(BaseService):
         self,
         level_id: str,
         parent_level_value_id: Optional[str] = None,
-        policy_mnemonics: Optional[list[str]] = None,
     ) -> List[GeoLevelValueData]:
         """
         Get geo level values for a specific level, optionally filtered by parent_level_value_id.
@@ -92,7 +87,6 @@ class G2PGeoService(BaseService):
         Args:
             level_id: The level ID to get values for
             parent_level_value_id: Optional parent level value ID to filter by
-            policy_mnemonics: DP_ policy mnemonics from the authenticated user token
 
         Returns:
             List of GeoLevelValueData
@@ -116,15 +110,6 @@ class G2PGeoService(BaseService):
                     )
                 )
 
-            policy_condition = await self._build_geo_level_value_policy_condition(
-                policy_mnemonics,
-                session,
-                level_mnemonic=level.level_mnemonic,
-            )
-
-            if policy_condition is not None:
-                query = query.where(policy_condition)
-
             values = (await session.execute(query)).scalars().all()
 
             return [
@@ -136,31 +121,3 @@ class G2PGeoService(BaseService):
                 )
                 for value in values
             ]
-
-    async def _build_geo_level_value_policy_condition(
-        self,
-        policy_mnemonics: list[str] | None,
-        session: AsyncSession,
-        *,
-        level_mnemonic: str,
-    ):
-        """Resolve GEO policy and translate it for ``g2p_geo_level_values`` rows."""
-        if not policy_mnemonics:
-            return None
-
-        async with get_registry_session_maker()() as registry_session:
-            merged_expression = await G2PDataPolicyService.get_component().resolve_geo_policy(
-                policy_mnemonics, registry_session
-            )
-
-        if not merged_expression:
-            return None
-
-        allowed_subtree_ids = await self._geo_policy_repo.resolve_allowed_subtree_ids(
-            session, merged_expression
-        )
-        return self._geo_policy_repo.build_policy_condition(
-            merged_expression,
-            level_mnemonic=level_mnemonic,
-            allowed_subtree_ids=allowed_subtree_ids,
-        )

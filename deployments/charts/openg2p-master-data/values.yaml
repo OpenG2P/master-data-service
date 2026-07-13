@@ -11,16 +11,6 @@ global:
   masterDataDBSecret: '{{ if eq .Release.Name "master-data" }}master-data{{ else }}{{ .Release.Name }}-master-data{{ end }}'
   masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
 
-  # Registry DB (GEO policy resolution) — override when deploying alongside NSR
-  registryDB: nsr
-  registryDBPort: 5432
-  registryDBUser: nsr_user
-  registryDBSecret: nsr
-  registryDBUserPasswordKey: nsr-db-user
-
-  # IAM (JWT + DP_ roles) — override per environment
-  authClientId: registry-staff-portal
-  authProviderApiUrl: http://iam-staff-portal-api
 
 postgres-init:
   enabled: true
@@ -102,22 +92,12 @@ masterDataAPI:
     GEN2_MASTER_DATA_API_DB_USERNAME: '{{ tpl .Values.global.masterDataDBUser $ }}'
     GEN2_MASTER_DATA_API_PORT: '{{ .Values.containerPort }}'
     GEN2_MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
-    GEN2_MASTER_DATA_API_REGISTRY_DB_HOSTNAME: '{{ tpl .Values.global.postgresqlHost $ }}'
-    GEN2_MASTER_DATA_API_REGISTRY_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
-    GEN2_MASTER_DATA_API_REGISTRY_DB_PORT: '{{ .Values.global.registryDBPort | default 5432 }}'
-    GEN2_MASTER_DATA_API_REGISTRY_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
-    GEN2_MASTER_DATA_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
-    COMMON_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
 
   envVarsFrom:
     GEN2_MASTER_DATA_API_DB_PASSWORD:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
-    GEN2_MASTER_DATA_API_REGISTRY_DB_PASSWORD:
-      secretKeyRef:
-        name: '{{ tpl .Values.global.registryDBSecret $ }}'
-        key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
 
 
   startupProbe:
