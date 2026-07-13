@@ -14,7 +14,7 @@ from .controllers import G2PGeoController, G2PPartnerController
 from .models import G2PGeoLevel, G2PGeoLevelValue, G2PPartner
 from .helpers import RequestResponseHelper
 
-from .services import G2PGeoService, G2PPartnerService, G2PDataPolicyService
+from .services import G2PGeoService, G2PPartnerService
 
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
@@ -26,7 +26,6 @@ class Initializer(BaseInitializer):
 
         G2PGeoService()
         G2PPartnerService()
-        G2PDataPolicyService()
 
         G2PGeoController().post_init()
         G2PPartnerController().post_init()

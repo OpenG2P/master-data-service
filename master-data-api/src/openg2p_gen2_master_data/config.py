@@ -26,15 +26,3 @@ class Settings(BaseSettings):
 
     # Cache settings
     cache_expire_seconds: int = 300  # 5 minutes default
-
-    # Registry database (read-only: g2p_registry_data_policies for GEO policy resolution)
-    registry_db_driver: str = "postgresql+asyncpg"
-    registry_db_username: str = "postgres"
-    registry_db_password: str = "CY1sVoaC16"
-    registry_db_hostname: str = "localhost"
-    registry_db_port: int = 5433
-    registry_db_dbname: str = "nsr"
-
-    # IAM authentication (JWT validation + DP_ role extraction)
-    auth_provider_api_url: str | None = None
-    keycloak_client_id: str | None = None
