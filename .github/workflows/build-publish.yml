@@ -1,0 +1,69 @@
+name: Build & Publish
+
+# Replaces docker-build-api.yml + helm-publish.yml (and the tag/pre-commit
+# stubs): one workflow, not several.
+#
+# One workflow, not two: a backend-only change must republish the chart, or the
+# newest chart keeps pointing at the previous image. Separate docker/helm
+# workflows had disjoint path filters, so that desync was routine.
+#
+# This file declares only what THIS repo contains. All versioning policy lives
+# in openg2p-packaging behind @v1 -- see that repo's ci/README.md.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  # These inputs are for two occasional changelog fixes only. For a normal run,
+  # leave the checkbox OFF and the text box EMPTY (it rebuilds/publishes the
+  # selected branch as usual).
+  workflow_dispatch:
+    inputs:
+      changelog_skip_ai:
+        description: 'Skip the AI summary — publish the changelog from commit messages only (use when AI is unavailable). Leave OFF for a normal run.'
+        type: boolean
+        default: false
+      changelog_regenerate:
+        description: 'Backfill the AI summary for a release that published without one: enter its frozen version e.g. 1.0.1 (not a develop version). Leave EMPTY for a normal run.'
+        type: string
+        default: ''
+
+jobs:
+  build-publish:
+    uses: openg2p/openg2p-packaging/.github/workflows/build-publish.yml@v1
+    with:
+      changelog_skip_ai: ${{ inputs.changelog_skip_ai || false }}
+      changelog_regenerate: ${{ inputs.changelog_regenerate || '' }}
+      # `pins` are per-image: the api Dockerfile declares ARG FASTAPI_COMMON_REF
+      # and ARG IAM_SERVICE_REF. Both refs are BRANCHES -- without resolving them
+      # to a SHA, two builds of the same commit produce different images.
+      images: |
+        [
+          {"name": "master-data-api",
+           "repo": "openg2p/master-data-api",
+           "dockerfile": "docker/master-data-api/Dockerfile",
+           "pins": [
+             {"arg": "FASTAPI_COMMON_REF",
+              "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+              "ref": "develop"},
+             {"arg": "IAM_SERVICE_REF",
+              "repo": "https://github.com/openg2p/iam-service",
+              "ref": "1.3"}
+           ]}
+        ]
+
+      chart-path: deployments/charts/openg2p-master-data
+
+      # Every OpenG2P image the chart deploys. jbergknoff/postgresql-client is
+      # third-party and stays pinned in values.yaml (by digest, ideally).
+      chart-image-paths: |
+        [".masterDataAPI.image.tag"]
+
+      packaging-ref: v1
+
+    secrets:
+      docker_hub_actor: ${{ secrets.docker_hub_actor }}
+      docker_hub_token: ${{ secrets.docker_hub_token }}
+      OPENG2P_BOT_GITHUB_PAT: ${{ secrets.OPENG2P_BOT_GITHUB_PAT }}
+      # Org-level secret; if unset the changelog still publishes human notes.
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

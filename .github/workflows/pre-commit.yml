@@ -1,10 +1,10 @@
 name: pre-commit
 
-# Each consolidated area is checked with its own pre-commit config, scoped to
-# ONLY that area's files (via git ls-files of the path). The python package
-# uses the root config; docker/ and deployments/ use their own lightweight
-# configs so the python hooks (black/ruff/check-yaml) never run over Dockerfiles
-# or Helm templates.
+# Lint/format gate, independent of the build-publish stub. Each consolidated
+# area is checked with its own pre-commit config, scoped to ONLY that area's
+# files (via git ls-files of the path). The python package uses the root config;
+# docker/ and deployments/ use their own lightweight configs so the python hooks
+# (black/ruff/check-yaml) never run over Dockerfiles or Helm templates.
 on:
   pull_request:
   push:
