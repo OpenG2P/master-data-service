@@ -49,7 +49,7 @@ masterDataAPI:
     create: false
     name: ""
   image:
-    repository: openg2p/master-data-api
+    repository: registry.gitlab.com/openg2p/master-data-service/master-data-api
     tag: "develop"
     pullPolicy: Always
   podSecurityContext:
