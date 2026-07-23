@@ -52,6 +52,11 @@ class G2PGeoService(BaseService):
                     level_id=level.level_id,
                     level_mnemonic=level.level_mnemonic,
                     parent_level_id=level.parent_level_id,
+                    display_name=level.display_name,
+                    display_name_i18n=level.display_name_i18n,
+                    version=level.version,
+                    valid_from=level.valid_from,
+                    valid_to=level.valid_to,
                 )
                 for level in levels
             ]
@@ -72,6 +77,11 @@ class G2PGeoService(BaseService):
                     level_id=level.level_id,
                     level_mnemonic=level.level_mnemonic,
                     parent_level_id=level.parent_level_id,
+                    display_name=level.display_name,
+                    display_name_i18n=level.display_name_i18n,
+                    version=level.version,
+                    valid_from=level.valid_from,
+                    valid_to=level.valid_to,
                 )
                 for level in levels
             ]
@@ -118,6 +128,15 @@ class G2PGeoService(BaseService):
                     level_id=value.level_id,
                     level_value_mnemonic=value.level_value_mnemonic,
                     parent_level_value_id=value.parent_level_value_id,
+                    pcode=value.pcode,
+                    pcode_source=value.pcode_source,
+                    boundary_uri=value.boundary_uri,
+                    boundary_simplified_uri=value.boundary_simplified_uri,
+                    display_name=value.display_name,
+                    display_name_i18n=value.display_name_i18n,
+                    version=value.version,
+                    valid_from=value.valid_from,
+                    valid_to=value.valid_to,
                 )
                 for value in values
             ]
