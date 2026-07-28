@@ -1,0 +1,98 @@
+{{- if .Values.geoSeed.enabled }}
+{{/*
+Seed the geo hierarchy from a country pack.
+
+MDS owns geography, so it seeds its own. Previously the only geo loader in the
+platform shipped with the registry db-seed image, which meant master data was
+populated as a side effect of installing a registry — and anything else needing
+MDS geo depended on a registry install having run first.
+
+geoSeed.countryPack selects WHICH country this environment carries. It is
+declared here and nowhere else: one Master Data Service per environment means
+one geography, and letting a registry chart also declare a country is how you
+end up with registry records pointing at places MDS has never heard of.
+
+Idempotent — the loader upserts on P-code, so re-running on upgrade refreshes
+the pack in place rather than duplicating it.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "common.names.fullname" . }}-geo-seed
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/name: geo-seed
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    # Weight 5: after postgres-init has created the database, and comfortably
+    # before any registry seed (weight 10) that will reference this geography.
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.geoSeed.backoffLimit }}
+  template:
+    metadata:
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/name: geo-seed
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.geoSeed.waitImage }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$PGHOST" -p "$PGPORT"; do
+                echo "waiting for postgres..."; sleep 3
+              done
+          env:
+            - name: PGHOST
+              value: {{ tpl .Values.global.postgresqlHost $ | quote }}
+            - name: PGPORT
+              value: {{ .Values.global.masterDataDBPort | default 5432 | quote }}
+      containers:
+        - name: geo-seed
+          image: {{ .Values.geoSeed.image.repository }}:{{ .Values.geoSeed.image.tag }}
+          command:
+            - python
+            - /seed/load_geo_pack.py
+            - --pack
+            - {{ printf "%s/%s" .Values.geoSeed.packRoot .Values.geoSeed.countryPack | quote }}
+          env:
+            - name: PGHOST
+              value: {{ tpl .Values.global.postgresqlHost $ | quote }}
+            - name: PGPORT
+              value: {{ .Values.global.masterDataDBPort | default 5432 | quote }}
+            - name: MDS_DB
+              value: {{ tpl .Values.global.masterDataDB $ | quote }}
+            - name: PGUSER
+              value: {{ tpl .Values.global.masterDataDBUser $ | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .Values.global.masterDataDBSecret $ | quote }}
+                  key: {{ tpl .Values.global.masterDataDBUserPasswordKey $ | quote }}
+            {{- if .Values.geoSeed.objectStore.endpoint }}
+            {{/* Boundary geometry is bulk binary that only ever gets served as
+                 files, so it goes to object storage and MDS records the URL.
+                 Without this the hierarchy still loads; only the map layer is
+                 missing. */}}
+            - name: S3_ENDPOINT
+              value: {{ .Values.geoSeed.objectStore.endpoint | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.geoSeed.objectStore.bucket | quote }}
+            - name: BOUNDARY_BASE_URL
+              value: {{ .Values.geoSeed.objectStore.publicBaseUrl | default .Values.geoSeed.objectStore.endpoint | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.geoSeed.objectStore.existingSecret | quote }}
+                  key: {{ .Values.geoSeed.objectStore.accessKeyKey | quote }}
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.geoSeed.objectStore.existingSecret | quote }}
+                  key: {{ .Values.geoSeed.objectStore.secretKeyKey | quote }}
+            {{- end }}
+          resources: {{- toYaml .Values.geoSeed.resources | nindent 12 }}
+{{- end }}

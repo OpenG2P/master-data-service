@@ -153,3 +153,40 @@ masterDataAPI:
       enabled: false
 
   containerPort: 8000
+
+# ── Geo seeding ──────────────────────────────────────────────────────────────
+# MDS owns geography and seeds its own at install. `countryPack` is the single
+# place a deployment declares which country it serves — one Master Data Service
+# per environment means one geography, and a registry chart must never declare
+# a country of its own or the two can disagree.
+#
+# Packs are built from OCHA COD-AB by openg2p-data/scripts/fetch_country_pack.py
+# and baked into the db-seed image. They carry the hierarchy, official P-codes
+# and simplified boundary geometry.
+geoSeed:
+  enabled: true
+  # Directory of packs inside the image, then the pack to load.
+  packRoot: /openg2p-data/geo/packs
+  countryPack: ETH
+  image:
+    repository: openg2p/openg2p-master-data-db-seed
+    tag: 0.0.0-develop
+  waitImage: jbergknoff/postgresql-client:latest
+  backoffLimit: 2
+  # Simplified boundary GeoJSON is uploaded here and the URL recorded in
+  # g2p_geo_level_values.boundary_simplified_uri. Leave `endpoint` empty to skip
+  # uploading — the hierarchy still loads, only the map layer is unavailable.
+  objectStore:
+    endpoint: http://commons-minio:9000
+    bucket: openg2p-geo
+    # Browser-reachable base URL, when it differs from the in-cluster endpoint.
+    publicBaseUrl: ""
+    existingSecret: commons-minio
+    accessKeyKey: root-user
+    secretKeyKey: root-password
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
