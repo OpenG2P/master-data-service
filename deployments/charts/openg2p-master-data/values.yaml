@@ -169,8 +169,10 @@ geoSeed:
   packRoot: /openg2p-data/geo/packs
   countryPack: ETH
   image:
-    repository: openg2p/openg2p-master-data-db-seed
-    tag: 0.0.0-develop
+    # Same registry and tag convention as masterDataAPI above; CI rewrites the
+    # tag via CHART_IMAGE_PATHS in .gitlab-ci.yml.
+    repository: registry.gitlab.com/openg2p/master-data-service/master-data-db-seed
+    tag: "develop"
   waitImage: jbergknoff/postgresql-client:latest
   backoffLimit: 2
   # Simplified boundary GeoJSON is uploaded here and the URL recorded in
