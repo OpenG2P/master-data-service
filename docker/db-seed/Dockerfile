@@ -5,10 +5,11 @@
 # registry db-seed image, which meant master data was populated as a side effect
 # of installing a registry.
 #
-# Country packs (hierarchy, official P-codes, simplified boundary geometry) are
-# built by openg2p-data/scripts/fetch_country_pack.py from OCHA COD-AB and live
-# in that repo, which is cloned in below. Which pack a deployment loads is chosen
-# by geoSeed.countryPack in the chart — this image carries all of them.
+# Country packs (hierarchy, P-codes, simplified boundary geometry) live in
+# openg2p-data/packs, which is cloned in below — real ones built from OCHA COD-AB,
+# plus the fictitious Kamuntu that ships as the default. Which pack a deployment
+# loads is chosen by geoSeed.countryPack in the chart; this image carries all of
+# them, so switching country needs no rebuild.
 FROM python:3.11-slim
 
 ARG OPENG2P_DATA_REPO=https://github.com/openg2p/openg2p-data.git

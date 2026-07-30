@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Seed the Master Data Service geo hierarchy from a country pack.
 
-    python load_geo_pack.py --pack /openg2p-data/geo/packs/ETH
+    python load_geo_pack.py --pack /openg2p-data/packs/XKM
 
 Why this lives in MDS
 ---------------------
@@ -17,6 +17,13 @@ The pack uses the P-code as `level_value_id`, so re-running upserts in place
 rather than duplicating. That makes this safe as a post-install/post-upgrade
 hook, and it makes a pack refresh (a new COD-AB release) a re-run rather than a
 migration.
+
+Pack-flavour agnostic
+---------------------
+This reads nothing but levels.json, values.json, manifest.json and
+boundaries/*.geojson, so it cannot tell a real country pack from a synthetic one
+— which is the point. Switching an environment between Ethiopia and the
+fictitious Kamuntu is a `countryPack` value change, not a code change.
 
 Boundaries
 ----------
@@ -105,7 +112,12 @@ def upload_boundaries(pack_dir, manifest, args):
 
 
 def seed(conn, levels, values, manifest, boundary_urls, args):
-    version = manifest.get("upstream_last_modified") or manifest.get("fetched_on")
+    # Every pack carries `version`. The two older fields are only consulted for
+    # packs built before that was true, and are COD-AB-specific — a synthetic
+    # pack has no upstream to have been modified.
+    version = (manifest.get("version")
+               or manifest.get("upstream_last_modified")
+               or manifest.get("fetched_on"))
     level_name = {lv["level_id"]: lv["level_mnemonic"] for lv in levels}
 
     with conn.cursor() as cur:
@@ -193,6 +205,10 @@ def main():
 
     print(f"[geo-pack] {manifest.get('source_title') or args.country}")
     print(f"[geo-pack] source={manifest.get('source')} license={manifest.get('license')}")
+    if manifest.get("synthetic"):
+        print("[geo-pack] this is a SYNTHETIC pack — the country is fictitious")
+    if manifest.get("license_note"):
+        print(f"[geo-pack] {manifest['license_note']}")
     print(f"[geo-pack] levels={manifest.get('levels')} units={len(values)}")
 
     conn = psycopg2.connect(

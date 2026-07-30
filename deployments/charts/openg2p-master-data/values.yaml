@@ -160,14 +160,23 @@ masterDataAPI:
 # per environment means one geography, and a registry chart must never declare
 # a country of its own or the two can disagree.
 #
-# Packs are built from OCHA COD-AB by openg2p-data/scripts/fetch_country_pack.py
-# and baked into the db-seed image. They carry the hierarchy, official P-codes
-# and simplified boundary geometry.
+# A pack carries the administrative hierarchy, P-codes and simplified boundary
+# geometry. All packs live in openg2p-data/packs and are baked into the db-seed
+# image; see that directory's README for the contract they satisfy.
 geoSeed:
   enabled: true
   # Directory of packs inside the image, then the pack to load.
-  packRoot: /openg2p-data/geo/packs
-  countryPack: ETH
+  packRoot: /openg2p-data/packs
+  # XKM is Kamuntu — a FICTITIOUS country with invented boundaries, names and
+  # P-codes. It is the default on purpose: a fresh install must not attach
+  # invented poverty and enrolment figures to a real country's name, and its
+  # codes come from the ISO 3166 user-assigned ranges so they can never collide
+  # with a real one.
+  #
+  # Real countries are opt-in. Set this to ETH (Ethiopia, OCHA COD-AB) or any
+  # other pack in openg2p-data/packs for a real deployment — and note that real
+  # packs carry licence obligations, recorded in each pack's manifest.json.
+  countryPack: XKM
   image:
     # Same registry and tag convention as masterDataAPI above; CI rewrites the
     # tag via CHART_IMAGE_PATHS in .gitlab-ci.yml.

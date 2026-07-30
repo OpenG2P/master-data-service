@@ -12,6 +12,11 @@ declared here and nowhere else: one Master Data Service per environment means
 one geography, and letting a registry chart also declare a country is how you
 end up with registry records pointing at places MDS has never heard of.
 
+It defaults to XKM — Kamuntu, a fictitious country — so an install that nobody
+configured does not put invented figures against a real place's name. Real
+country packs are a value change away, and carry the licence obligations their
+manifest records.
+
 Idempotent — the loader upserts on P-code, so re-running on upgrade refreshes
 the pack in place rather than duplicating it.
 */}}
