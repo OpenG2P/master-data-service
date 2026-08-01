@@ -1,0 +1,38 @@
+# Ethiopia — Master Data overlay.
+#
+#     helm install master-data openg2p/openg2p-master-data -f values-eth.yaml
+#
+# This is the ONLY place an environment says which country it serves. One Master
+# Data per environment means one geography, one set of code lists and one set of
+# sample people; a registry chart that also named a country could disagree with
+# this one, and the two would drift apart silently.
+#
+# Left as an overlay rather than folded into values.yaml on purpose. The chart
+# defaults to XKM — Kamuntu, a fictitious country — so that an install nobody
+# configured cannot attach invented poverty and enrolment figures to a real
+# country's name.
+#
+# ETH carries a licence obligation: OCHA COD-AB via HDX, CC BY-IGO, attribution
+# required. It is recorded in the pack's manifest.json and printed at seed time.
+
+geoSeed:
+  countryPack: ETH
+
+  load:
+    # The administrative hierarchy: country > region > zone > woreda, 1271 units.
+    geo: true
+    # The 34 code lists Ethiopia defines — gender, education level, water source
+    # and the rest — plus their semantic role tags. Registries copy these into
+    # their own tables at install and validate against that copy afterwards,
+    # which is what makes one registry image serve any country.
+    codelists: true
+    # 21 sample people in 6 households, in real Tigray woredas. Enough for a
+    # demo or a fresh install to show something coherent; bulk analytics data is
+    # generated separately, per registry, and needs no country-coherent names.
+    samples: true
+
+  # Domain subtrees. Ethiopia's pack carries `agriculture` (crops, livestock)
+  # for a Farmer Registry. Loading it is harmless for a social registry, which
+  # asks only for the core lists and never sees these.
+  domains:
+    - agriculture
