@@ -23,7 +23,17 @@ the pack in place rather than duplicating it.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "common.names.fullname" . }}-geo-seed
+  {{/*
+  Lowercased deliberately. This template runs at the chart ROOT, so
+  common.names.fullname resolves to "<release>-<chart name>" — and for an
+  aliased dependency Helm sets .Chart.Name to the ALIAS. The commons-services
+  umbrella aliases this chart `masterData`, which yields
+  "commons-services-masterData-geo-seed"; Kubernetes rejects any object name
+  with a capital in it, the hook fails, and the whole release goes to `failed`
+  with nothing seeded. The API templates never hit this because they render
+  against a scoped context whose nameOverride is already lowercase.
+  */}}
+  name: {{ printf "%s-geo-seed" (include "common.names.fullname" . | lower | replace "_" "-" | trunc 53 | trimSuffix "-") }}
   labels: {{- include "common.labels.standard" . | nindent 4 }}
     app.kubernetes.io/name: geo-seed
   annotations:
