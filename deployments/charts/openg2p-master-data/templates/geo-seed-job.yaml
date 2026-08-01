@@ -63,6 +63,14 @@ spec:
             - /seed/load_geo_pack.py
             - --pack
             - {{ printf "%s/%s" .Values.geoSeed.packRoot .Values.geoSeed.countryPack | quote }}
+            {{/* Sections to load. Built from the values so the default stays
+                 "geo" — byte-for-byte the behaviour before code lists existed. */}}
+            - --load
+            - {{ without (list (ternary "geo" "" .Values.geoSeed.load.geo) (ternary "codelists" "" .Values.geoSeed.load.codelists)) "" | join "," | quote }}
+            {{- with .Values.geoSeed.domains }}
+            - --domains
+            - {{ join "," . | quote }}
+            {{- end }}
           env:
             - name: PGHOST
               value: {{ tpl .Values.global.postgresqlHost $ | quote }}

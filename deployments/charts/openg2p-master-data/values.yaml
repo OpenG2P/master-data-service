@@ -177,6 +177,21 @@ geoSeed:
   # other pack in openg2p-data/packs for a real deployment — and note that real
   # packs carry licence obligations, recorded in each pack's manifest.json.
   countryPack: XKM
+
+  # Which sections of the pack to load. Defaults to geo alone, which is exactly
+  # what this chart did before code lists existed — an existing deployment
+  # upgrading sees no change.
+  #
+  # Turn codelists on once the registries consuming them are ready to seed from
+  # here instead of from their own compiled enums. Nothing reads the tables until
+  # then, so enabling it early is harmless but pointless.
+  load:
+    geo: true
+    codelists: false
+  # Domain subtrees to load alongside the code lists, e.g. [agriculture] for a
+  # Farmer Registry. Empty loads the core lists only — a social registry has no
+  # use for crop types.
+  domains: []
   image:
     # Same registry and tag convention as masterDataAPI above; CI rewrites the
     # tag via CHART_IMAGE_PATHS in .gitlab-ci.yml.

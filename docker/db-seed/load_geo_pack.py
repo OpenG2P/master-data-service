@@ -183,6 +183,91 @@ def seed(conn, levels, values, manifest, boundary_urls, args):
     conn.commit()
 
 
+def read_codelists(pack_dir, domains):
+    """Every code list in the pack: the core set, plus the domains asked for.
+
+    Domain lists are tagged with their domain so a registry can seed only what it
+    serves — a social registry has no use for crop types.
+    """
+    out = []
+    core = os.path.join(pack_dir, "codelists")
+    if os.path.isdir(core):
+        for fn in sorted(f for f in os.listdir(core) if f.endswith(".json")):
+            with open(os.path.join(core, fn)) as fh:
+                out.append((None, json.load(fh)))
+    for domain in domains:
+        d = os.path.join(pack_dir, "domains", domain)
+        if not os.path.isdir(d):
+            raise SystemExit(f"--domains names '{domain}', which is not in this pack")
+        for fn in sorted(f for f in os.listdir(d) if f.endswith(".json")):
+            with open(os.path.join(d, fn)) as fh:
+                out.append((domain, json.load(fh)))
+    return out
+
+
+def seed_codelists(conn, pack_dir, manifest, domains):
+    """Upsert the pack's code lists, idempotent on the natural keys.
+
+    Same shape as the geo seed: re-running refreshes in place rather than
+    duplicating, so this is safe as a post-install/post-upgrade hook.
+    """
+    lists = read_codelists(pack_dir, domains)
+    if not lists:
+        print("[geo-pack] no codelists in this pack — nothing to seed")
+        return
+    country = manifest.get("country")
+    version = (manifest.get("version") or manifest.get("upstream_last_modified")
+               or manifest.get("fetched_on"))
+
+    attrs, vals = [], []
+    for domain, doc in lists:
+        attrs.append((doc["attribute_id"], doc.get("attribute_code"),
+                      doc.get("attribute_display"), bool(doc.get("is_hierarchical")),
+                      country, version))
+        for v in doc.get("values", []):
+            vals.append((
+                v["value_id"], doc["attribute_id"], v.get("value_code"),
+                v.get("value_display"), v.get("parent_value_id"), v.get("sort_order"),
+                json.dumps(v.get("display_i18n") or {}),
+                json.dumps(v.get("roles") or []),
+                domain, country, version,
+            ))
+
+    with conn.cursor() as cur:
+        psycopg2.extras.execute_values(cur, """
+            INSERT INTO g2p_attributes
+              (attribute_id, attribute_code, attribute_display, is_hierarchical,
+               country, version)
+            VALUES %s
+            ON CONFLICT (attribute_id) DO UPDATE
+              SET attribute_code = EXCLUDED.attribute_code,
+                  attribute_display = EXCLUDED.attribute_display,
+                  is_hierarchical = EXCLUDED.is_hierarchical,
+                  country = EXCLUDED.country,
+                  version = EXCLUDED.version
+        """, attrs)
+        psycopg2.extras.execute_values(cur, """
+            INSERT INTO g2p_attribute_values
+              (value_id, attribute_id, value_code, value_display, parent_value_id,
+               sort_order, display_name_i18n, roles, domain, country, version)
+            VALUES %s
+            ON CONFLICT (attribute_id, value_id) DO UPDATE
+              SET value_code = EXCLUDED.value_code,
+                  value_display = EXCLUDED.value_display,
+                  parent_value_id = EXCLUDED.parent_value_id,
+                  sort_order = EXCLUDED.sort_order,
+                  display_name_i18n = EXCLUDED.display_name_i18n,
+                  roles = EXCLUDED.roles,
+                  domain = EXCLUDED.domain,
+                  country = EXCLUDED.country,
+                  version = EXCLUDED.version
+        """, vals, page_size=500)
+    conn.commit()
+    roles = sum(1 for _, doc in lists for v in doc.get("values", []) if v.get("roles"))
+    print(f"[geo-pack] codelists: {len(attrs)} attributes, {len(vals)} values "
+          f"({roles} carrying a role)")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -196,6 +281,18 @@ def main():
     p.add_argument("--s3-bucket", default=os.environ.get("S3_BUCKET", "openg2p-geo"))
     p.add_argument("--boundary-base-url", default=os.environ.get("BOUNDARY_BASE_URL"),
                    help="public base URL boundaries are served from")
+    # What to load. Defaults to "geo" — byte-for-byte today's behaviour, so an
+    # existing deployment upgrading this image sees no change at all. The rest of
+    # the pack is opt-in.
+    #
+    # The script keeps its name for the same reason: the chart's Job invokes
+    # load_geo_pack.py by path, and renaming it to load_country_pack.py would
+    # break every deployed release.
+    p.add_argument("--load", default=os.environ.get("PACK_LOAD", "geo"),
+                   help="comma-separated: geo,codelists,samples (default: geo)")
+    p.add_argument("--domains", default=os.environ.get("PACK_DOMAINS", ""),
+                   help="comma-separated domain subtrees to load with codelists, "
+                        "e.g. agriculture. Empty loads the core lists only.")
     p.add_argument("--purge", action="store_true",
                    help="delete all geo rows before seeding")
     args = p.parse_args()
@@ -226,8 +323,20 @@ def main():
         conn.commit()
         print("[geo-pack] purged existing geo")
 
-    boundary_urls = upload_boundaries(args.pack, manifest, args)
-    seed(conn, levels, values, manifest, boundary_urls, args)
+    wanted = {w.strip() for w in args.load.split(",") if w.strip()}
+    unknown = wanted - {"geo", "codelists", "samples"}
+    if unknown:
+        raise SystemExit(f"--load: unknown section(s) {sorted(unknown)}")
+
+    if "geo" in wanted:
+        boundary_urls = upload_boundaries(args.pack, manifest, args)
+        seed(conn, levels, values, manifest, boundary_urls, args)
+    else:
+        print("[geo-pack] geo not requested — skipping")
+
+    if "codelists" in wanted:
+        domains = [d.strip() for d in args.domains.split(",") if d.strip()]
+        seed_codelists(conn, args.pack, manifest, domains)
 
     with conn.cursor() as cur:
         cur.execute("select level_id, count(*) from g2p_geo_level_values"
