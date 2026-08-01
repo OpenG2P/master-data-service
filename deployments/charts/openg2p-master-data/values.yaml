@@ -188,6 +188,11 @@ geoSeed:
   load:
     geo: true
     codelists: false
+    # The pack's sample people — a couple of dozen, country-coherent, for a demo
+    # or a fresh install that would otherwise show an empty registry. Registries
+    # read these and add their own fields. Not bulk analytics data, which needs
+    # no country-coherent names and is generated per registry.
+    samples: false
   # Domain subtrees to load alongside the code lists, e.g. [agriculture] for a
   # Farmer Registry. Empty loads the core lists only — a social registry has no
   # use for crop types.

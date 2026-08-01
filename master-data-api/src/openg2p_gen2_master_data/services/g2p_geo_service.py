@@ -104,14 +104,38 @@ class G2PGeoService(BaseService):
         async with get_session_maker()() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
-                return []
+                # Fall back to the level's NAME. Callers hand-configure this —
+                # a form's geo dropdown is written by whoever built the form —
+                # and "region" is what they reach for, not "l1". Failing that by
+                # returning an empty list is the worst possible outcome: an empty
+                # dropdown looks exactly like a country with no regions, so the
+                # mistake surfaces as missing data rather than as an error.
+                level = (
+                    await session.execute(
+                        select(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_id)
+                    )
+                ).scalars().first()
+                if not level:
+                    return []
+                level_id = level.level_id
 
             query = select(G2PGeoLevelValue).where(G2PGeoLevelValue.level_id == level_id)
 
             if parent_level_value_id is not None and parent_level_value_id != "":
                 query = query.where(G2PGeoLevelValue.parent_level_value_id == parent_level_value_id)
+            elif level.parent_level_id:
+                # A level below the root, asked for without a parent: return every
+                # unit at that level.
+                #
+                # It used to filter on "parent is null", which for a non-root
+                # level matches nothing — the country pack makes the country an
+                # actual level, so regions hang off it rather than off nothing.
+                # A form whose first dropdown asks for regions and passes no
+                # parent therefore came back empty, which reads as a country with
+                # no regions rather than as a bad request.
+                pass
             else:
-                # Get top-level entries with null parent_level_value_id
+                # The root level itself — the units with no parent.
                 query = query.where(
                     or_(
                         G2PGeoLevelValue.parent_level_value_id.is_(None),

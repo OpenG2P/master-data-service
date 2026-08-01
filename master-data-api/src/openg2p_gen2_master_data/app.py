@@ -17,6 +17,8 @@ from .models import (
     G2PGeoLevel,
     G2PGeoLevelValue,
     G2PPartner,
+    G2PSampleHousehold,
+    G2PSampleIndividual,
 )
 from .helpers import RequestResponseHelper
 
@@ -54,6 +56,8 @@ class Initializer(BaseInitializer):
             # endpoint's behaviour depend on which switch a deployment set.
             await G2PAttribute.create_migrate()
             await G2PAttributeValue.create_migrate()
+            await G2PSampleIndividual.create_migrate()
+            await G2PSampleHousehold.create_migrate()
             _logger.info("Database migration completed")
 
         asyncio.run(migrate())

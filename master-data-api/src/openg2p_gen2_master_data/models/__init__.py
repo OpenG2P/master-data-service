@@ -1,3 +1,7 @@
+from .g2p_sample import (
+    G2PSampleHousehold,
+    G2PSampleIndividual,
+)
 from .g2p_attribute import (
     G2PAttribute,
     G2PAttributeValue,

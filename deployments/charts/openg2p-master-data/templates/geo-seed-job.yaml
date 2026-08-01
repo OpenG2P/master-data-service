@@ -66,7 +66,7 @@ spec:
             {{/* Sections to load. Built from the values so the default stays
                  "geo" — byte-for-byte the behaviour before code lists existed. */}}
             - --load
-            - {{ without (list (ternary "geo" "" .Values.geoSeed.load.geo) (ternary "codelists" "" .Values.geoSeed.load.codelists)) "" | join "," | quote }}
+            - {{ without (list (ternary "geo" "" .Values.geoSeed.load.geo) (ternary "codelists" "" .Values.geoSeed.load.codelists) (ternary "samples" "" (.Values.geoSeed.load.samples | default false))) "" | join "," | quote }}
             {{- with .Values.geoSeed.domains }}
             - --domains
             - {{ join "," . | quote }}

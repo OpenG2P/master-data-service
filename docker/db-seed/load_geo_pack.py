@@ -268,6 +268,103 @@ def seed_codelists(conn, pack_dir, manifest, domains):
           f"({roles} carrying a role)")
 
 
+
+SAMPLE_INDIVIDUAL_COLS = [
+    "individual_id", "household_id", "given_name", "fathers_name", "full_name",
+    "gender", "relationship_to_head", "marital_status", "education_level",
+    "employment_status", "disability_status", "birth_year", "age", "phone",
+    "national_id", "geo_pcode", "address_parts", "latitude", "longitude",
+    "country", "version",
+]
+SAMPLE_HOUSEHOLD_COLS = [
+    "household_id", "head_individual_id", "headship_type", "size_total",
+    "dwelling_type", "tenure_status", "water_source_type", "sanitation_type",
+    "lighting_source", "cooking_fuel_type", "geo_pcode", "address_parts",
+    "latitude", "longitude", "country", "version",
+]
+
+
+def seed_samples(conn, pack_dir, manifest):
+    """Upsert the pack's sample people.
+
+    Sample data is the one demo data that has to be country-coherent — a
+    reviewer reads the names — so it belongs beside the geography it references,
+    in the one place the country is declared. Registries copy these and add their
+    own fields, which is how one set of people populates a social registry and a
+    farmer registry as the same people.
+
+    Only the columns the model declares are taken. A pack may carry extra keys
+    for a registry that wants them; silently widening this table to match would
+    make the pack's shape and the table's shape the same thing, and then adding a
+    key to a pack would be a schema migration.
+    """
+    d = os.path.join(pack_dir, "samples")
+    if not os.path.isdir(d):
+        print("[geo-pack] no samples/ in this pack — nothing to seed")
+        return
+    country = manifest.get("country")
+    version = (manifest.get("version") or manifest.get("upstream_last_modified")
+               or manifest.get("fetched_on"))
+
+    def rows_for(fname, cols):
+        path = os.path.join(d, fname)
+        if not os.path.exists(path):
+            return []
+        with open(path) as fh:
+            docs = json.load(fh)
+        out = []
+        for rec in docs:
+            row = []
+            for c in cols:
+                if c == "country":
+                    row.append(country)
+                elif c == "version":
+                    row.append(version)
+                elif c == "address_parts":
+                    row.append(json.dumps(rec.get("address_parts") or {}))
+                else:
+                    row.append(rec.get(c))
+            out.append(tuple(row))
+        return out
+
+    inds = rows_for("individuals.json", SAMPLE_INDIVIDUAL_COLS)
+    hhs = rows_for("households.json", SAMPLE_HOUSEHOLD_COLS)
+
+    # Households first: an individual references one, and seeding the other way
+    # round leaves a window where the reference dangles.
+    with conn.cursor() as cur:
+        if hhs:
+            psycopg2.extras.execute_values(cur, f"""
+                INSERT INTO g2p_sample_households ({", ".join(SAMPLE_HOUSEHOLD_COLS)})
+                VALUES %s
+                ON CONFLICT (household_id) DO UPDATE SET
+                  {", ".join(f"{c} = EXCLUDED.{c}" for c in SAMPLE_HOUSEHOLD_COLS[1:])}
+            """, hhs)
+        if inds:
+            psycopg2.extras.execute_values(cur, f"""
+                INSERT INTO g2p_sample_individuals ({", ".join(SAMPLE_INDIVIDUAL_COLS)})
+                VALUES %s
+                ON CONFLICT (individual_id) DO UPDATE SET
+                  {", ".join(f"{c} = EXCLUDED.{c}" for c in SAMPLE_INDIVIDUAL_COLS[1:])}
+            """, inds)
+    conn.commit()
+
+    # A sample sitting on a P-code this pack does not contain would load fine and
+    # then fail to join to anything, so check rather than assume.
+    with conn.cursor() as cur:
+        cur.execute("""
+            select count(*) from g2p_sample_individuals s
+             where s.geo_pcode is not null
+               and not exists (select 1 from g2p_geo_level_values v
+                                where v.level_value_id = s.geo_pcode)
+        """)
+        orphan = cur.fetchone()[0]
+    print(f"[geo-pack] samples: {len(hhs)} households, {len(inds)} individuals")
+    if orphan:
+        print(f"[geo-pack]   WARNING: {orphan} sample individual(s) sit on a P-code "
+              f"not present in g2p_geo_level_values — load geo too, or check the pack")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -337,6 +434,9 @@ def main():
     if "codelists" in wanted:
         domains = [d.strip() for d in args.domains.split(",") if d.strip()]
         seed_codelists(conn, args.pack, manifest, domains)
+
+    if "samples" in wanted:
+        seed_samples(conn, args.pack, manifest)
 
     with conn.cursor() as cur:
         cur.execute("select level_id, count(*) from g2p_geo_level_values"
