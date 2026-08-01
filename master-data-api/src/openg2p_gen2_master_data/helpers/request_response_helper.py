@@ -22,6 +22,16 @@ from ..schemas import (
     G2PPartnerResponse,
     G2PPartnerResponseBody,
     G2PPartnerData,
+    AttributeData,
+    AttributeValueData,
+    GetAttributesRequest,
+    GetAttributesResponse,
+    GetAttributesResponseBody,
+    GetAttributesResponsePayload,
+    GetAttributeValuesRequest,
+    GetAttributeValuesResponse,
+    GetAttributeValuesResponseBody,
+    GetAttributeValuesResponsePayload,
 )
 
 
@@ -419,4 +429,101 @@ class RequestResponseHelper(BaseService):
         return G2PPartnerResponse(
             response_header=response_header,
             response_body=response_body,
+        )
+
+    # ── Country code lists ───────────────────────────────────────────────────
+    # Additive. These build responses for the new /attributes routes; no
+    # existing method above changes.
+
+    def _attribute_response_header(self, g2p_request, error: Exception = None) -> G2PResponseHeader:
+        request_id = ""
+        if g2p_request and g2p_request.request_header:
+            request_id = g2p_request.request_header.request_id
+
+        if error is None:
+            return G2PResponseHeader(
+                request_id=request_id,
+                response_status=G2PResponseStatus.SUCCESS,
+                response_error_code="",
+                response_error_message="",
+                response_timestamp=datetime.now(),
+            )
+
+        if hasattr(error, "code") and hasattr(error, "message"):
+            error_code = str(error.code)
+            error_message = error.message
+        else:
+            error_code = "500"
+            error_message = str(error)
+
+        return G2PResponseHeader(
+            request_id=request_id,
+            response_status=G2PResponseStatus.ERROR,
+            response_error_code=error_code,
+            response_error_message=error_message,
+            response_timestamp=datetime.now(),
+        )
+
+    def construct_attributes_success_response(
+        self,
+        g2p_request: GetAttributesRequest,
+        attributes: List[AttributeData],
+    ) -> GetAttributesResponse:
+        """Construct a success response for get_all_attributes API."""
+        return GetAttributesResponse(
+            response_header=self._attribute_response_header(g2p_request),
+            response_body=GetAttributesResponseBody(
+                pagination_response=None,
+                response_payload=GetAttributesResponsePayload(attributes=attributes),
+            ),
+        )
+
+    def construct_attributes_error_response(
+        self,
+        error: Exception,
+        g2p_request: GetAttributesRequest = None,
+    ) -> GetAttributesResponse:
+        """Construct an error response for get_all_attributes API."""
+        return GetAttributesResponse(
+            response_header=self._attribute_response_header(g2p_request, error),
+            response_body=GetAttributesResponseBody(
+                pagination_response=None,
+                response_payload=None,
+            ),
+        )
+
+    def construct_attribute_values_success_response(
+        self,
+        g2p_request: GetAttributeValuesRequest,
+        values: List[AttributeValueData],
+        total: Optional[int] = None,
+    ) -> GetAttributeValuesResponse:
+        """Construct a success response for get_attribute_values API.
+
+        `total` is the unpaginated count, so a seed job can tell a short last
+        page from a truncated one instead of guessing from the page size.
+        """
+        return GetAttributeValuesResponse(
+            response_header=self._attribute_response_header(g2p_request),
+            response_body=GetAttributeValuesResponseBody(
+                pagination_response=None,
+                response_payload=GetAttributeValuesResponsePayload(
+                    attribute_values=values,
+                    total=total,
+                ),
+            ),
+        )
+
+    def construct_attribute_values_error_response(
+        self,
+        error: Exception,
+        g2p_request: GetAttributeValuesRequest = None,
+    ) -> GetAttributeValuesResponse:
+        """Construct an error response for get_attribute_values API."""
+        return GetAttributeValuesResponse(
+            response_header=self._attribute_response_header(g2p_request, error),
+            response_body=GetAttributeValuesResponseBody(
+                pagination_response=None,
+                response_payload=None,
+            ),
         )

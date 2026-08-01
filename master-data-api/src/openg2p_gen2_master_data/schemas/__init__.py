@@ -1,3 +1,19 @@
+from .g2p_attribute import (
+    AttributeData,
+    AttributeValueData,
+    GetAttributesRequestPayload,
+    GetAttributesRequestBody,
+    GetAttributesRequest,
+    GetAttributesResponsePayload,
+    GetAttributesResponseBody,
+    GetAttributesResponse,
+    GetAttributeValuesRequestPayload,
+    GetAttributeValuesRequestBody,
+    GetAttributeValuesRequest,
+    GetAttributeValuesResponsePayload,
+    GetAttributeValuesResponseBody,
+    GetAttributeValuesResponse,
+)
 from .g2p_geo import (
     GeoLevelData,
     GetGeoLevelsRequestPayload,
