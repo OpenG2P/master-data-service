@@ -36,3 +36,52 @@ questions:
   type: string
   label: Master Data Database User Password Key
   group: Master Data Database
+
+# ── Country pack ────────────────────────────────────────────────────────────
+# This is the ONE place a deployment declares which country it serves. Registries
+# read the geography, code lists and sample people from here; none of them names
+# a country of its own, so these are the only country settings in the platform.
+- variable: geoSeed.enabled
+  description: Seed geography and reference data from a country pack after install. Runs as a post-install Job and is idempotent, so it re-runs safely on upgrade.
+  type: boolean
+  default: true
+  label: Enable Country Pack Seeding
+  group: Country Pack
+
+- variable: geoSeed.countryPack
+  description: "Which country this environment serves. XKM is Kamuntu, a FICTITIOUS country with invented boundaries and names — the default on purpose, so an unconfigured install cannot attach invented figures to a real country. ETH is Ethiopia (OCHA COD-AB, CC BY-IGO, attribution required). This is the pack directory name, alpha-3."
+  type: enum
+  options:
+    - XKM
+    - ETH
+  default: XKM
+  label: Country Pack
+  group: Country Pack
+
+- variable: geoSeed.load.geo
+  description: Load the administrative hierarchy, P-codes and boundary geometry. This is what registry records and every map join against.
+  type: boolean
+  default: true
+  label: Load Geography
+  group: Country Pack
+
+- variable: geoSeed.load.codelists
+  description: Load the country's code lists (gender, education level, water source, ...) with their semantic role tags. Registries copy these into their own tables at install; without this they fall back to the values their extension ships. Role tags have no other source.
+  type: boolean
+  default: false
+  label: Load Code Lists
+  group: Country Pack
+
+- variable: geoSeed.load.samples
+  description: Load the pack's sample people — a couple of dozen, coherent with the geography and the code lists. For a demo or a fresh install that would otherwise show an empty registry. Not bulk analytics data, which each registry generates itself.
+  type: boolean
+  default: false
+  label: Load Sample People
+  group: Country Pack
+
+- variable: geoSeed.domains
+  description: "Domain subtrees to load alongside the core code lists, comma-separated. Use 'agriculture' for a Farmer Registry (crops, livestock); leave empty for a social registry, which has no use for them."
+  type: string
+  default: ""
+  label: Domain Code Lists
+  group: Country Pack
