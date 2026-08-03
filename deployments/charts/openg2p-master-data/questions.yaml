@@ -49,7 +49,7 @@ questions:
   group: Country Pack
 
 - variable: geoSeed.countryPack
-  description: "Which country this environment serves. XKM is Kamuntu, a FICTITIOUS country with invented boundaries and names — the default on purpose, so an unconfigured install cannot attach invented figures to a real country. ETH is Ethiopia (OCHA COD-AB, CC BY-IGO, attribution required). This is the pack directory name, alpha-3."
+  description: "Which country this environment serves, as the pack directory name (alpha-3). ETH is Ethiopia from OCHA COD-AB — country > region > zone > woreda, 1271 units, CC BY-IGO with attribution required. XKM is Kamuntu, a fictitious country for demos and tests, whose P-codes come from the ISO 3166 user-assigned ranges and cannot collide with a real country's."
   type: enum
   options:
     - XKM
@@ -68,14 +68,14 @@ questions:
 - variable: geoSeed.load.codelists
   description: Load the country's code lists (gender, education level, water source, ...) with their semantic role tags. Registries copy these into their own tables at install; without this they fall back to the values their extension ships. Role tags have no other source.
   type: boolean
-  default: false
+  default: true
   label: Load Code Lists
   group: Country Pack
 
 - variable: geoSeed.load.samples
   description: Load the pack's sample people — a couple of dozen, coherent with the geography and the code lists. For a demo or a fresh install that would otherwise show an empty registry. Not bulk analytics data, which each registry generates itself.
   type: boolean
-  default: false
+  default: true
   label: Load Sample People
   group: Country Pack
 

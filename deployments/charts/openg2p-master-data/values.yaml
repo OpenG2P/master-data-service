@@ -167,32 +167,38 @@ geoSeed:
   enabled: true
   # Directory of packs inside the image, then the pack to load.
   packRoot: /openg2p-data/packs
-  # XKM is Kamuntu — a FICTITIOUS country with invented boundaries, names and
-  # P-codes. It is the default on purpose: a fresh install must not attach
-  # invented poverty and enrolment figures to a real country's name, and its
-  # codes come from the ISO 3166 user-assigned ranges so they can never collide
-  # with a real one.
+  # ETH is Ethiopia, from OCHA COD-AB via HDX: country > region > zone > woreda,
+  # 1271 units. It carries a LICENCE OBLIGATION — CC BY-IGO, attribution
+  # required — recorded in the pack's manifest.json and printed at seed time.
+  # The boundaries are operational, not a statement on legal or political status.
   #
-  # Real countries are opt-in. Set this to ETH (Ethiopia, OCHA COD-AB) or any
-  # other pack in openg2p-data/packs for a real deployment — and note that real
-  # packs carry licence obligations, recorded in each pack's manifest.json.
+  # XKM is Kamuntu, a fictitious country with invented boundaries and P-codes
+  # drawn from the ISO 3166 user-assigned ranges, so they can never collide with
+  # a real country's. Use it for demos and tests where attaching invented
+  # poverty and enrolment figures to a real country's name would be misleading.
+  #
+  # Any other directory under openg2p-data/packs works the same way.
+  #
+  # Defaults to XKM so an install nobody configured cannot attach invented
+  # poverty and enrolment figures to a real country's name, and picks up no
+  # licence obligation by accident. Deployments choose the real country — the
+  # commons-services umbrella sets it, and it is surfaced in that chart's form.
   countryPack: XKM
 
-  # Which sections of the pack to load. Defaults to geo alone, which is exactly
-  # what this chart did before code lists existed — an existing deployment
-  # upgrading sees no change.
+  # Which sections of the pack to load.
   #
-  # Turn codelists on once the registries consuming them are ready to seed from
-  # here instead of from their own compiled enums. Nothing reads the tables until
-  # then, so enabling it early is harmless but pointless.
+  # All three on: a registry seeding from here needs the code lists, and the
+  # sample people are what stop a fresh install showing an empty registry.
+  # Turning codelists off leaves each registry on the values its extension
+  # ships, which is the pre-country-pack behaviour.
   load:
     geo: true
-    codelists: false
+    codelists: true
     # The pack's sample people — a couple of dozen, country-coherent, for a demo
     # or a fresh install that would otherwise show an empty registry. Registries
     # read these and add their own fields. Not bulk analytics data, which needs
     # no country-coherent names and is generated per registry.
-    samples: false
+    samples: true
   # Domain subtrees to load alongside the code lists, e.g. [agriculture] for a
   # Farmer Registry. Empty loads the core lists only — a social registry has no
   # use for crop types.
