@@ -57,14 +57,59 @@ spec:
             - sh
             - -c
             - |
-              until pg_isready -h "$PGHOST" -p "$PGPORT"; do
+              # Wait for the master-data SCHEMA, not just the server. The schema is
+              # created by the API's startup migration, which races with this hook;
+              # pg_isready alone let this Job run against an empty database and die
+              # with `relation "g2p_geo_levels" does not exist`, failing the whole
+              # Helm release.
+              #
+              # Wait on the LAST table the migration creates, not the first. The
+              # API creates them in a fixed, awaited order —
+              #
+              #   g2p_geo_levels -> g2p_geo_level_values -> g2p_partners
+              #     -> g2p_attributes -> g2p_attribute_values
+              #     -> g2p_sample_individuals -> g2p_sample_households
+              #
+              # — so the last one existing proves all of them do, while waiting on
+              # g2p_geo_levels only proves the migration STARTED. With the default
+              # --load geo,codelists,samples that gap is exactly wide enough for
+              # the loader to finish geo and then die on g2p_sample_households:
+              # the same failure this guard exists to prevent, just later in the
+              # run, and only when the migration happens to be slow.
+              #
+              # If the migration ever gains a table created after this one, move
+              # the check to that one.
+              i=0
+              until pg_isready -h "$PGHOST" -p "$PGPORT" >/dev/null 2>&1; do
+                i=$((i+1))
+                if [ "$i" -gt "${DB_WAIT_TRIES:-100}" ]; then
+                  echo "postgres not reachable after $((i*3))s — giving up"; exit 1
+                fi
                 echo "waiting for postgres..."; sleep 3
               done
+              i=0
+              until [ "$(psql -tAc "SELECT to_regclass('public.g2p_sample_households') IS NOT NULL" 2>/dev/null)" = "t" ]; do
+                i=$((i+1))
+                if [ "$i" -gt "${SCHEMA_WAIT_TRIES:-100}" ]; then
+                  echo "master-data schema not present after $((i*3))s — giving up"; exit 1
+                fi
+                echo "waiting for the master-data migration to finish (g2p_sample_households)..."; sleep 3
+              done
+              echo "master-data schema is ready."
           env:
             - name: PGHOST
               value: {{ tpl .Values.global.postgresqlHost $ | quote }}
             - name: PGPORT
               value: {{ .Values.global.masterDataDBPort | default 5432 | quote }}
+            - name: PGUSER
+              value: {{ tpl .Values.global.masterDataDBUser $ | quote }}
+            - name: PGDATABASE
+              value: {{ tpl .Values.global.masterDataDB $ | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .Values.global.masterDataDBSecret $ | quote }}
+                  key: {{ tpl .Values.global.masterDataDBUserPasswordKey $ | quote }}
       containers:
         - name: geo-seed
           image: {{ .Values.geoSeed.image.repository }}:{{ .Values.geoSeed.image.tag }}

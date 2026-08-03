@@ -148,7 +148,17 @@ masterDataAPI:
     - 'sh'
     args:
     - '-c'
-    - 'until pg_isready -U ${GEN2_MASTER_DATA_API_DB_USERNAME} -h ${GEN2_MASTER_DATA_API_DB_HOSTNAME} -p ${GEN2_MASTER_DATA_API_DB_PORT:-5432} -d ${GEN2_MASTER_DATA_API_DB_DBNAME:-masterDatadb}; do sleep 3; done'
+    # Wait until the DB accepts OUR CREDENTIALS, not merely until the server is
+    # up. pg_isready only pings the postmaster — it succeeds even when the app's
+    # role/password does not exist yet. postgres-init creates and syncs that role
+    # in parallel with this Deployment, so a bare pg_isready let the API start
+    # too early: its startup migration then died with
+    # `InvalidPasswordError: password authentication failed`, the error was
+    # swallowed, gunicorn came up anyway, and the schema was NEVER created
+    # (the migration is not retried). Everything downstream that needs the
+    # schema — e.g. the geo-seed hook Job — then failed, taking the whole Helm
+    # release with it, while the API pod looked healthy.
+    - 'until PGPASSWORD="${GEN2_MASTER_DATA_API_DB_PASSWORD}" psql -q -U "${GEN2_MASTER_DATA_API_DB_USERNAME}" -h "${GEN2_MASTER_DATA_API_DB_HOSTNAME}" -p "${GEN2_MASTER_DATA_API_DB_PORT:-5432}" -d "${GEN2_MASTER_DATA_API_DB_DBNAME:-masterDatadb}" -c "SELECT 1" >/dev/null 2>&1; do echo "waiting for postgres credentials to work..."; sleep 3; done'
     containerSecurityContext:
       enabled: false
 
