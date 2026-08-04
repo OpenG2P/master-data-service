@@ -1,0 +1,16 @@
+{
+  "master_data_service": "Master Data Service",
+  "loading": "Loading...",
+  "logout": "Logout",
+  "generic_error_title": "Unable to sign in",
+  "generic_error_description": "We couldn't verify your session. Please sign in again or contact your administrator if the problem continues.",
+  "token_size_title": "Token Size Limit Exceeded",
+  "token_size_description": "The access token exceeds the maximum allowed size (4KB cookie limit) and cannot be processed.",
+  "token_size_cause": "Root cause: excessive role claims included in the token payload.",
+  "required_action": "Required Action (Admin)",
+  "step_reduce_roles": "Reduce the number of roles assigned to the user",
+  "step_optimize_claims": "Optimize token claims (remove unnecessary data)",
+  "step_reissue_token": "Reissue the token after role adjustment",
+  "access_denied": "Access Denied",
+  "no_permission": "You don't have permission to view this application."
+}
