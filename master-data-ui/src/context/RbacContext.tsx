@@ -94,7 +94,7 @@ export function RbacProvider({ children }: { children: ReactNode }) {
             <div className="w-full min-h-screen flex items-center justify-center bg-neutral-second">
                 <div className="flex flex-col items-center gap-4">
                     <img
-                        src="/images/common/loading.gif"
+                        src="/loading.gif"
                         alt="Loading"
                         className="w-12 h-12"
                     />

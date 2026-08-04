@@ -1,7 +1,6 @@
 // Single source of server/runtime env — read at request time (K8s pod env, not Docker build).
 export function getServerEnv() {
     return {
-        backendApiUrl: process.env.BACKEND_API_URL ?? "",
         masterdataBackendApiUrl: process.env.MASTERDATA_BACKEND_API_URL ?? "",
         iamUrl: process.env.IAM_URL ?? "",
         loginProviderId: process.env.LOGIN_PROVIDER_ID ?? "",

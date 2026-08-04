@@ -5,7 +5,6 @@ export function getBackendConfig() {
     const env = getServerEnv();
 
     return {
-        backendApiUrl: env.backendApiUrl,
         masterdataBackendApiUrl: env.masterdataBackendApiUrl,
         iamUrl: env.iamUrl,
         loginProviderId: env.loginProviderId,
