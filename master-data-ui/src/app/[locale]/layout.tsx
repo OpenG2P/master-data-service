@@ -19,6 +19,9 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Master Data UI",
   description: "OpenG2P Master Data UI",
+  icons: {
+    icon: [{ url: "/openg2p-icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default async function LocaleLayout({
@@ -44,7 +47,7 @@ export default async function LocaleLayout({
                   {children}
                 </main>
               </div>
-              <Footer />
+              {/* <Footer /> */}
             </div>
           </AuthProviders>
         </NextIntlClientProvider>

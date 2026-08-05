@@ -6,14 +6,20 @@ import { useTranslations } from "next-intl";
 
 type GeoLevelDialogProps = {
   open: boolean;
+  mode?: "add" | "edit";
   parentLevelLabel: string | null;
+  initialName?: string;
+  initialCode?: string;
   onClose: () => void;
   onSubmit: (values: { name: string; code: string }) => void;
 };
 
 export default function GeoLevelDialog({
   open,
+  mode = "add",
   parentLevelLabel,
+  initialName = "",
+  initialCode = "",
   onClose,
   onSubmit,
 }: GeoLevelDialogProps) {
@@ -25,10 +31,10 @@ export default function GeoLevelDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName("");
-    setCode("");
+    setName(initialName);
+    setCode(initialCode);
     setNotice(null);
-  }, [open]);
+  }, [initialCode, initialName, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +49,7 @@ export default function GeoLevelDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -57,7 +63,7 @@ export default function GeoLevelDialog({
       >
         <div className="flex items-center justify-between border-b border-[#5A5A5A] px-5 py-4">
           <h2 id={titleId} className="text-[16px] font-semibold text-[#F4BB1B]">
-            {t("geo_add_level")}
+            {mode === "edit" ? t("geo_edit_level") : t("geo_add_level")}
           </h2>
           <button
             type="button"
@@ -140,7 +146,7 @@ export default function GeoLevelDialog({
               type="submit"
               className="h-9 cursor-pointer rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
             >
-              {t("add")}
+              {mode === "edit" ? t("save") : t("add")}
             </button>
           </div>
         </form>

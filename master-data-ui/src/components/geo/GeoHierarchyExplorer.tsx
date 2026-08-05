@@ -2,7 +2,7 @@
 
 import LoadingState from "@/components/LoadingState";
 import GeoChildrenTable from "@/components/geo/GeoChildrenTable";
-import GeoLevelDialog from "@/components/geo/GeoLevelDialog";
+import GeoManageLevelsDialog from "@/components/geo/GeoManageLevelsDialog";
 import GeoNodeDialog, {
   type GeoNodeDialogField,
 } from "@/components/geo/GeoNodeDialog";
@@ -27,7 +27,7 @@ import type {
   GeoLevelValue,
   GeoTreeNode,
 } from "@/types/geo";
-import { ArrowLeft, MapPin, Menu, Search, X } from "lucide-react";
+import { ArrowLeft, MapPin, Menu, Search, Settings2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   useCallback,
@@ -96,7 +96,7 @@ export default function GeoHierarchyExplorer() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileShowDetails, setMobileShowDetails] = useState(false);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
-  const [levelDialogOpen, setLevelDialogOpen] = useState(false);
+  const [manageLevelsOpen, setManageLevelsOpen] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [breadcrumbMoreOpen, setBreadcrumbMoreOpen] = useState(false);
 
@@ -630,26 +630,6 @@ export default function GeoHierarchyExplorer() {
     </div>
   );
 
-  const addLevelParentLabel = useMemo(() => {
-    if (orderedLevels.length === 0) return null;
-    // Prefer extending under the selected node's level; otherwise append under the deepest level.
-    if (selected) {
-      return getLevelLabel(getLevelById(orderedLevels, selected.levelId));
-    }
-    const deepest = orderedLevels[orderedLevels.length - 1];
-    return getLevelLabel(deepest);
-  }, [orderedLevels, selected]);
-
-  // Only allow adding a level type when the focus level has no child level yet.
-  const canAddLevel = useMemo(() => {
-    if (orderedLevels.length === 0) return true;
-    const focusLevelId = selected
-      ? selected.levelId
-      : orderedLevels[orderedLevels.length - 1]?.level_id;
-    if (!focusLevelId) return true;
-    return !getChildLevel(orderedLevels, focusLevelId);
-  }, [orderedLevels, selected]);
-
   const addValueAction = useMemo(() => {
     if (orderedLevels.length === 0) return null;
 
@@ -689,34 +669,18 @@ export default function GeoHierarchyExplorer() {
       onDelete={() => setBanner(t("geo_write_unavailable"))}
       getChildCount={getChildCount}
       footerActions={
-        <>
+        addValueAction ? (
           <button
             type="button"
-            disabled={!canAddLevel}
-            onClick={() => {
-              if (!canAddLevel) return;
-              setLevelDialogOpen(true);
-            }}
-            className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/40"
+            onClick={addValueAction.onClick}
+            className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
           >
-            {t("geo_add_level")}
-            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[10px] bg-white text-[14px] font-bold leading-none text-black disabled:bg-white/40">
+            {t("geo_add_level_value")}
+            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[10px] bg-white text-[14px] font-bold leading-none text-black">
               +
             </span>
           </button>
-          {addValueAction ? (
-            <button
-              type="button"
-              onClick={addValueAction.onClick}
-              className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
-            >
-              {t("geo_add_level_value")}
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[10px] bg-white text-[14px] font-bold leading-none text-black">
-                +
-              </span>
-            </button>
-          ) : null}
-        </>
+        ) : null
       }
     />
   );
@@ -746,7 +710,7 @@ export default function GeoHierarchyExplorer() {
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3 bg-black p-3 text-white sm:gap-4 sm:p-5">
-      <div className="grid shrink-0 grid-cols-[6fr_4fr] items-center gap-3">
+      <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <nav
           aria-label={t("geo_breadcrumb")}
           className="flex min-w-0 items-center gap-x-2 overflow-hidden font-normal text-[16px] leading-none tracking-normal"
@@ -872,31 +836,41 @@ export default function GeoHierarchyExplorer() {
           })}
         </nav>
 
-        <label className="relative min-w-0 w-full">
-          <span className="sr-only">{t("search")}</span>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("search")}
-            className="h-9 w-full rounded border border-[#5A5A5A] bg-black px-3 pr-9 text-[14px] text-white outline-none placeholder:text-[#8A8A8A] focus:border-[#F4BB1B] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center text-red-500 hover:text-red-400"
-              aria-label={t("close")}
-            >
-              <X size={15} strokeWidth={2.5} />
-            </button>
-          ) : (
-            <Search
-              size={15}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/70"
+        <div className="flex min-w-0 items-center gap-3">
+          <label className="relative w-[min(100%,20rem)] shrink-0 sm:w-80">
+            <span className="sr-only">{t("search")}</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t("search")}
+              className="h-9 w-full rounded border border-[#5A5A5A] bg-black px-3 pr-9 text-[14px] text-white outline-none placeholder:text-[#8A8A8A] focus:border-[#F4BB1B] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
-          )}
-        </label>
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center text-red-500 hover:text-red-400"
+                aria-label={t("close")}
+              >
+                <X size={15} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <Search
+                size={15}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/70"
+              />
+            )}
+          </label>
+          <button
+            type="button"
+            onClick={() => setManageLevelsOpen(true)}
+            className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-[10px] border border-[#F4BB1B] px-3 text-[14px] font-semibold text-[#F4BB1B] hover:bg-[#F4BB1B]/10"
+          >
+            <Settings2 size={15} />
+            {t("geo_manage_levels")}
+          </button>
+        </div>
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden border border-[#5A5A5A]">
@@ -976,13 +950,10 @@ export default function GeoHierarchyExplorer() {
         />
       ) : null}
 
-      <GeoLevelDialog
-        open={levelDialogOpen}
-        parentLevelLabel={addLevelParentLabel}
-        onClose={() => setLevelDialogOpen(false)}
-        onSubmit={() => {
-          /* Write APIs not available yet — dialog shows notice. */
-        }}
+      <GeoManageLevelsDialog
+        open={manageLevelsOpen}
+        levels={orderedLevels}
+        onClose={() => setManageLevelsOpen(false)}
       />
     </section>
   );
