@@ -1,5 +1,7 @@
 import logging
-from typing import List, Optional
+import uuid
+from datetime import date
+from typing import Any, Dict, List, Optional
 
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import func, select
@@ -19,6 +21,13 @@ except Exception:
 _logger = logging.getLogger(_config.logging_default_logger_name if _config else "g2p-attribute-service")
 
 
+class AttributeServiceError(Exception):
+    def __init__(self, code: str, message: str):
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
 class G2PAttributeService(BaseService):
     """Reads the country's code lists.
 
@@ -29,6 +38,43 @@ class G2PAttributeService(BaseService):
 
     def __init__(self) -> None:
         super().__init__()
+
+    @staticmethod
+    def _empty_to_none(value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @staticmethod
+    def _to_attribute_data(row: G2PAttribute) -> AttributeData:
+        return AttributeData(
+            attribute_id=row.attribute_id,
+            attribute_code=row.attribute_code,
+            attribute_display=row.attribute_display,
+            is_hierarchical=bool(row.is_hierarchical),
+            display_name_i18n=row.display_name_i18n,
+            country=row.country,
+            version=row.version,
+        )
+
+    @staticmethod
+    def _to_value_data(row: G2PAttributeValue) -> AttributeValueData:
+        return AttributeValueData(
+            attribute_id=row.attribute_id,
+            value_id=row.value_id,
+            value_code=row.value_code,
+            value_display=row.value_display,
+            parent_value_id=row.parent_value_id,
+            sort_order=row.sort_order,
+            display_name_i18n=row.display_name_i18n,
+            roles=row.roles or [],
+            domain=row.domain,
+            country=row.country,
+            version=row.version,
+            valid_from=row.valid_from,
+            valid_to=row.valid_to,
+        )
 
     async def get_attributes(
         self, domain: Optional[str] = None, include_domains: bool = False
@@ -43,18 +89,7 @@ class G2PAttributeService(BaseService):
             ids = await self._attribute_ids_in_scope(domain, include_domains)
             rows = [r for r in rows if r.attribute_id in ids]
 
-        return [
-            AttributeData(
-                attribute_id=r.attribute_id,
-                attribute_code=r.attribute_code,
-                attribute_display=r.attribute_display,
-                is_hierarchical=bool(r.is_hierarchical),
-                display_name_i18n=r.display_name_i18n,
-                country=r.country,
-                version=r.version,
-            )
-            for r in rows
-        ]
+        return [self._to_attribute_data(r) for r in rows]
 
     async def _attribute_ids_in_scope(self, domain, include_domains) -> set:
         async with get_session_maker()() as session:
@@ -92,21 +127,413 @@ class G2PAttributeService(BaseService):
             stmt = stmt.limit(page_size).offset(max(0, (page_number - 1)) * page_size)
             rows = (await session.execute(stmt)).scalars().all()
 
-        return [
-            AttributeValueData(
-                attribute_id=r.attribute_id,
-                value_id=r.value_id,
-                value_code=r.value_code,
-                value_display=r.value_display,
-                parent_value_id=r.parent_value_id,
-                sort_order=r.sort_order,
-                display_name_i18n=r.display_name_i18n,
-                roles=r.roles or [],
-                domain=r.domain,
-                country=r.country,
-                version=r.version,
-                valid_from=r.valid_from,
-                valid_to=r.valid_to,
+        return [self._to_value_data(r) for r in rows], total
+
+    async def _attribute_code_exists(
+        self,
+        session,
+        attribute_code: str,
+        exclude_attribute_id: Optional[str] = None,
+    ) -> bool:
+        query = (
+            select(func.count())
+            .select_from(G2PAttribute)
+            .where(G2PAttribute.attribute_code == attribute_code)
+        )
+        if exclude_attribute_id:
+            query = query.where(G2PAttribute.attribute_id != exclude_attribute_id)
+        return (await session.execute(query)).scalar_one() > 0
+
+    async def _value_code_exists(
+        self,
+        session,
+        attribute_id: str,
+        value_code: str,
+        exclude_value_id: Optional[str] = None,
+    ) -> bool:
+        query = (
+            select(func.count())
+            .select_from(G2PAttributeValue)
+            .where(
+                G2PAttributeValue.attribute_id == attribute_id,
+                G2PAttributeValue.value_code == value_code,
             )
-            for r in rows
-        ], total
+        )
+        if exclude_value_id:
+            query = query.where(G2PAttributeValue.value_id != exclude_value_id)
+        return (await session.execute(query)).scalar_one() > 0
+
+    async def _get_value_by_id(
+        self,
+        session,
+        value_id: str,
+        attribute_id: Optional[str] = None,
+    ) -> Optional[G2PAttributeValue]:
+        query = select(G2PAttributeValue).where(G2PAttributeValue.value_id == value_id)
+        if attribute_id:
+            query = query.where(G2PAttributeValue.attribute_id == attribute_id)
+        return (await session.execute(query)).scalars().first()
+
+    async def _validate_parent_value(
+        self,
+        session,
+        *,
+        attribute: G2PAttribute,
+        attribute_id: str,
+        parent_value_id: Optional[str],
+        exclude_value_id: Optional[str] = None,
+    ) -> None:
+        if not parent_value_id:
+            return
+
+        if not attribute.is_hierarchical:
+            raise AttributeServiceError(
+                "G2P-ATTR-400",
+                f"attribute '{attribute_id}' is not hierarchical; parent_value_id is not allowed",
+            )
+
+        if parent_value_id == exclude_value_id:
+            raise AttributeServiceError("G2P-ATTR-400", "attribute value cannot be its own parent")
+
+        parent = await self._get_value_by_id(session, parent_value_id, attribute_id)
+        if not parent:
+            raise AttributeServiceError(
+                "G2P-ATTR-404",
+                f"parent_value_id not found for attribute '{attribute_id}': {parent_value_id}",
+            )
+
+    async def add_attribute(
+        self,
+        *,
+        attribute_code: str,
+        attribute_display: str,
+        is_hierarchical: bool = False,
+        display_name_i18n: Optional[Dict[str, Any]] = None,
+        country: Optional[str] = None,
+        version: Optional[str] = None,
+        valid_from: Optional[date] = None,
+        valid_to: Optional[date] = None,
+    ) -> AttributeData:
+        attribute_code = attribute_code.strip()
+        attribute_display = attribute_display.strip()
+        if not attribute_code or not attribute_display:
+            raise AttributeServiceError(
+                "G2P-ATTR-400",
+                "attribute_code and attribute_display are required",
+            )
+
+        async with get_session_maker()() as session:
+            if await self._attribute_code_exists(session, attribute_code):
+                raise AttributeServiceError(
+                    "G2P-ATTR-409",
+                    f"attribute_code already exists: {attribute_code}",
+                )
+
+            attribute = G2PAttribute(
+                attribute_id=str(uuid.uuid4()),
+                attribute_code=attribute_code,
+                attribute_display=attribute_display,
+                is_hierarchical=bool(is_hierarchical),
+                display_name_i18n=display_name_i18n,
+                country=country,
+                version=version,
+                valid_from=valid_from,
+                valid_to=valid_to,
+            )
+            session.add(attribute)
+            await session.commit()
+            await session.refresh(attribute)
+            return self._to_attribute_data(attribute)
+
+    async def update_attribute(self, payload) -> AttributeData:
+        async with get_session_maker()() as session:
+            attribute = await session.get(G2PAttribute, payload.attribute_id)
+            if not attribute:
+                raise AttributeServiceError(
+                    "G2P-ATTR-404",
+                    f"attribute_id not found: {payload.attribute_id}",
+                )
+
+            fields_set = payload.model_fields_set
+            updatable = fields_set - {"attribute_id"}
+            if not updatable:
+                raise AttributeServiceError(
+                    "G2P-ATTR-400",
+                    "At least one field must be provided to update",
+                )
+
+            if "attribute_code" in fields_set:
+                attribute_code = (payload.attribute_code or "").strip()
+                if not attribute_code:
+                    raise AttributeServiceError("G2P-ATTR-400", "attribute_code cannot be empty")
+                if await self._attribute_code_exists(
+                    session, attribute_code, exclude_attribute_id=payload.attribute_id
+                ):
+                    raise AttributeServiceError(
+                        "G2P-ATTR-409",
+                        f"attribute_code already exists: {attribute_code}",
+                    )
+                attribute.attribute_code = attribute_code
+
+            if "attribute_display" in fields_set:
+                attribute_display = (payload.attribute_display or "").strip()
+                if not attribute_display:
+                    raise AttributeServiceError(
+                        "G2P-ATTR-400",
+                        "attribute_display cannot be empty",
+                    )
+                attribute.attribute_display = attribute_display
+
+            if "is_hierarchical" in fields_set:
+                is_hierarchical = bool(payload.is_hierarchical)
+                if not is_hierarchical:
+                    hierarchical_count = (
+                        await session.execute(
+                            select(func.count())
+                            .select_from(G2PAttributeValue)
+                            .where(
+                                G2PAttributeValue.attribute_id == payload.attribute_id,
+                                G2PAttributeValue.parent_value_id.is_not(None),
+                            )
+                        )
+                    ).scalar_one()
+                    if hierarchical_count:
+                        raise AttributeServiceError(
+                            "G2P-ATTR-409",
+                            (
+                                f"Cannot set is_hierarchical=false for attribute "
+                                f"'{payload.attribute_id}' while values have parent_value_id set"
+                            ),
+                        )
+                attribute.is_hierarchical = is_hierarchical
+
+            if "display_name_i18n" in fields_set:
+                attribute.display_name_i18n = payload.display_name_i18n
+            if "country" in fields_set:
+                attribute.country = payload.country
+            if "version" in fields_set:
+                attribute.version = payload.version
+            if "valid_from" in fields_set:
+                attribute.valid_from = payload.valid_from
+            if "valid_to" in fields_set:
+                attribute.valid_to = payload.valid_to
+
+            await session.commit()
+            await session.refresh(attribute)
+            return self._to_attribute_data(attribute)
+
+    async def delete_attribute(self, attribute_id: str) -> str:
+        async with get_session_maker()() as session:
+            attribute = await session.get(G2PAttribute, attribute_id)
+            if not attribute:
+                raise AttributeServiceError(
+                    "G2P-ATTR-404",
+                    f"attribute_id not found: {attribute_id}",
+                )
+
+            value_count = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(G2PAttributeValue)
+                    .where(G2PAttributeValue.attribute_id == attribute_id)
+                )
+            ).scalar_one()
+            if value_count:
+                raise AttributeServiceError(
+                    "G2P-ATTR-409",
+                    f"Cannot delete attribute '{attribute_id}' while attribute values exist",
+                )
+
+            await session.delete(attribute)
+            await session.commit()
+            return attribute_id
+
+    async def add_attribute_value(
+        self,
+        *,
+        attribute_id: str,
+        value_code: str,
+        value_display: str,
+        parent_value_id: Optional[str] = None,
+        sort_order: Optional[int] = 0,
+        display_name_i18n: Optional[Dict[str, Any]] = None,
+        roles: Optional[List[str]] = None,
+        domain: Optional[str] = None,
+        country: Optional[str] = None,
+        version: Optional[str] = None,
+        valid_from: Optional[date] = None,
+        valid_to: Optional[date] = None,
+    ) -> AttributeValueData:
+        value_code = value_code.strip()
+        value_display = value_display.strip()
+        if not attribute_id or not attribute_id.strip():
+            raise AttributeServiceError("G2P-ATTR-400", "attribute_id is required")
+        if not value_code or not value_display:
+            raise AttributeServiceError(
+                "G2P-ATTR-400",
+                "value_code and value_display are required",
+            )
+
+        parent_value_id = self._empty_to_none(parent_value_id)
+
+        async with get_session_maker()() as session:
+            attribute = await session.get(G2PAttribute, attribute_id)
+            if not attribute:
+                raise AttributeServiceError(
+                    "G2P-ATTR-404",
+                    f"attribute_id not found: {attribute_id}",
+                )
+
+            await self._validate_parent_value(
+                session,
+                attribute=attribute,
+                attribute_id=attribute_id,
+                parent_value_id=parent_value_id,
+            )
+
+            if await self._value_code_exists(session, attribute_id, value_code):
+                raise AttributeServiceError(
+                    "G2P-ATTR-409",
+                    f"value_code already exists for attribute '{attribute_id}': {value_code}",
+                )
+
+            value = G2PAttributeValue(
+                value_id=str(uuid.uuid4()),
+                attribute_id=attribute_id,
+                value_code=value_code,
+                value_display=value_display,
+                parent_value_id=parent_value_id,
+                sort_order=0 if sort_order is None else sort_order,
+                display_name_i18n=display_name_i18n,
+                roles=roles,
+                domain=domain,
+                country=country,
+                version=version,
+                valid_from=valid_from,
+                valid_to=valid_to,
+            )
+            session.add(value)
+            await session.commit()
+            await session.refresh(value)
+            return self._to_value_data(value)
+
+    async def update_attribute_value(self, payload) -> AttributeValueData:
+        async with get_session_maker()() as session:
+            value = await self._get_value_by_id(
+                session,
+                payload.value_id,
+                self._empty_to_none(payload.attribute_id)
+                if "attribute_id" in payload.model_fields_set
+                else None,
+            )
+            if not value:
+                raise AttributeServiceError(
+                    "G2P-ATTR-404",
+                    f"value_id not found: {payload.value_id}",
+                )
+
+            fields_set = payload.model_fields_set
+            updatable = fields_set - {"value_id", "attribute_id"}
+            if not updatable:
+                raise AttributeServiceError(
+                    "G2P-ATTR-400",
+                    "At least one field must be provided to update",
+                )
+
+            attribute = await session.get(G2PAttribute, value.attribute_id)
+            if not attribute:
+                raise AttributeServiceError(
+                    "G2P-ATTR-404",
+                    f"attribute_id not found: {value.attribute_id}",
+                )
+
+            if "value_code" in fields_set:
+                value_code = (payload.value_code or "").strip()
+                if not value_code:
+                    raise AttributeServiceError("G2P-ATTR-400", "value_code cannot be empty")
+                if await self._value_code_exists(
+                    session,
+                    value.attribute_id,
+                    value_code,
+                    exclude_value_id=payload.value_id,
+                ):
+                    raise AttributeServiceError(
+                        "G2P-ATTR-409",
+                        (
+                            f"value_code already exists for attribute "
+                            f"'{value.attribute_id}': {value_code}"
+                        ),
+                    )
+                value.value_code = value_code
+
+            if "value_display" in fields_set:
+                value_display = (payload.value_display or "").strip()
+                if not value_display:
+                    raise AttributeServiceError("G2P-ATTR-400", "value_display cannot be empty")
+                value.value_display = value_display
+
+            if "parent_value_id" in fields_set:
+                parent_value_id = self._empty_to_none(payload.parent_value_id)
+                await self._validate_parent_value(
+                    session,
+                    attribute=attribute,
+                    attribute_id=value.attribute_id,
+                    parent_value_id=parent_value_id,
+                    exclude_value_id=payload.value_id,
+                )
+                value.parent_value_id = parent_value_id
+
+            if "sort_order" in fields_set:
+                value.sort_order = payload.sort_order
+            if "display_name_i18n" in fields_set:
+                value.display_name_i18n = payload.display_name_i18n
+            if "roles" in fields_set:
+                value.roles = payload.roles
+            if "domain" in fields_set:
+                value.domain = payload.domain
+            if "country" in fields_set:
+                value.country = payload.country
+            if "version" in fields_set:
+                value.version = payload.version
+            if "valid_from" in fields_set:
+                value.valid_from = payload.valid_from
+            if "valid_to" in fields_set:
+                value.valid_to = payload.valid_to
+
+            await session.commit()
+            await session.refresh(value)
+            return self._to_value_data(value)
+
+    async def delete_attribute_value(
+        self,
+        value_id: str,
+        attribute_id: Optional[str] = None,
+    ) -> tuple[str, str]:
+        async with get_session_maker()() as session:
+            value = await self._get_value_by_id(session, value_id, attribute_id)
+            if not value:
+                raise AttributeServiceError(
+                    "G2P-ATTR-404",
+                    f"value_id not found: {value_id}",
+                )
+
+            child_count = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(G2PAttributeValue)
+                    .where(
+                        G2PAttributeValue.attribute_id == value.attribute_id,
+                        G2PAttributeValue.parent_value_id == value_id,
+                    )
+                )
+            ).scalar_one()
+            if child_count:
+                raise AttributeServiceError(
+                    "G2P-ATTR-409",
+                    f"Cannot delete attribute value with {child_count} child value(s)",
+                )
+
+            deleted_attribute_id = value.attribute_id
+            await session.delete(value)
+            await session.commit()
+            return value_id, deleted_attribute_id

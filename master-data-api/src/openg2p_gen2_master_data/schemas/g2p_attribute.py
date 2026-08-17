@@ -6,6 +6,7 @@ from openg2p_fastapi_common.schemas import (
     G2PRequestBody,
     G2PResponse,
     G2PResponseBody,
+    G2PResponseHeader,
 )
 from pydantic import BaseModel
 
@@ -116,3 +117,183 @@ class GetAttributeValuesResponseBody(G2PResponseBody):
 
 class GetAttributeValuesResponse(G2PResponse):
     response_body: Optional[GetAttributeValuesResponseBody] = None
+
+
+# ── Attribute write APIs ─────────────────────────────────────────────────────
+
+
+class AddAttributeRequestPayload(BaseModel):
+    attribute_code: str
+    attribute_display: str
+    is_hierarchical: Optional[bool] = False
+    display_name_i18n: Optional[Dict[str, Any]] = None
+    country: Optional[str] = None
+    version: Optional[str] = None
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+
+
+class AddAttributeRequestBody(G2PRequestBody):
+    request_payload: AddAttributeRequestPayload
+
+
+class AddAttributeRequest(G2PRequest):
+    request_body: AddAttributeRequestBody
+
+
+class AddAttributeResponseBody(G2PResponseBody):
+    response_payload: Optional[AttributeData] = None
+
+
+class AddAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: AddAttributeResponseBody
+
+
+class UpdateAttributeRequestPayload(BaseModel):
+    attribute_id: str
+    attribute_code: Optional[str] = None
+    attribute_display: Optional[str] = None
+    is_hierarchical: Optional[bool] = None
+    display_name_i18n: Optional[Dict[str, Any]] = None
+    country: Optional[str] = None
+    version: Optional[str] = None
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+
+
+class UpdateAttributeRequestBody(G2PRequestBody):
+    request_payload: UpdateAttributeRequestPayload
+
+
+class UpdateAttributeRequest(G2PRequest):
+    request_body: UpdateAttributeRequestBody
+
+
+class UpdateAttributeResponseBody(G2PResponseBody):
+    response_payload: Optional[AttributeData] = None
+
+
+class UpdateAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: UpdateAttributeResponseBody
+
+
+class DeleteAttributeRequestPayload(BaseModel):
+    attribute_id: str
+
+
+class DeleteAttributeRequestBody(G2PRequestBody):
+    request_payload: DeleteAttributeRequestPayload
+
+
+class DeleteAttributeRequest(G2PRequest):
+    request_body: DeleteAttributeRequestBody
+
+
+class DeleteAttributeResponsePayload(BaseModel):
+    attribute_id: str
+
+
+class DeleteAttributeResponseBody(G2PResponseBody):
+    response_payload: Optional[DeleteAttributeResponsePayload] = None
+
+
+class DeleteAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: DeleteAttributeResponseBody
+
+
+# ── Attribute Value write APIs ───────────────────────────────────────────────
+
+
+class AddAttributeValueRequestPayload(BaseModel):
+    attribute_id: str
+    value_code: str
+    value_display: str
+    parent_value_id: Optional[str] = None
+    sort_order: Optional[int] = 0
+    display_name_i18n: Optional[Dict[str, Any]] = None
+    roles: Optional[List[str]] = None
+    domain: Optional[str] = None
+    country: Optional[str] = None
+    version: Optional[str] = None
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+
+
+class AddAttributeValueRequestBody(G2PRequestBody):
+    request_payload: AddAttributeValueRequestPayload
+
+
+class AddAttributeValueRequest(G2PRequest):
+    request_body: AddAttributeValueRequestBody
+
+
+class AddAttributeValueResponseBody(G2PResponseBody):
+    response_payload: Optional[AttributeValueData] = None
+
+
+class AddAttributeValueResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: AddAttributeValueResponseBody
+
+
+class UpdateAttributeValueRequestPayload(BaseModel):
+    value_id: str
+    attribute_id: Optional[str] = None
+    value_code: Optional[str] = None
+    value_display: Optional[str] = None
+    parent_value_id: Optional[str] = None
+    sort_order: Optional[int] = None
+    display_name_i18n: Optional[Dict[str, Any]] = None
+    roles: Optional[List[str]] = None
+    domain: Optional[str] = None
+    country: Optional[str] = None
+    version: Optional[str] = None
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+
+
+class UpdateAttributeValueRequestBody(G2PRequestBody):
+    request_payload: UpdateAttributeValueRequestPayload
+
+
+class UpdateAttributeValueRequest(G2PRequest):
+    request_body: UpdateAttributeValueRequestBody
+
+
+class UpdateAttributeValueResponseBody(G2PResponseBody):
+    response_payload: Optional[AttributeValueData] = None
+
+
+class UpdateAttributeValueResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: UpdateAttributeValueResponseBody
+
+
+class DeleteAttributeValueRequestPayload(BaseModel):
+    value_id: str
+    attribute_id: Optional[str] = None
+
+
+class DeleteAttributeValueRequestBody(G2PRequestBody):
+    request_payload: DeleteAttributeValueRequestPayload
+
+
+class DeleteAttributeValueRequest(G2PRequest):
+    request_body: DeleteAttributeValueRequestBody
+
+
+class DeleteAttributeValueResponsePayload(BaseModel):
+    value_id: str
+    attribute_id: Optional[str] = None
+
+
+class DeleteAttributeValueResponseBody(G2PResponseBody):
+    response_payload: Optional[DeleteAttributeValueResponsePayload] = None
+
+
+class DeleteAttributeValueResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: DeleteAttributeValueResponseBody
