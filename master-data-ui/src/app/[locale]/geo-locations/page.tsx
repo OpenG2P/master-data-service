@@ -1,6 +1,6 @@
 "use client";
 
-import GeoHierarchyExplorer from "@/components/geo/GeoHierarchyExplorer";
+import { GeoHierarchyExplorer } from "@/features/geo";
 
 export default function GeoLocationsPage() {
   return <GeoHierarchyExplorer />;

@@ -33,12 +33,13 @@ class Initializer(BaseInitializer):
         RequestResponseHelper()
 
         G2PGeoService()
-        G2PPartnerService()
         G2PAttributeService()
+        G2PPartnerService()
 
         G2PGeoController().post_init()
-        G2PPartnerController().post_init()
         G2PAttributeController().post_init()
+        G2PPartnerController().post_init()
+
 
         # Initialize cache
         FastAPICache.init(InMemoryBackend(), prefix="master-data-cache")
