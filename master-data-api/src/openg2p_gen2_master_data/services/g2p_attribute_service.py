@@ -4,10 +4,12 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from ..engine import get_session_maker
+from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import G2PAttribute, G2PAttributeValue
+from ..repositories import AttributeValueRepository
 from ..schemas import AttributeData, AttributeValueData
 
 _config = None
@@ -107,17 +109,26 @@ class G2PAttributeService(BaseService):
         include_domains: bool = False,
         page_size: int = 1000,
         page_number: int = 1,
+        data_policies: Optional[List[dict]] = None,
     ) -> tuple[List[AttributeValueData], int]:
-        def scoped(stmt):
-            if attribute_id:
-                stmt = stmt.where(G2PAttributeValue.attribute_id == attribute_id)
-            if domain:
-                stmt = stmt.where(G2PAttributeValue.domain == domain)
-            elif not include_domains:
-                stmt = stmt.where(G2PAttributeValue.domain.is_(None))
-            return stmt
-
         async with get_session_maker()() as session:
+            policy_condition = await self._build_attribute_value_policy_condition(
+                data_policies,
+                session,
+                attribute_id=attribute_id,
+            )
+
+            def scoped(stmt):
+                if attribute_id:
+                    stmt = stmt.where(G2PAttributeValue.attribute_id == attribute_id)
+                if domain:
+                    stmt = stmt.where(G2PAttributeValue.domain == domain)
+                elif not include_domains:
+                    stmt = stmt.where(G2PAttributeValue.domain.is_(None))
+                if policy_condition is not None:
+                    stmt = stmt.where(policy_condition)
+                return stmt
+
             total = (
                 await session.execute(scoped(select(func.count()).select_from(G2PAttributeValue)))
             ).scalar_one()
@@ -128,6 +139,31 @@ class G2PAttributeService(BaseService):
             rows = (await session.execute(stmt)).scalars().all()
 
         return [self._to_value_data(r) for r in rows], total
+
+    async def _build_attribute_value_policy_condition(
+        self,
+        data_policies: Optional[List[dict]],
+        session,
+        attribute_id: Optional[str] = None,
+    ):
+        """Resolve ATTRIBUTE policy and translate it for ``G2PAttributeValue`` rows."""
+        if not data_policies:
+            return None
+
+        merged_expression = DataPolicyHelper.resolve_attribute_policy(data_policies)
+        if not merged_expression:
+            return None
+
+        attribute_context = None
+        if attribute_id:
+            attribute = await session.get(G2PAttribute, attribute_id)
+            if attribute:
+                attribute_context = attribute.attribute_code
+
+        return AttributeValueRepository().build_policy_condition(
+            merged_expression,
+            attribute_context=attribute_context,
+        )
 
     async def _attribute_code_exists(
         self,
@@ -322,7 +358,12 @@ class G2PAttributeService(BaseService):
             await session.refresh(attribute)
             return self._to_attribute_data(attribute)
 
-    async def delete_attribute(self, attribute_id: str) -> str:
+    async def delete_attribute(
+        self,
+        attribute_id: str,
+        *,
+        cascade: bool = False,
+    ) -> str:
         async with get_session_maker()() as session:
             attribute = await session.get(G2PAttribute, attribute_id)
             if not attribute:
@@ -338,12 +379,18 @@ class G2PAttributeService(BaseService):
                     .where(G2PAttributeValue.attribute_id == attribute_id)
                 )
             ).scalar_one()
-            if value_count:
+            if value_count and not cascade:
                 raise AttributeServiceError(
                     "G2P-ATTR-409",
                     f"Cannot delete attribute '{attribute_id}' while attribute values exist",
                 )
 
+            if value_count:
+                await session.execute(
+                    delete(G2PAttributeValue).where(
+                        G2PAttributeValue.attribute_id == attribute_id
+                    )
+                )
             await session.delete(attribute)
             await session.commit()
             return attribute_id

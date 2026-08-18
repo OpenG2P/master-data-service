@@ -5,6 +5,13 @@ questions:
   label: Master Data Hostname
   group: General
 
+- variable: keycloak-init.enabled
+  description: Provision the master-data Keycloak client (MASTER_DATA_ADMIN) in the shared staff realm
+  type: boolean
+  default: true
+  label: Enable Keycloak Init
+  group: General
+
 
 # Master Data DB
 - variable: global.postgresqlHost

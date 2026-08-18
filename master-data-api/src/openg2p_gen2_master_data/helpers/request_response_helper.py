@@ -1,7 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.schemas import G2PResponseHeader, G2PResponseStatus
+from openg2p_fastapi_common.schemas import (
+    G2PPaginationResponse,
+    G2PResponseHeader,
+    G2PResponseStatus,
+)
 
 from ..schemas import (
     GeoLevelData,
@@ -455,19 +459,29 @@ class RequestResponseHelper(BaseService):
         g2p_request: GetAttributeValuesRequest,
         values: List[AttributeValueData],
         total: Optional[int] = None,
+        page_size: Optional[int] = None,
     ) -> GetAttributeValuesResponse:
         """Construct a success response for get_attribute_values API.
 
         `total` is the unpaginated count, so a seed job can tell a short last
         page from a truncated one instead of guessing from the page size.
         """
+        total_items = total if total is not None else len(values)
+        pagination_response = None
+        if page_size and page_size > 0:
+            number_of_pages = (total_items + page_size - 1) // page_size if total_items else 0
+            pagination_response = G2PPaginationResponse(
+                number_of_items=total_items,
+                number_of_pages=number_of_pages,
+            )
+
         return GetAttributeValuesResponse(
             response_header=self._attribute_response_header(g2p_request),
             response_body=GetAttributeValuesResponseBody(
-                pagination_response=None,
+                pagination_response=pagination_response,
                 response_payload=GetAttributeValuesResponsePayload(
                     attribute_values=values,
-                    total=total,
+                    total=total_items,
                 ),
             ),
         )

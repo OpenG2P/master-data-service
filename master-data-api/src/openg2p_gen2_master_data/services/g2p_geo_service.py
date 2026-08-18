@@ -3,11 +3,13 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from openg2p_fastapi_common.service import BaseService
 
 from ..engine import get_session_maker
+from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import G2PGeoLevel, G2PGeoLevelValue
+from ..repositories import GeoLevelValueRepository
 from ..schemas import (
     GeoLevelData,
     GeoLevelValueData,
@@ -89,6 +91,7 @@ class G2PGeoService(BaseService):
         self,
         level_id: str,
         parent_level_value_id: Optional[str] = None,
+        data_policies: Optional[List[dict]] = None,
     ) -> List[GeoLevelValueData]:
         """
         Get geo level values for a specific level, optionally filtered by parent_level_value_id.
@@ -96,6 +99,7 @@ class G2PGeoService(BaseService):
         Args:
             level_id: The level ID to get values for
             parent_level_value_id: Optional parent level value ID to filter by
+            data_policies: Optional ATTRIBUTE/GEO data policies from middleware
 
         Returns:
             List of GeoLevelValueData
@@ -143,8 +147,34 @@ class G2PGeoService(BaseService):
                     )
                 )
 
+            policy_condition = self._build_geo_level_value_policy_condition(
+                data_policies,
+                level_context=level.level_mnemonic,
+            )
+            if policy_condition is not None:
+                query = query.where(policy_condition)
+
             values = (await session.execute(query)).scalars().all()
             return [self._to_value_data(value) for value in values]
+
+    def _build_geo_level_value_policy_condition(
+        self,
+        data_policies: Optional[List[dict]],
+        *,
+        level_context: Optional[str] = None,
+    ):
+        """Resolve GEO policy and translate it for ``G2PGeoLevelValue`` rows."""
+        if not data_policies:
+            return None
+
+        merged_expression = DataPolicyHelper.resolve_geo_policy(data_policies)
+        if not merged_expression:
+            return None
+
+        return GeoLevelValueRepository().build_policy_condition(
+            merged_expression,
+            level_context=level_context,
+        )
 
     async def _mnemonic_exists(
         self,
@@ -416,7 +446,12 @@ class G2PGeoService(BaseService):
             await session.refresh(value)
             return self._to_value_data(value)
 
-    async def delete_geo_level_value(self, level_value_id: str) -> str:
+    async def delete_geo_level_value(
+        self,
+        level_value_id: str,
+        *,
+        cascade: bool = False,
+    ) -> str:
         async with get_session_maker()() as session:
             value = await session.get(G2PGeoLevelValue, level_value_id)
             if not value:
@@ -425,19 +460,33 @@ class G2PGeoService(BaseService):
                     f"level_value_id not found: {level_value_id}",
                 )
 
-            child_values = (
-                await session.execute(
-                    select(func.count())
-                    .select_from(G2PGeoLevelValue)
-                    .where(G2PGeoLevelValue.parent_level_value_id == level_value_id)
+            descendants: list[str] = []
+            frontier = [level_value_id]
+            seen = {level_value_id}
+            while frontier:
+                child_ids = list(
+                    (
+                        await session.execute(
+                            select(G2PGeoLevelValue.level_value_id).where(
+                                G2PGeoLevelValue.parent_level_value_id.in_(frontier)
+                            )
+                        )
+                    ).scalars()
                 )
-            ).scalar_one()
-            if child_values:
+                frontier = [child_id for child_id in child_ids if child_id not in seen]
+                seen.update(frontier)
+                descendants.extend(frontier)
+
+            if descendants and not cascade:
                 raise GeoServiceError(
                     "G2P-GEO-409",
-                    f"Cannot delete level value with {child_values} child value(s)",
+                    f"Cannot delete level value with {len(descendants)} descendant value(s)",
                 )
 
-            await session.delete(value)
+            await session.execute(
+                delete(G2PGeoLevelValue).where(
+                    G2PGeoLevelValue.level_value_id.in_([*descendants, level_value_id])
+                )
+            )
             await session.commit()
             return level_value_id
