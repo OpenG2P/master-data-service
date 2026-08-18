@@ -273,10 +273,8 @@ geoSeed:
 
   # Which sections of the pack to load.
   #
-  # All three on: a registry seeding from here needs the code lists, and the
-  # sample people are what stop a fresh install showing an empty registry.
-  # Turning codelists off leaves each registry on the values its extension
-  # ships, which is the pre-country-pack behaviour.
+  # All three on: registries read code lists from the Master Data API, and the
+  # sample people stop a fresh install showing an empty registry.
   load:
     geo: true
     codelists: true
