@@ -36,6 +36,7 @@ RUN mkdir -p ${OPENG2P_DATA_DIR} \
     && rm -rf ${OPENG2P_DATA_DIR}/.git
 
 COPY docker/db-seed/load_geo_pack.py /seed/load_geo_pack.py
+COPY scripts/seed-data/codelists /seed/codelists
 RUN chmod +x /seed/load_geo_pack.py
 
 WORKDIR /seed

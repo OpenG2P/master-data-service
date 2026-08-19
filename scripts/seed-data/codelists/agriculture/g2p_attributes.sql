@@ -6,4 +6,5 @@ INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribut
 ('LIVESTOCK_BREED','LIVESTOCK_BREED','Livestock Breed','FALSE'),
 ('WATER_SOURCE','WATER_SOURCE','Water Source','FALSE'),
 ('MEANS_OF_ACQUISITION','MEANS_OF_ACQUISITION','Means of Acquisition','FALSE'),
-('SOIL_FERTILITY','SOIL_FERTILITY','Soil Fertility','FALSE');
+('SOIL_FERTILITY','SOIL_FERTILITY','Soil Fertility','FALSE')
+ON CONFLICT (attribute_id) DO NOTHING;

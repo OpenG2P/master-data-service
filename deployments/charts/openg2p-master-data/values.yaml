@@ -27,6 +27,8 @@ global:
   # Internal IAM staff-portal-api URL (self-registration + permission resolution).
   iamServiceUrl: 'http://commons-services-iam-staff-portal-api'
   authProviderApiUrl: '{{ tpl .Values.global.iamServiceUrl $ }}'
+  # Same Redis as IAM staff-portal-api (refresh-token store).
+  redisInstallationName: 'commons-redis'
   # Double-submit CSRF on state-changing master-data-api requests.
   csrfEnabled: true
 
@@ -174,6 +176,7 @@ masterDataAPI:
     # Auth / CSRF (iam-core fields inherited on master-data Settings).
     MASTER_DATA_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
     MASTER_DATA_API_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
+    MASTER_DATA_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}-master:6379/0'
     MASTER_DATA_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
 
   envVarsFrom:

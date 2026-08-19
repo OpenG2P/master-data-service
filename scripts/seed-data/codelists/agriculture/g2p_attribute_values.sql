@@ -51,4 +51,5 @@ INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_co
 -- Livestock Breed
 ('BREED_IMPROVED','LIVESTOCK_BREED','IMPROVED','IMPROVED',NULL,1),
 ('BREED_LOCAL','LIVESTOCK_BREED','LOCAL','LOCAL',NULL,2),
-('BREED_HYBRID','LIVESTOCK_BREED','HYBRID','HYBRID',NULL,3);
+('BREED_HYBRID','LIVESTOCK_BREED','HYBRID','HYBRID',NULL,3)
+ON CONFLICT (attribute_id, value_id) DO NOTHING;
