@@ -37,3 +37,26 @@ Render Env values section
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "gen2MasterData.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "masterDataUi.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+{{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the proper Docker Image Secret Names
+*/}}
+{{- define "masterDataUi.imagePullSecrets" -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image) "global" .Values.global) -}}
+{{- end -}}
+
+{{- define "masterDataUi.envVars" -}}
+{{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "gen2MasterData.baseEnvVars" (dict "envVars" $envVars "context" .) }}
+{{- end -}}

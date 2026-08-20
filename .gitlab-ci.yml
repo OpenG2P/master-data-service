@@ -43,9 +43,14 @@ variables:
             "ref": "develop"
           }
         ]
+      },
+      {
+        "name": "master-data-ui",
+        "dockerfile": "docker/master-data-ui/Dockerfile",
+        "context": "master-data-ui"
       }
     ]
 
   CHART_PATH: deployments/charts/openg2p-master-data
-  CHART_IMAGE_PATHS: '[".masterDataAPI.image.tag", ".geoSeed.image.tag"]'
+  CHART_IMAGE_PATHS: '[".masterDataAPI.image.tag", ".geoSeed.image.tag", ".masterDataUi.image.tag"]'
   CHART_GITLAB_PROJECT: openg2p/charts

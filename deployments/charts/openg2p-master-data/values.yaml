@@ -1,5 +1,6 @@
 global:
-  masterDataHostname: master-data.qa.openg2p.org
+  masterDataHostname: 'master-data.{{ .Release.Namespace }}.openg2p.org'
+  masterDataUiHostname: 'master-data-ui.{{ .Release.Namespace }}.openg2p.org'
   # Database
   postgresqlHost: commons-postgresql
   # Underscores to follow postgresql conventions
@@ -242,6 +243,116 @@ masterDataAPI:
       enabled: false
 
   containerPort: 8000
+
+masterDataUi:
+  enabled: true
+  nameOverride: master-data-ui
+  hostname: '{{ tpl .Values.global.masterDataUiHostname $ }}'
+
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  updateStrategy:
+    type: RollingUpdate
+  serviceAccount:
+    create: false
+    name: ""
+  image:
+    repository: registry.gitlab.com/openg2p/master-data-service/master-data-ui
+    tag: "develop"
+    pullPolicy: Always
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: false
+    runAsUser: 1001
+    runAsNonRoot: true
+
+  service:
+    type: ClusterIP
+    port: 80
+    externalTrafficPolicy: Cluster
+
+  containerPort: 3000
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 768Mi
+
+  istio:
+    enabled: true
+    virtualservice:
+      enabled: true
+      host: ""
+      gateway: "internal"
+      destination: '{{ .Release.Name }}-master-data-ui'
+      destinationPort: '{{ .Values.masterDataUi.service.port }}'
+      prefix: '/'
+      rewriteUri: "/"
+    gateway:
+      enabled: false
+      host: ""
+      ingressController:
+        istio: ingressgateway
+      httpTlsRedirect: false
+      httpEnabled: true
+      httpsEnabled: false
+      tls:
+        mode: SIMPLE
+        credentialName: ""
+
+  # Browser-facing IAM URL (Master Data UI login providers)
+  iamPublicUrl: 'https://staff-iam.{{ .Release.Namespace }}.openg2p.org'
+
+  envVars:
+    BACKEND_URL: 'http://commons-services-master-data-api'
+    DEFAULT_LOCALE: "en"
+    IAM_URL: '{{ tpl .Values.iamPublicUrl $ }}'
+    LOGIN_PROVIDER_ID: "1"
+    APPLICATION_MNEMONIC: "master-data"
+    COOKIE_DOMAIN: '.{{ .Release.Namespace }}.openg2p.org'
+    NODE_ENV: production
+
+  envVarsFrom: {}
+
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
 
 # ── Geo seeding ──────────────────────────────────────────────────────────────
 # MDS owns geography and seeds its own at install. `countryPack` is the single
