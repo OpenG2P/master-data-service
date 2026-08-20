@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
 			},
 			request_payload: {
 				level_value_id: body.level_value_id,
+				cascade: body.cascade ?? false,
 			},
 		}),
 		transformResponse: (responseBody) => responseBody?.response_payload,

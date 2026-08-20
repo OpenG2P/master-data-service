@@ -266,6 +266,7 @@ class UpdateGeoLevelValueResponse(G2PResponse):
 
 class DeleteGeoLevelValueRequestPayload(BaseModel):
     level_value_id: str
+    cascade: bool = False
 
 
 class DeleteGeoLevelValueRequestBody(G2PRequestBody):

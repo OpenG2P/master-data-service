@@ -268,6 +268,41 @@ def seed_codelists(conn, pack_dir, manifest, domains):
           f"({roles} carrying a role)")
 
 
+def seed_sql_codelists(conn, domains):
+    """Fill gaps the pack does not define, from scripts/seed-data/codelists.
+
+    Pack JSON is authoritative and is loaded first. These SQL files use
+    ON CONFLICT DO NOTHING so they only insert lists the pack omitted — for
+    example agriculture crops on XKM, which has core lists only.
+    """
+    root = os.environ.get("CODELISTS_SQL_DIR", "/seed/codelists")
+    if not os.path.isdir(root):
+        print("[geo-pack] no SQL codelist fixtures found — skipping")
+        return
+    wanted = ["core"] + [d for d in domains if d]
+    agri = os.path.join(root, "agriculture")
+    if os.path.isdir(agri) and "agriculture" not in wanted:
+        wanted.append("agriculture")
+    applied = []
+    with conn.cursor() as cur:
+        for domain in wanted:
+            d = os.path.join(root, domain)
+            if not os.path.isdir(d):
+                continue
+            for fn in ("g2p_attributes.sql", "g2p_attribute_values.sql"):
+                path = os.path.join(d, fn)
+                if not os.path.exists(path):
+                    continue
+                with open(path) as fh:
+                    cur.execute(fh.read())
+                applied.append(f"{domain}/{fn}")
+    conn.commit()
+    if applied:
+        print(f"[geo-pack] sql codelist fixtures: {', '.join(applied)}")
+    else:
+        print("[geo-pack] no SQL codelist fixtures found — skipping")
+
+
 
 SAMPLE_INDIVIDUAL_COLS = [
     "individual_id", "household_id", "given_name", "fathers_name", "full_name",
@@ -434,6 +469,7 @@ def main():
     if "codelists" in wanted:
         domains = [d.strip() for d in args.domains.split(",") if d.strip()]
         seed_codelists(conn, args.pack, manifest, domains)
+        seed_sql_codelists(conn, domains)
 
     if "samples" in wanted:
         seed_samples(conn, args.pack, manifest)

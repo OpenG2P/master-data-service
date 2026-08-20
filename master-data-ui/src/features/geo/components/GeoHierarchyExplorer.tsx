@@ -2,14 +2,16 @@
 
 import LoadingState from "@/components/LoadingState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useAuth } from "@/context/Authcontext";
 import { useFetch } from "@/shared/hooks/useFetch";
+import { withCsrfHeaders } from "@/shared/utils/csrf";
 import GeoChildrenTable from "./GeoChildrenTable";
 import GeoManageLevelsDialog from "./GeoManageLevelsDialog";
 import GeoNodeDialog, {
   type GeoNodeDialogField,
 } from "./GeoNodeDialog";
 import GeoTreePanel from "./GeoTreePanel";
-import { useGeoLevels, useGeoLevelValues } from "../hooks";
+import { useGeoLevels } from "../hooks";
 import {
   childrenCacheKey,
   getChildLevel,
@@ -78,8 +80,8 @@ function useViewportWidth() {
 
 export default function GeoHierarchyExplorer() {
   const t = useTranslations();
+  const { handleUnauthorized } = useAuth();
   const { refresh: refreshLevels } = useGeoLevels(false);
-  const { refresh: refreshValues } = useGeoLevelValues();
   const { execute: deleteLevelValue } = useFetch<{ level_value_id: string }>();
   const width = useViewportWidth();
   const isDesktop = width > 1200;
@@ -181,6 +183,44 @@ export default function GeoHierarchyExplorer() {
     []
   );
 
+  const fetchGeoLevelValues = useCallback(
+    async (
+      levelId: string,
+      parentLevelValueId: string,
+      signal: AbortSignal
+    ): Promise<GeoLevelValue[]> => {
+      const response = await fetch("/api/geo/geo-level-values", {
+        method: "POST",
+        credentials: "include",
+        headers: withCsrfHeaders("POST", {
+          "Content-Type": "application/json",
+        }),
+        signal,
+        body: JSON.stringify({
+          current_page: 1,
+          page_size: 500,
+          sort_by: "",
+          filter_by: "",
+          search_text: "",
+          level_id: levelId,
+          parent_level_value_id: parentLevelValueId,
+        }),
+      });
+
+      if (response.status === 401) {
+        handleUnauthorized();
+        return [];
+      }
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.statusText || t("geo_load_error"));
+      }
+      return Array.isArray(result) ? result : [];
+    },
+    [handleUnauthorized, t]
+  );
+
   const ensureChildren = useCallback(
     async (
       levelId: string,
@@ -218,19 +258,11 @@ export default function GeoHierarchyExplorer() {
 
       const request = (async () => {
         try {
-          const result = await refreshValues("/api/geo/geo-level-values", {
-            method: "POST",
-            body: JSON.stringify({
-              current_page: 1,
-              page_size: 500,
-              sort_by: "",
-              filter_by: "",
-              search_text: "",
-              level_id: levelId,
-              parent_level_value_id: parentLevelValueId,
-            }),
-          });
-          const values = Array.isArray(result) ? result : [];
+          const values = await fetchGeoLevelValues(
+            levelId,
+            parentLevelValueId,
+            controller.signal
+          );
           const entry: ChildrenCacheEntry = {
             values,
             loading: false,
@@ -269,7 +301,7 @@ export default function GeoHierarchyExplorer() {
       childrenInflightRef.current.set(cacheKey, request);
       return request;
     },
-    [refreshValues, t]
+    [fetchGeoLevelValues, t]
   );
 
   const getFetchTargetForNode = useCallback(
@@ -636,7 +668,10 @@ export default function GeoHierarchyExplorer() {
     async (value: GeoLevelValue) => {
       const result = await deleteLevelValue("/api/geo/delete-geo-level-value", {
         method: "POST",
-        body: JSON.stringify({ level_value_id: value.level_value_id }),
+        body: JSON.stringify({
+          level_value_id: value.level_value_id,
+          cascade: true,
+        }),
       });
 
       if (result?.level_value_id) {

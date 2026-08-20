@@ -21,18 +21,14 @@
 
 BEGIN;
 
--- Same table and column names as the registry's own attribute tables, on
--- purpose: the install-time copy is then a straight insert with no mapping.
--- They live in different databases; the connection decides which you get.
+-- Attribute catalog owned by Master Data and consumed through its API.
 CREATE TABLE IF NOT EXISTS g2p_attributes (
     attribute_id        VARCHAR PRIMARY KEY,
     attribute_code      VARCHAR,
     attribute_display   VARCHAR,
     is_hierarchical     BOOLEAN DEFAULT FALSE,
 
-    -- Label i18n, matching what g2p_geo_* already carries. The registry's
-    -- version has none, so attribute labels are translated today by a frontend
-    -- message catalogue rather than by data.
+    -- Label i18n, matching what g2p_geo_* already carries.
     display_name_i18n   JSONB,
 
     -- Which pack, and which version of it, these values came from. Lets a
@@ -46,9 +42,7 @@ CREATE TABLE IF NOT EXISTS g2p_attributes (
 
 -- The key is COMPOSITE. A value is identified by its list plus its code, not by
 -- the code alone: 'OTHER' occurs in 13 of Ethiopia's lists, 'NONE' in 5,
--- 'TEMPORARY' in 3. The registry's own table uses value_id alone, which is why
--- Farmer had to prefix every value (CROP_WHEAT, LSTK_CATTLE) while NSR's stay
--- bare (PIPED, OTHER) — an inconsistency this avoids rather than inherits.
+-- and 'TEMPORARY' in 3.
 CREATE TABLE IF NOT EXISTS g2p_attribute_values (
     value_id            VARCHAR NOT NULL,
     attribute_id        VARCHAR NOT NULL,

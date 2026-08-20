@@ -87,7 +87,7 @@
   "geo_form_required": "Name and code are required.",
   "geo_hierarchy_path": "Hierarchy",
   "geo_delete_level_value": "Delete Level Value",
-  "geo_delete_level_value_confirm": "Delete \"{name}\"? Child values under this node must be removed first.",
+  "geo_delete_level_value_confirm": "Delete \"{name}\" and all child values below it? This cannot be undone.",
 
   "attribute_code": "Reference Data Code",
   "is_hierarchical": "Is Hierarchical",
@@ -96,7 +96,7 @@
   "search_attributes": "Search reference data...",
   "no_attributes": "No reference data found",
   "confirm_remove_attribute": "Remove Reference Data",
-  "confirm_remove_attribute_msg": "Are you sure you want to remove",
+  "confirm_remove_attribute_msg": "Remove this reference data and all of its values? This cannot be undone:",
   "attr_code_required": "Reference data code is required",
   "attr_code_placeholder": "e.g. gender",
   "hierarchical": "Hierarchical",

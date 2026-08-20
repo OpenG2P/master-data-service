@@ -8,7 +8,7 @@ from openg2p_fastapi_common.schemas import (
     G2PResponseBody,
     G2PResponseHeader,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AttributeData(BaseModel):
@@ -91,15 +91,29 @@ class GetAttributesResponse(G2PResponse):
 class GetAttributeValuesRequestPayload(BaseModel):
     # Omit attribute_id to fetch every value — which is what a registry's
     # install-time seed wants, rather than one round trip per list.
-    attribute_id: Optional[str] = None
-    domain: Optional[str] = None
+    attribute_id: Optional[str] = Field(
+        default=None,
+        description="Code-list id. When set, returns all values for that attribute.",
+    )
+    domain: Optional[str] = Field(default=None, description="Optional domain filter.")
     include_domains: Optional[bool] = False
-    page_size: Optional[int] = 1000
-    page_number: Optional[int] = 1
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "attribute_id": "string",
+                "domain": "string",
+                "include_domains": False,
+            }
+        }
+    )
 
 
 class GetAttributeValuesRequestBody(G2PRequestBody):
-    request_payload: Optional[GetAttributeValuesRequestPayload] = GetAttributeValuesRequestPayload()
+    # Required (like geo) so Swagger does not replace the payload with a
+    # partial default that drops null optional fields.
+    # Pagination lives on G2PRequestBody.pagination_request (current_page / page_size).
+    request_payload: GetAttributeValuesRequestPayload
 
 
 class GetAttributeValuesRequest(G2PRequest):
@@ -120,7 +134,6 @@ class GetAttributeValuesResponse(G2PResponse):
 
 
 # ── Attribute write APIs ─────────────────────────────────────────────────────
-
 
 class AddAttributeRequestPayload(BaseModel):
     attribute_code: str
@@ -181,6 +194,7 @@ class UpdateAttributeResponse(G2PResponse):
 
 class DeleteAttributeRequestPayload(BaseModel):
     attribute_id: str
+    cascade: bool = False
 
 
 class DeleteAttributeRequestBody(G2PRequestBody):
