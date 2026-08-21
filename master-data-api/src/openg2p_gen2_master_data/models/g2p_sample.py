@@ -1,5 +1,7 @@
+from datetime import date
+
 from openg2p_fastapi_common.models import BaseORMModel
-from sqlalchemy import Float, Integer, String
+from sqlalchemy import Date, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +46,12 @@ class G2PSampleIndividual(BaseORMModel):
     employment_status: Mapped[str] = mapped_column(String, nullable=True)
     disability_status: Mapped[str] = mapped_column(String, nullable=True)
 
+    # The full date. birth_year and age are kept because existing packs carry
+    # them and registries seeded from them for a release — but a registry's own
+    # column is a DATE, so before this every sample person was given 1 January by
+    # whichever loader got to them, and every birthday chart showed one January
+    # spike. The pack now says which day it is.
+    birth_date: Mapped[date] = mapped_column(Date, nullable=True)
     birth_year: Mapped[int] = mapped_column(Integer, nullable=True)
     age: Mapped[int] = mapped_column(Integer, nullable=True)
     phone: Mapped[str] = mapped_column(String, nullable=True)

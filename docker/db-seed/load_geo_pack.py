@@ -272,7 +272,7 @@ def seed_codelists(conn, pack_dir, manifest, domains):
 SAMPLE_INDIVIDUAL_COLS = [
     "individual_id", "household_id", "given_name", "fathers_name", "full_name",
     "gender", "relationship_to_head", "marital_status", "education_level",
-    "employment_status", "disability_status", "birth_year", "age", "phone",
+    "employment_status", "disability_status", "birth_date", "birth_year", "age", "phone",
     "national_id", "geo_pcode", "address_parts", "latitude", "longitude",
     "country", "version",
 ]
@@ -329,6 +329,18 @@ def seed_samples(conn, pack_dir, manifest):
 
     inds = rows_for("individuals.json", SAMPLE_INDIVIDUAL_COLS)
     hhs = rows_for("households.json", SAMPLE_HOUSEHOLD_COLS)
+
+    # The API creates these tables with SQLAlchemy's create_all, which creates a
+    # MISSING table and never adds a column to one that already exists. So on any
+    # environment seeded before birth_date was introduced the column is simply
+    # absent, and the insert below fails on a column list that looks correct.
+    #
+    # Adding it here rather than in a migration keeps the seed job self-sufficient
+    # and idempotent: IF NOT EXISTS makes the second run a no-op.
+    with conn.cursor() as cur:
+        cur.execute("ALTER TABLE g2p_sample_individuals "
+                    "ADD COLUMN IF NOT EXISTS birth_date date")
+    conn.commit()
 
     # Households first: an individual references one, and seeding the other way
     # round leaves a window where the reference dangles.
