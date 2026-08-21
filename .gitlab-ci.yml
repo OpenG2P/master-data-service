@@ -28,7 +28,7 @@ variables:
           },
           {
             "arg": "IAM_SERVICE_REF",
-            "repo": "https://github.com/openg2p/iam-service",
+            "repo": "https://gitlab.com/openg2p/iam",
             "ref": "1.4"
           }
         ]
