@@ -269,6 +269,24 @@ def seed_codelists(conn, pack_dir, manifest, domains):
 
 
 
+def _clean_id(value):
+    """Normalise a foundational ID to its digits-and-letters form.
+
+    Packs write national IDs in a human-readable grouped form ("4028 6914
+    8701"). That string is copied verbatim into every downstream system --
+    registries store it as `foundational_id`, and the mock identity system
+    stores it as `individualId` -- and eSignet then matches it EXACTLY. So an
+    operator who types the ID the way it is printed on a card, without the
+    grouping, gets "invalid_individual_id" and no indication why.
+
+    Stripping whitespace once here, at the point the pack is read, is what
+    keeps the registry and the ID system agreeing on the same string.
+    """
+    if not isinstance(value, str):
+        return value
+    return "".join(value.split()) or None
+
+
 SAMPLE_INDIVIDUAL_COLS = [
     "individual_id", "household_id", "given_name", "fathers_name", "full_name",
     "gender", "relationship_to_head", "marital_status", "education_level",
@@ -322,6 +340,8 @@ def seed_samples(conn, pack_dir, manifest):
                     row.append(version)
                 elif c == "address_parts":
                     row.append(json.dumps(rec.get("address_parts") or {}))
+                elif c == "national_id":
+                    row.append(_clean_id(rec.get(c)))
                 else:
                     row.append(rec.get(c))
             out.append(tuple(row))
