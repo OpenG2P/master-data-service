@@ -4,8 +4,8 @@ FROM python:3.12.11-alpine3.22
 # workflow input. The master-data code is installed from the LOCAL in-repo
 # source, so the image always reflects the current branch.
 ARG FASTAPI_COMMON_REF=develop
-# 1.3 does not export data_policy; MDS controllers require current iam-core.
-ARG IAM_SERVICE_REF=develop
+# Pin iam-core to the IAM 1.4 line (data_policy lives here; 1.3 does not export it).
+ARG IAM_SERVICE_REF=1.4
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
  && apk add --no-cache bash git gettext libpq-dev libmagic
