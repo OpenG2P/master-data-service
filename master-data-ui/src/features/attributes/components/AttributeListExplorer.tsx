@@ -50,7 +50,10 @@ export default function AttributeListExplorer() {
         if (!confirmDelete) return;
         const result = await deleteAttribute("/api/attributes/delete-attribute", {
             method: "POST",
-            body: JSON.stringify({ attribute_id: confirmDelete.attribute_id }),
+            body: JSON.stringify({
+                attribute_id: confirmDelete.attribute_id,
+                cascade: true,
+            }),
         });
         if (result?.attribute_id) {
             refresh();

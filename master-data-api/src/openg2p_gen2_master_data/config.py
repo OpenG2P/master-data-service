@@ -1,11 +1,24 @@
-from openg2p_fastapi_common.config import Settings as BaseSettings
+from iam_core.user_auth.config import Settings as IamSettings
 from pydantic_settings import SettingsConfigDict
 
 from . import __version__
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="gen2_master_data_api_", env_file=".env", extra="allow")
+class Settings(IamSettings):
+    """Master-data settings, including iam-core auth fields under one env prefix.
+
+    Auth/CSRF/redis fields come from ``IamSettings`` but are read from
+    ``MASTER_DATA_API_*`` (not ``COMMON_*``). Load this Settings before
+    ``IAMInitializer`` so iam-core middleware ``get_config(strict=False)``
+    picks up this instance.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="master_data_api_",
+        env_file=".env",
+        extra="allow",
+        env_nested_delimiter="__",
+    )
 
     openapi_title: str = "OpenG2P Gen 2 Master Data"
     openapi_description: str = """
@@ -23,6 +36,9 @@ class Settings(BaseSettings):
     db_hostname: str = "localhost"
     db_port: int = 5432
     db_dbname: str = "master_data"
+
+    # Keycloak client / staff-portal application mnemonic for MASTER_DATA_ADMIN.
+    keycloak_client_id: str | None = "master-data"
 
     # Cache settings
     cache_expire_seconds: int = 300  # 5 minutes default

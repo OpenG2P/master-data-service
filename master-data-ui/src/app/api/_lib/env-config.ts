@@ -4,7 +4,7 @@ export function getServerEnv() {
         backendUrl: process.env.BACKEND_URL ?? "",
         iamUrl: process.env.IAM_URL ?? "",
         loginProviderId: process.env.LOGIN_PROVIDER_ID ?? "",
-        applicationMnemonic: process.env.APPLICATION_MNEMONIC ?? "openg2p-master-data",
+        applicationMnemonic: process.env.APPLICATION_MNEMONIC ?? "master-data",
         cookieDomain: process.env.COOKIE_DOMAIN?.trim() ?? "",
         defaultLocale: process.env.DEFAULT_LOCALE ?? "",
     };

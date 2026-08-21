@@ -3,31 +3,33 @@ import logging
 from typing import Optional
 
 from fastapi_cache.decorator import cache
+from iam_core.user_auth.decorators import data_policy, require_permissions
 from openg2p_fastapi_common.controller import BaseController
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ..services import G2PAttributeService
+from ..config import Settings
 from ..helpers import RequestResponseHelper
+from ..helpers.data_policy_request_helper import get_data_policies, get_data_policy_mnemonics
 from ..schemas import (
+    AddAttributeRequest,
+    AddAttributeResponse,
+    AddAttributeValueRequest,
+    AddAttributeValueResponse,
+    DeleteAttributeRequest,
+    DeleteAttributeResponse,
+    DeleteAttributeValueRequest,
+    DeleteAttributeValueResponse,
     GetAttributesRequest,
     GetAttributesResponse,
     GetAttributeValuesRequest,
     GetAttributeValuesResponse,
-    AddAttributeRequest,
-    AddAttributeResponse,
     UpdateAttributeRequest,
     UpdateAttributeResponse,
-    DeleteAttributeRequest,
-    DeleteAttributeResponse,
-    AddAttributeValueRequest,
-    AddAttributeValueResponse,
     UpdateAttributeValueRequest,
     UpdateAttributeValueResponse,
-    DeleteAttributeValueRequest,
-    DeleteAttributeValueResponse,
 )
-from ..config import Settings
+from ..services import G2PAttributeService
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -61,24 +63,24 @@ def cache_key_builder_attribute_values(
     """Custom key builder for get_attribute_values endpoint."""
     prefix = f"{namespace}:{func.__module__}:{func.__name__}"
     req_body = kwargs.get("get_attribute_values_request")
+    parts = []
     if req_body:
-        body_hash = hashlib.md5(req_body.model_dump_json().encode()).hexdigest()
-        return f"{prefix}:{body_hash}"
+        parts.append(hashlib.md5(req_body.model_dump_json().encode()).hexdigest())
+    if request is not None:
+        mnemonics = sorted(get_data_policy_mnemonics(request))
+        if mnemonics:
+            parts.append(hashlib.md5("|".join(mnemonics).encode()).hexdigest())
+    if parts:
+        return f"{prefix}:{':'.join(parts)}"
     return prefix
 
 
 class G2PAttributeController(BaseController):
     """Serves the country's code lists.
 
-    Additive: a new router at a new prefix. No existing route changes shape, and
-    these return an empty list until a deployment opts into loading code lists
-    (geoSeed.load.codelists) — so an install that has not is unaffected.
-
-    Unauthenticated, like the geo hierarchy routes alongside it: the intended
-    caller is a registry's install-time seed Job, which has no user token. It
-    copies these into the registry's own tables and validates against that copy
-    afterwards, which keeps this an install-time dependency rather than one on
-    every write.
+    Reads used by registry UI: auth only (``@require_permissions({})``) plus
+    data-policy filtering on values. Mutations require MASTER_DATA_ADMIN
+    permissions under the master-data-ui Keycloak client.
     """
 
     def __init__(self, **kwargs):
@@ -145,6 +147,7 @@ class G2PAttributeController(BaseController):
             methods=["POST"],
         )
 
+    @require_permissions({})
     @cache(expire=_config.cache_expire_seconds, key_builder=cache_key_builder_attributes)
     async def get_all_attributes(
         self,
@@ -167,26 +170,35 @@ class G2PAttributeController(BaseController):
             _logger.error("Error getting attributes: %s", str(e), exc_info=True)
             return self.request_response_helper.construct_attributes_error_response(e, get_attributes_request)
 
+    @require_permissions({})
+    @data_policy
     @cache(expire=_config.cache_expire_seconds, key_builder=cache_key_builder_attribute_values)
     async def get_attribute_values(
         self,
+        http_request: Request,
         get_attribute_values_request: GetAttributeValuesRequest,
     ) -> GetAttributeValuesResponse:
         _logger.debug("Get Attribute Values Request: %s", get_attribute_values_request)
         try:
-            payload = get_attribute_values_request.request_body.request_payload
+            body = get_attribute_values_request.request_body
+            payload = body.request_payload
+            pagination = body.pagination_request
+            page_size = pagination.page_size if pagination else 1000
+            page_number = pagination.current_page if pagination else 1
+
             values, total = await self.attribute_service.get_attribute_values(
                 attribute_id=payload.attribute_id if payload else None,
                 domain=payload.domain if payload else None,
                 include_domains=bool(payload.include_domains) if payload else False,
-                page_size=payload.page_size if payload and payload.page_size else 1000,
-                page_number=payload.page_number if payload and payload.page_number else 1,
+                page_size=page_size,
+                page_number=page_number,
+                data_policies=get_data_policies(http_request),
             )
 
             _logger.debug("Attribute values: %s of %s", len(values), total)
 
             return self.request_response_helper.construct_attribute_values_success_response(
-                get_attribute_values_request, values, total
+                get_attribute_values_request, values, total, page_size=page_size
             )
         except Exception as e:
             _logger.error("Error getting attribute values: %s", str(e), exc_info=True)
@@ -194,6 +206,7 @@ class G2PAttributeController(BaseController):
                 e, get_attribute_values_request
             )
 
+    @require_permissions({"referenceData:create"})
     async def add_attribute(
         self,
         add_attribute_request: AddAttributeRequest,
@@ -220,6 +233,7 @@ class G2PAttributeController(BaseController):
                 e, add_attribute_request
             )
 
+    @require_permissions({"referenceData:edit"})
     async def update_attribute(
         self,
         update_attribute_request: UpdateAttributeRequest,
@@ -237,14 +251,18 @@ class G2PAttributeController(BaseController):
                 e, update_attribute_request
             )
 
+    @require_permissions({"referenceData:delete"})
     async def delete_attribute(
         self,
         delete_attribute_request: DeleteAttributeRequest,
     ) -> DeleteAttributeResponse:
         _logger.debug("Delete Attribute Request: %s", delete_attribute_request)
         try:
-            attribute_id = delete_attribute_request.request_body.request_payload.attribute_id
-            deleted_id = await self.attribute_service.delete_attribute(attribute_id)
+            payload = delete_attribute_request.request_body.request_payload
+            deleted_id = await self.attribute_service.delete_attribute(
+                payload.attribute_id,
+                cascade=payload.cascade,
+            )
             return self.request_response_helper.construct_delete_attribute_success_response(
                 delete_attribute_request, deleted_id
             )
@@ -254,6 +272,7 @@ class G2PAttributeController(BaseController):
                 e, delete_attribute_request
             )
 
+    @require_permissions({"referenceData:create"})
     async def add_attribute_value(
         self,
         add_attribute_value_request: AddAttributeValueRequest,
@@ -284,6 +303,7 @@ class G2PAttributeController(BaseController):
                 e, add_attribute_value_request
             )
 
+    @require_permissions({"referenceData:edit"})
     async def update_attribute_value(
         self,
         update_attribute_value_request: UpdateAttributeValueRequest,
@@ -301,6 +321,7 @@ class G2PAttributeController(BaseController):
                 e, update_attribute_value_request
             )
 
+    @require_permissions({"referenceData:delete"})
     async def delete_attribute_value(
         self,
         delete_attribute_value_request: DeleteAttributeValueRequest,

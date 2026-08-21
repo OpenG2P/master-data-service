@@ -1,5 +1,6 @@
 global:
-  masterDataHostname: master-data.qa.openg2p.org
+  masterDataHostname: 'master-data.{{ .Release.Namespace }}.openg2p.org'
+  masterDataUiHostname: 'master-data-ui.{{ .Release.Namespace }}.openg2p.org'
   # Database
   postgresqlHost: commons-postgresql
   # Underscores to follow postgresql conventions
@@ -12,9 +13,25 @@ global:
   masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
 
   # IAM (JWT validation + DP_ role -> permission resolution). Consumed by
-  # iam-core's auth middleware via its COMMON_* env; override per environment.
-  authClientId: registry-staff-portal
-  authProviderApiUrl: http://iam-staff-portal-api
+  # master-data Settings (MASTER_DATA_API_*); override per environment.
+  # Must match the Keycloak client / staff-portal application mnemonic
+  # (master-data) that carries MASTER_DATA_ADMIN for CRUD.
+  authClientId: master-data
+  # K8s Secret holding the OIDC client password (same name as clientId when
+  # provisioned by keycloak-init). Used by the iam-register Job for
+  # client_credentials against Keycloak.
+  authClientSecret: master-data
+  authClientSecretKey: client_secret
+  keycloakBaseUrl: 'https://keycloak.{{ .Release.Namespace }}.openg2p.org'
+  keycloakRealm: staff
+  keycloakIssuerUrl: '{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.keycloakRealm $ }}'
+  # Internal IAM staff-portal-api URL (self-registration + permission resolution).
+  iamServiceUrl: 'http://commons-services-iam-staff-portal-api'
+  authProviderApiUrl: '{{ tpl .Values.global.iamServiceUrl $ }}'
+  # Same Redis as IAM staff-portal-api (refresh-token store).
+  redisInstallationName: 'commons-redis'
+  # Double-submit CSRF on state-changing master-data-api requests.
+  csrfEnabled: true
 
 postgres-init:
   enabled: true
@@ -30,6 +47,67 @@ postgres-init:
       secretUserPasswordKey: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
       extensions:
         - 'pg_trgm'
+
+# ---------------------------------------------------------------------------
+# keycloak-init — provisions the master-data OIDC client + MASTER_DATA_ADMIN
+# role in the shared `staff` realm (same pattern as AWE / registry).
+#
+# Creates:
+#   * confidential client `global.authClientId` (default: master-data) with
+#     service accounts enabled (needed by iam-register client_credentials)
+#   * client role MASTER_DATA_ADMIN
+#   * K8s Secret named after the clientId with key `client_secret`
+#   * maps MASTER_DATA_ADMIN onto the commons-provisioned `admin` user
+# ---------------------------------------------------------------------------
+keycloak-init:
+  enabled: true
+  keycloak:
+    url: 'http://commons-keycloak:80'
+    user: 'admin'
+    password: ''
+    existingSecret: 'commons-keycloak'
+    existingSecretKey: 'admin-password'
+  suffix: '{{ .Release.Namespace }}'
+  realms:
+    staff:
+      clients:
+        - clientId: '{{ tpl .Values.global.authClientId $ }}'
+          name: OpenG2P Master Data
+          redirectUris:
+            - 'https://{{ tpl .Values.global.masterDataHostname $ }}/*'
+          clientRoles:
+            - "MASTER_DATA_ADMIN"
+      users:
+        # Assumes `admin` already exists from the commons layer.
+        - username: admin
+          clientRoleMappings:
+            '{{ tpl .Values.global.authClientId $ }}':
+              - "MASTER_DATA_ADMIN"
+
+# ---------------------------------------------------------------------------
+# IAM registration — self-registers this master-data release into the IAM
+# staff portal (same pattern as registry-platform/.../files/iam-registration).
+# Post-install/post-upgrade hook Job pushes files/iam-registration/payload.json
+# (permissions + MASTER_DATA_ADMIN role mapping) to IAM. application_mnemonic
+# is global.authClientId; application_url is https://<masterDataHostname>.
+# Runs after keycloak-init so the client_secret Secret exists.
+# ---------------------------------------------------------------------------
+iamRegister:
+  enabled: true
+  applicationDescription: "OpenG2P Master Data"
+  image:
+    repository: curlimages/curl
+    tag: "8.11.1"
+    pullPolicy: IfNotPresent
+  backoffLimit: 5
+  tokenMaxAttempts: 30
+  registerMaxAttempts: 10
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
 
 masterDataAPI:
   enabled: true
@@ -90,18 +168,20 @@ masterDataAPI:
         credentialName: ""
 
   envVars:
-    GEN2_MASTER_DATA_API_DB_HOSTNAME: '{{ tpl .Values.global.postgresqlHost $ }}'
-    GEN2_MASTER_DATA_API_DB_DBNAME: '{{ tpl .Values.global.masterDataDB $ }}'
-    GEN2_MASTER_DATA_API_DB_PORT: '{{ .Values.global.masterDataDBPort }}'
-    GEN2_MASTER_DATA_API_DB_USERNAME: '{{ tpl .Values.global.masterDataDBUser $ }}'
-    GEN2_MASTER_DATA_API_PORT: '{{ .Values.containerPort }}'
-    GEN2_MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
-    # Read by iam-core's auth middleware (env_prefix "common_").
-    COMMON_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
-    COMMON_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
+    MASTER_DATA_API_DB_HOSTNAME: '{{ tpl .Values.global.postgresqlHost $ }}'
+    MASTER_DATA_API_DB_DBNAME: '{{ tpl .Values.global.masterDataDB $ }}'
+    MASTER_DATA_API_DB_PORT: '{{ .Values.global.masterDataDBPort }}'
+    MASTER_DATA_API_DB_USERNAME: '{{ tpl .Values.global.masterDataDBUser $ }}'
+    MASTER_DATA_API_PORT: '{{ .Values.containerPort }}'
+    MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
+    # Auth / CSRF (iam-core fields inherited on master-data Settings).
+    MASTER_DATA_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    MASTER_DATA_API_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
+    MASTER_DATA_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}-master:6379/0'
+    MASTER_DATA_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
 
   envVarsFrom:
-    GEN2_MASTER_DATA_API_DB_PASSWORD:
+    MASTER_DATA_API_DB_PASSWORD:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
@@ -158,11 +238,121 @@ masterDataAPI:
     # (the migration is not retried). Everything downstream that needs the
     # schema — e.g. the geo-seed hook Job — then failed, taking the whole Helm
     # release with it, while the API pod looked healthy.
-    - 'until PGPASSWORD="${GEN2_MASTER_DATA_API_DB_PASSWORD}" psql -q -U "${GEN2_MASTER_DATA_API_DB_USERNAME}" -h "${GEN2_MASTER_DATA_API_DB_HOSTNAME}" -p "${GEN2_MASTER_DATA_API_DB_PORT:-5432}" -d "${GEN2_MASTER_DATA_API_DB_DBNAME:-masterDatadb}" -c "SELECT 1" >/dev/null 2>&1; do echo "waiting for postgres credentials to work..."; sleep 3; done'
+    - 'until PGPASSWORD="${MASTER_DATA_API_DB_PASSWORD}" psql -q -U "${MASTER_DATA_API_DB_USERNAME}" -h "${MASTER_DATA_API_DB_HOSTNAME}" -p "${MASTER_DATA_API_DB_PORT:-5432}" -d "${MASTER_DATA_API_DB_DBNAME:-masterDatadb}" -c "SELECT 1" >/dev/null 2>&1; do echo "waiting for postgres credentials to work..."; sleep 3; done'
     containerSecurityContext:
       enabled: false
 
   containerPort: 8000
+
+masterDataUi:
+  enabled: true
+  nameOverride: master-data-ui
+  hostname: '{{ tpl .Values.global.masterDataUiHostname $ }}'
+
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  updateStrategy:
+    type: RollingUpdate
+  serviceAccount:
+    create: false
+    name: ""
+  image:
+    repository: registry.gitlab.com/openg2p/master-data-service/master-data-ui
+    tag: "develop"
+    pullPolicy: Always
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: false
+    runAsUser: 1001
+    runAsNonRoot: true
+
+  service:
+    type: ClusterIP
+    port: 80
+    externalTrafficPolicy: Cluster
+
+  containerPort: 3000
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 768Mi
+
+  istio:
+    enabled: true
+    virtualservice:
+      enabled: true
+      host: ""
+      gateway: "internal"
+      destination: '{{ .Release.Name }}-master-data-ui'
+      destinationPort: '{{ .Values.masterDataUi.service.port }}'
+      prefix: '/'
+      rewriteUri: "/"
+    gateway:
+      enabled: false
+      host: ""
+      ingressController:
+        istio: ingressgateway
+      httpTlsRedirect: false
+      httpEnabled: true
+      httpsEnabled: false
+      tls:
+        mode: SIMPLE
+        credentialName: ""
+
+  # Browser-facing IAM URL (Master Data UI login providers)
+  iamPublicUrl: 'https://staff-iam.{{ .Release.Namespace }}.openg2p.org'
+
+  envVars:
+    BACKEND_URL: 'http://commons-services-master-data-api'
+    DEFAULT_LOCALE: "en"
+    IAM_URL: '{{ tpl .Values.iamPublicUrl $ }}'
+    LOGIN_PROVIDER_ID: "1"
+    APPLICATION_MNEMONIC: "master-data"
+    COOKIE_DOMAIN: '.{{ .Release.Namespace }}.openg2p.org'
+    NODE_ENV: production
+
+  envVarsFrom: {}
+
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
 
 # ── Geo seeding ──────────────────────────────────────────────────────────────
 # MDS owns geography and seeds its own at install. `countryPack` is the single
@@ -197,10 +387,8 @@ geoSeed:
 
   # Which sections of the pack to load.
   #
-  # All three on: a registry seeding from here needs the code lists, and the
-  # sample people are what stop a fresh install showing an empty registry.
-  # Turning codelists off leaves each registry on the values its extension
-  # ships, which is the pre-country-pack behaviour.
+  # All three on: registries read code lists from the Master Data API, and the
+  # sample people stop a fresh install showing an empty registry.
   load:
     geo: true
     codelists: true
