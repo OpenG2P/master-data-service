@@ -15,7 +15,7 @@ WORKDIR /app
 # External libs (openg2p-fastapi-common)
 RUN pip install --no-cache-dir \
     "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
-    "git+https://gitlab.com/openg2p/iam@${IAM_SERVICE_REF}#subdirectory=iam-core"
+    "git+https://gitlab.com/openg2p/platform-services/iam@${IAM_SERVICE_REF}#subdirectory=iam-core"
 
 # Local master-data source (build context = repo root). Remaining deps resolve
 # from PyPI via the package's pyproject.

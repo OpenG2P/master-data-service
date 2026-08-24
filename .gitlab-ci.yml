@@ -4,7 +4,7 @@
 # from this repo's GitHub caller. All versioning/build/publish logic lives
 # centrally in openg2p/packaging@v1; this file only declares what THIS repo has.
 #
-#   images -> registry.gitlab.com/openg2p/master-data-service/<name>   (this project)
+#   images -> registry.gitlab.com/openg2p/platform-services/master-data-service/<name>   (this project)
 #   chart  -> openg2p/charts Helm registry                (shared catalogue)
 
 include:
@@ -28,7 +28,7 @@ variables:
           },
           {
             "arg": "IAM_SERVICE_REF",
-            "repo": "https://gitlab.com/openg2p/iam",
+            "repo": "https://gitlab.com/openg2p/platform-services/iam",
             "ref": "1.4"
           }
         ]
