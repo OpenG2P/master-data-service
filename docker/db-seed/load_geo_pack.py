@@ -11,26 +11,18 @@ effect of installing a registry — anything else needing MDS geo depended on a
 registry install having happened first. This moves that ownership where it
 belongs, and MDS seeds its own data at its own install.
 
-Idempotent by P-code
---------------------
-The pack uses the P-code as `level_value_id`, so re-running upserts in place
+Idempotent on level_value_id
+----------------------------
+The pack uses a stable id as `level_value_id`, so re-running upserts in place
 rather than duplicating. That makes this safe as a post-install/post-upgrade
-hook, and it makes a pack refresh (a new COD-AB release) a re-run rather than a
-migration.
+hook, and it makes a pack refresh a re-run rather than a migration.
 
 Pack-flavour agnostic
 ---------------------
 This reads nothing but levels.json, values.json, manifest.json and
-boundaries/*.geojson, so it cannot tell a real country pack from a synthetic one
-— which is the point. Switching an environment between Ethiopia and the
-fictitious Kamuntu is a `countryPack` value change, not a code change.
-
-Boundaries
-----------
-Simplified GeoJSON is optionally uploaded to object storage and the resulting
-URL recorded in `boundary_simplified_uri`. Geometry deliberately does not go
-into Postgres rows: it is bulk binary that only ever gets served as files, and
-inlining it would bloat every query that touches the table.
+optionally pack codelists, so it cannot tell a real country pack from a
+synthetic one — which is the point. Switching an environment between Ethiopia
+and the fictitious Kamuntu is a `countryPack` value change, not a code change.
 """
 
 from __future__ import annotations
@@ -111,26 +103,8 @@ def upload_boundaries(pack_dir, manifest, args):
     return urls
 
 
-def seed(conn, levels, values, manifest, boundary_urls, args):
-    # Every pack carries `version`. The two older fields are only consulted for
-    # packs built before that was true, and are COD-AB-specific — a synthetic
-    # pack has no upstream to have been modified.
-    version = (manifest.get("version")
-               or manifest.get("upstream_last_modified")
-               or manifest.get("fetched_on"))
-    level_name = {lv["level_id"]: lv["level_mnemonic"] for lv in levels}
-
+def seed(conn, levels, values, manifest, args):
     with conn.cursor() as cur:
-        cur.execute("select column_name from information_schema.columns"
-                    " where table_name='g2p_geo_level_values'")
-        cols = {r[0] for r in cur.fetchall()}
-        # The pcode/boundary columns arrive in migration 001. Without them this
-        # still seeds a usable hierarchy rather than failing outright.
-        extended = {"pcode", "boundary_simplified_uri", "version"} <= cols
-        if not extended:
-            print("[geo-pack] NOTE: pcode/boundary columns absent — apply migration "
-                  "001_geo_pcode_boundaries.sql to store P-codes and boundary URIs")
-
         psycopg2.extras.execute_values(
             cur,
             """
@@ -143,43 +117,28 @@ def seed(conn, levels, values, manifest, boundary_urls, args):
             [(lv["level_id"], lv["level_mnemonic"], lv["parent_level_id"]) for lv in levels],
         )
 
-        if extended:
-            sql = """
-                INSERT INTO g2p_geo_level_values
-                  (level_value_id, level_id, level_value_mnemonic, parent_level_value_id,
-                   pcode, pcode_source, display_name, boundary_simplified_uri, version)
-                VALUES %s
-                ON CONFLICT (level_value_id) DO UPDATE
-                  SET level_id = EXCLUDED.level_id,
-                      level_value_mnemonic = EXCLUDED.level_value_mnemonic,
-                      parent_level_value_id = EXCLUDED.parent_level_value_id,
-                      pcode = EXCLUDED.pcode,
-                      pcode_source = EXCLUDED.pcode_source,
-                      display_name = EXCLUDED.display_name,
-                      boundary_simplified_uri = EXCLUDED.boundary_simplified_uri,
-                      version = EXCLUDED.version
+        psycopg2.extras.execute_values(
+            cur,
             """
-            rows = [(
-                v["level_value_id"], v["level_id"], v["level_value_mnemonic"],
-                v["parent_level_value_id"], v.get("pcode"), v.get("pcode_source"),
-                v.get("display_name"),
-                boundary_urls.get(level_name.get(v["level_id"], "")),
-                version,
-            ) for v in values]
-        else:
-            sql = """
-                INSERT INTO g2p_geo_level_values
-                  (level_value_id, level_id, level_value_mnemonic, parent_level_value_id)
-                VALUES %s
-                ON CONFLICT (level_value_id) DO UPDATE
-                  SET level_id = EXCLUDED.level_id,
-                      level_value_mnemonic = EXCLUDED.level_value_mnemonic,
-                      parent_level_value_id = EXCLUDED.parent_level_value_id
-            """
-            rows = [(v["level_value_id"], v["level_id"], v["level_value_mnemonic"],
-                     v["parent_level_value_id"]) for v in values]
-
-        psycopg2.extras.execute_values(cur, sql, rows, page_size=500)
+            INSERT INTO g2p_geo_level_values
+              (level_value_id, level_id, level_value_mnemonic, parent_level_value_id)
+            VALUES %s
+            ON CONFLICT (level_value_id) DO UPDATE
+              SET level_id = EXCLUDED.level_id,
+                  level_value_mnemonic = EXCLUDED.level_value_mnemonic,
+                  parent_level_value_id = EXCLUDED.parent_level_value_id
+            """,
+            [
+                (
+                    v["level_value_id"],
+                    v["level_id"],
+                    v["level_value_mnemonic"],
+                    v["parent_level_value_id"],
+                )
+                for v in values
+            ],
+            page_size=500,
+        )
     conn.commit()
 
 
@@ -215,57 +174,40 @@ def seed_codelists(conn, pack_dir, manifest, domains):
     if not lists:
         print("[geo-pack] no codelists in this pack — nothing to seed")
         return
-    country = manifest.get("country")
-    version = (manifest.get("version") or manifest.get("upstream_last_modified")
-               or manifest.get("fetched_on"))
 
     attrs, vals = [], []
     for domain, doc in lists:
         attrs.append((doc["attribute_id"], doc.get("attribute_code"),
-                      doc.get("attribute_display"), bool(doc.get("is_hierarchical")),
-                      country, version))
+                      doc.get("attribute_display"), bool(doc.get("is_hierarchical"))))
         for v in doc.get("values", []):
             vals.append((
                 v["value_id"], doc["attribute_id"], v.get("value_code"),
                 v.get("value_display"), v.get("parent_value_id"), v.get("sort_order"),
-                json.dumps(v.get("display_i18n") or {}),
-                json.dumps(v.get("roles") or []),
-                domain, country, version,
             ))
 
     with conn.cursor() as cur:
         psycopg2.extras.execute_values(cur, """
             INSERT INTO g2p_attributes
-              (attribute_id, attribute_code, attribute_display, is_hierarchical,
-               country, version)
+              (attribute_id, attribute_code, attribute_display, is_hierarchical)
             VALUES %s
             ON CONFLICT (attribute_id) DO UPDATE
               SET attribute_code = EXCLUDED.attribute_code,
                   attribute_display = EXCLUDED.attribute_display,
-                  is_hierarchical = EXCLUDED.is_hierarchical,
-                  country = EXCLUDED.country,
-                  version = EXCLUDED.version
+                  is_hierarchical = EXCLUDED.is_hierarchical
         """, attrs)
         psycopg2.extras.execute_values(cur, """
             INSERT INTO g2p_attribute_values
               (value_id, attribute_id, value_code, value_display, parent_value_id,
-               sort_order, display_name_i18n, roles, domain, country, version)
+               sort_order)
             VALUES %s
             ON CONFLICT (attribute_id, value_id) DO UPDATE
               SET value_code = EXCLUDED.value_code,
                   value_display = EXCLUDED.value_display,
                   parent_value_id = EXCLUDED.parent_value_id,
-                  sort_order = EXCLUDED.sort_order,
-                  display_name_i18n = EXCLUDED.display_name_i18n,
-                  roles = EXCLUDED.roles,
-                  domain = EXCLUDED.domain,
-                  country = EXCLUDED.country,
-                  version = EXCLUDED.version
+                  sort_order = EXCLUDED.sort_order
         """, vals, page_size=500)
     conn.commit()
-    roles = sum(1 for _, doc in lists for v in doc.get("values", []) if v.get("roles"))
-    print(f"[geo-pack] codelists: {len(attrs)} attributes, {len(vals)} values "
-          f"({roles} carrying a role)")
+    print(f"[geo-pack] codelists: {len(attrs)} attributes, {len(vals)} values")
 
 
 def seed_sql_codelists(conn, domains):
@@ -461,8 +403,7 @@ def main():
         raise SystemExit(f"--load: unknown section(s) {sorted(unknown)}")
 
     if "geo" in wanted:
-        boundary_urls = upload_boundaries(args.pack, manifest, args)
-        seed(conn, levels, values, manifest, boundary_urls, args)
+        seed(conn, levels, values, manifest, args)
     else:
         print("[geo-pack] geo not requested — skipping")
 

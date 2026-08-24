@@ -151,8 +151,7 @@ export default function GeoManageLevelsDialog({
                             levelId: level.level_id,
                             parentLevelId: level.parent_level_id,
                             parentLevelLabel: parentLabel,
-                            initialName:
-                              level.display_name || level.level_mnemonic || "",
+                            initialName: level.level_mnemonic || "",
                             initialCode: level.level_mnemonic || "",
                           })
                         }

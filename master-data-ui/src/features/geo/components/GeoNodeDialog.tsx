@@ -67,7 +67,7 @@ export default function GeoNodeDialog({
   }, [open, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim() || !code.trim()) return;
+    if (!name.trim() && !code.trim()) return;
 
     const result =
       mode === "add"
@@ -75,19 +75,15 @@ export default function GeoNodeDialog({
             method: "POST",
             body: JSON.stringify({
               level_id: levelId,
-              level_value_mnemonic: code.trim(),
-              display_name: name.trim(),
+              level_value_mnemonic: name.trim() || code.trim(),
               parent_level_value_id: parentLevelValueId ?? "",
-              pcode: code.trim(),
             }),
           })
         : await writeLevelValue("/api/geo/update-geo-level-value", {
             method: "POST",
             body: JSON.stringify({
               level_value_id: levelValueId,
-              level_value_mnemonic: code.trim(),
-              display_name: name.trim(),
-              pcode: code.trim(),
+              level_value_mnemonic: name.trim() || code.trim(),
             }),
           });
 

@@ -28,4 +28,5 @@ INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_co
 ('DS_FIELD_VERIFICATION','DATA_SOURCE','FIELD_VERIFICATION','Field verification',NULL,2),
 ('DS_PROGRAMME_MIS','DATA_SOURCE','PROGRAMME_MIS','Programme MIS integration',NULL,3),
 ('DS_FOUNDATIONAL_ID','DATA_SOURCE','FOUNDATIONAL_ID','Foundational ID API',NULL,4),
-('DS_COMMUNITY_VALIDATION','DATA_SOURCE','COMMUNITY_VALIDATION','Community validation',NULL,5);
+('DS_COMMUNITY_VALIDATION','DATA_SOURCE','COMMUNITY_VALIDATION','Community validation',NULL,5)
+ON CONFLICT (attribute_id, value_id) DO NOTHING;

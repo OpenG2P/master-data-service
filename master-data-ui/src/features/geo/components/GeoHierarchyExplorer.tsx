@@ -650,7 +650,7 @@ export default function GeoHierarchyExplorer() {
         nameLabel: t("geo_name_field", { name: getLevelLabel(level) }),
         codeLabel: t("geo_code"),
         initialName: getValueLabel(node.value),
-        initialCode: node.value.pcode || node.value.level_value_mnemonic || "",
+        initialCode: node.value.level_value_mnemonic || "",
         levelId: node.value.level_id,
         parentLevelValueId: node.value.parent_level_value_id ?? null,
         levelValueId: node.value.level_value_id,

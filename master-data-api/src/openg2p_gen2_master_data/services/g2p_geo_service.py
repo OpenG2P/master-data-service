@@ -1,7 +1,6 @@
 import logging
 import uuid
-from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from sqlalchemy import delete, func, or_, select
 from openg2p_fastapi_common.service import BaseService
@@ -43,11 +42,6 @@ class G2PGeoService(BaseService):
             level_id=level.level_id,
             level_mnemonic=level.level_mnemonic,
             parent_level_id=level.parent_level_id,
-            display_name=level.display_name,
-            display_name_i18n=level.display_name_i18n,
-            version=level.version,
-            valid_from=level.valid_from,
-            valid_to=level.valid_to,
         )
 
     @staticmethod
@@ -57,15 +51,6 @@ class G2PGeoService(BaseService):
             level_id=value.level_id,
             level_value_mnemonic=value.level_value_mnemonic,
             parent_level_value_id=value.parent_level_value_id,
-            pcode=value.pcode,
-            pcode_source=value.pcode_source,
-            boundary_uri=value.boundary_uri,
-            boundary_simplified_uri=value.boundary_simplified_uri,
-            display_name=value.display_name,
-            display_name_i18n=value.display_name_i18n,
-            version=value.version,
-            valid_from=value.valid_from,
-            valid_to=value.valid_to,
         )
 
     @staticmethod
@@ -194,11 +179,6 @@ class G2PGeoService(BaseService):
         *,
         level_mnemonic: str,
         parent_level_id: Optional[str] = None,
-        display_name: Optional[str] = None,
-        display_name_i18n: Optional[Dict[str, Any]] = None,
-        version: Optional[str] = None,
-        valid_from: Optional[date] = None,
-        valid_to: Optional[date] = None,
     ) -> GeoLevelData:
         level_mnemonic = level_mnemonic.strip()
         if not level_mnemonic:
@@ -225,11 +205,6 @@ class G2PGeoService(BaseService):
                 level_id=str(uuid.uuid4()),
                 level_mnemonic=level_mnemonic,
                 parent_level_id=parent_level_id,
-                display_name=display_name,
-                display_name_i18n=display_name_i18n,
-                version=version,
-                valid_from=valid_from,
-                valid_to=valid_to,
             )
             session.add(level)
             await session.commit()
@@ -272,17 +247,6 @@ class G2PGeoService(BaseService):
                             f"parent_level_id not found: {parent_level_id}",
                         )
                 level.parent_level_id = parent_level_id
-
-            if "display_name" in fields_set:
-                level.display_name = payload.display_name
-            if "display_name_i18n" in fields_set:
-                level.display_name_i18n = payload.display_name_i18n
-            if "version" in fields_set:
-                level.version = payload.version
-            if "valid_from" in fields_set:
-                level.valid_from = payload.valid_from
-            if "valid_to" in fields_set:
-                level.valid_to = payload.valid_to
 
             await session.commit()
             await session.refresh(level)
@@ -330,15 +294,6 @@ class G2PGeoService(BaseService):
         level_id: str,
         level_value_mnemonic: str,
         parent_level_value_id: Optional[str] = None,
-        pcode: Optional[str] = None,
-        pcode_source: Optional[str] = None,
-        boundary_uri: Optional[str] = None,
-        boundary_simplified_uri: Optional[str] = None,
-        display_name: Optional[str] = None,
-        display_name_i18n: Optional[Dict[str, Any]] = None,
-        version: Optional[str] = None,
-        valid_from: Optional[date] = None,
-        valid_to: Optional[date] = None,
     ) -> GeoLevelValueData:
         level_value_mnemonic = level_value_mnemonic.strip()
         if not level_id or not level_id.strip():
@@ -366,15 +321,6 @@ class G2PGeoService(BaseService):
                 level_id=level_id,
                 level_value_mnemonic=level_value_mnemonic,
                 parent_level_value_id=parent_level_value_id,
-                pcode=pcode,
-                pcode_source=pcode_source,
-                boundary_uri=boundary_uri,
-                boundary_simplified_uri=boundary_simplified_uri,
-                display_name=display_name,
-                display_name_i18n=display_name_i18n,
-                version=version,
-                valid_from=valid_from,
-                valid_to=valid_to,
             )
             session.add(value)
             await session.commit()
@@ -422,25 +368,6 @@ class G2PGeoService(BaseService):
                             f"parent_level_value_id not found: {parent_level_value_id}",
                         )
                 value.parent_level_value_id = parent_level_value_id
-
-            if "pcode" in fields_set:
-                value.pcode = payload.pcode
-            if "pcode_source" in fields_set:
-                value.pcode_source = payload.pcode_source
-            if "boundary_uri" in fields_set:
-                value.boundary_uri = payload.boundary_uri
-            if "boundary_simplified_uri" in fields_set:
-                value.boundary_simplified_uri = payload.boundary_simplified_uri
-            if "display_name" in fields_set:
-                value.display_name = payload.display_name
-            if "display_name_i18n" in fields_set:
-                value.display_name_i18n = payload.display_name_i18n
-            if "version" in fields_set:
-                value.version = payload.version
-            if "valid_from" in fields_set:
-                value.valid_from = payload.valid_from
-            if "valid_to" in fields_set:
-                value.valid_to = payload.valid_to
 
             await session.commit()
             await session.refresh(value)

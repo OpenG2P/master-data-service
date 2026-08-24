@@ -26,18 +26,7 @@ CREATE TABLE IF NOT EXISTS g2p_attributes (
     attribute_id        VARCHAR PRIMARY KEY,
     attribute_code      VARCHAR,
     attribute_display   VARCHAR,
-    is_hierarchical     BOOLEAN DEFAULT FALSE,
-
-    -- Label i18n, matching what g2p_geo_* already carries.
-    display_name_i18n   JSONB,
-
-    -- Which pack, and which version of it, these values came from. Lets a
-    -- registry assert it seeded against the pack it expected instead of
-    -- assuming, the way the geo rows already allow.
-    country             VARCHAR,
-    version             VARCHAR,
-    valid_from          DATE,
-    valid_to            DATE
+    is_hierarchical     BOOLEAN DEFAULT FALSE
 );
 
 -- The key is COMPOSITE. A value is identified by its list plus its code, not by
@@ -51,23 +40,6 @@ CREATE TABLE IF NOT EXISTS g2p_attribute_values (
     parent_value_id     VARCHAR,
     sort_order          INTEGER,
 
-    display_name_i18n   JSONB,
-
-    -- Semantic roles this value plays — see openg2p-data/packs/roles.json.
-    -- Platform logic asks for a role ("the value meaning head of household")
-    -- rather than a literal, so a report survives a country that names things
-    -- differently. Stored as JSONB because a value may hold several.
-    roles               JSONB,
-
-    -- Which domain this list belongs to, e.g. 'agriculture'. NULL means the
-    -- core set every registry uses. Lets a registry seed only what it needs.
-    domain              VARCHAR,
-
-    country             VARCHAR,
-    version             VARCHAR,
-    valid_from          DATE,
-    valid_to            DATE,
-
     PRIMARY KEY (attribute_id, value_id)
 );
 
@@ -77,7 +49,5 @@ CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_attribute_id
     ON g2p_attribute_values (attribute_id);
 CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_parent
     ON g2p_attribute_values (parent_value_id);
-CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_domain
-    ON g2p_attribute_values (domain);
 
 COMMIT;

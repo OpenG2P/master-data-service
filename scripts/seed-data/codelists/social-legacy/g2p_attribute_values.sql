@@ -223,7 +223,7 @@ INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_co
 ('GENDER_MALE','GENDER','MALE','Male',NULL,'1'),
 ('GENDER_FEMALE','GENDER','FEMALE','Female',NULL,'2'),
 ('GENDER_OTHERS','GENDER','OTHERS','Others',NULL,'3')
-ON CONFLICT (value_id) DO UPDATE
+ON CONFLICT (attribute_id, value_id) DO UPDATE
 SET attribute_id    = EXCLUDED.attribute_id,
     value_code      = EXCLUDED.value_code,
     value_display   = EXCLUDED.value_display,

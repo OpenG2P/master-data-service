@@ -408,9 +408,8 @@ geoSeed:
     tag: "develop"
   waitImage: jbergknoff/postgresql-client:latest
   backoffLimit: 2
-  # Simplified boundary GeoJSON is uploaded here and the URL recorded in
-  # g2p_geo_level_values.boundary_simplified_uri. Leave `endpoint` empty to skip
-  # uploading — the hierarchy still loads, only the map layer is unavailable.
+  # Optional MinIO settings kept for pack assets; the geo loader stores only
+  # the hierarchy (level / value mnemonics), not boundary URIs.
   objectStore:
     endpoint: http://commons-minio:9000
     bucket: openg2p-geo
