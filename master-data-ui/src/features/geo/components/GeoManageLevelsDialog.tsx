@@ -8,9 +8,11 @@ import { useFetch } from "@/shared/hooks/useFetch";
 import GeoLevelDialog from "./GeoLevelDialog";
 import type { GeoLevel } from "../types";
 import {
-  getChildLevel,
   getLevelById,
+  getLevelDepth,
   getLevelLabel,
+  getRootLevels,
+  orderGeoLevelsByHierarchy,
 } from "../utils";
 
 type GeoManageLevelsDialogProps = {
@@ -61,23 +63,22 @@ export default function GeoManageLevelsDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deleteTarget, levelForm.open, onClose, open]);
 
-  const deepestLevel = levels[levels.length - 1];
-  const canAddLevel =
-    levels.length === 0 ||
-    (deepestLevel != null && !getChildLevel(levels, deepestLevel.level_id));
+  const ordered = useMemo(() => orderGeoLevelsByHierarchy(levels), [levels]);
+  const roots = useMemo(() => getRootLevels(ordered), [ordered]);
 
   const rows = useMemo(
     () =>
-      levels.map((level) => {
+      ordered.map((level) => {
         const parent = level.parent_level_id
-          ? getLevelById(levels, level.parent_level_id)
+          ? getLevelById(ordered, level.parent_level_id)
           : undefined;
         return {
           level,
           parentLabel: parent ? getLevelLabel(parent) : null,
+          depth: getLevelDepth(ordered, level.level_id),
         };
       }),
-    [levels]
+    [ordered]
   );
 
   const proceedDelete = async (level: GeoLevel) => {
@@ -133,15 +134,35 @@ export default function GeoManageLevelsDialog({
               </p>
             ) : (
               <ul className="divide-y divide-[#5A5A5A]">
-                {rows.map(({ level, parentLabel }) => (
+                {rows.map(({ level, parentLabel, depth }) => (
                   <li key={level.level_id} className="px-5 py-4">
-                    <p className="font-normal text-[16px] leading-none tracking-normal text-white">
+                    <p
+                      className="font-normal text-[16px] leading-none tracking-normal text-white"
+                      style={{ paddingLeft: `${depth * 16}px` }}
+                    >
                       {getLevelLabel(level)}
                     </p>
-                    <p className="mt-2 text-[13px] text-white/55">
+                    <p
+                      className="mt-2 text-[13px] text-white/55"
+                      style={{ paddingLeft: `${depth * 16}px` }}
+                    >
                       {t("geo_parent")}: {parentLabel ?? "—"}
                     </p>
                     <div className="mt-3 flex flex-wrap justify-end gap-4 text-[14px]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLevelForm({
+                            open: true,
+                            mode: "add",
+                            parentLevelId: level.level_id,
+                            parentLevelLabel: getLevelLabel(level),
+                          })
+                        }
+                        className="cursor-pointer text-white/80 hover:text-[#F4BB1B] hover:underline"
+                      >
+                        {t("geo_add_child_level")}
+                      </button>
                       <button
                         type="button"
                         onClick={() =>
@@ -176,20 +197,17 @@ export default function GeoManageLevelsDialog({
           <div className="shrink-0 border-t border-[#5A5A5A] px-5 py-4">
             <button
               type="button"
-              disabled={!canAddLevel}
               onClick={() =>
                 setLevelForm({
                   open: true,
                   mode: "add",
-                  parentLevelId: deepestLevel?.level_id ?? null,
-                  parentLevelLabel: deepestLevel
-                    ? getLevelLabel(deepestLevel)
-                    : null,
+                  parentLevelId: null,
+                  parentLevelLabel: null,
                 })
               }
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/40"
+              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
             >
-              {t("geo_add_level")}
+              {roots.length === 0 ? t("geo_add_level") : t("geo_add_root_level")}
               <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[10px] bg-white text-[14px] font-bold leading-none text-black">
                 +
               </span>

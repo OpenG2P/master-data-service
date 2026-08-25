@@ -14,7 +14,7 @@ import GeoTreePanel from "./GeoTreePanel";
 import { useGeoLevels } from "../hooks";
 import {
   childrenCacheKey,
-  getChildLevel,
+  getChildLevels,
   getLevelById,
   getLevelLabel,
   getRootLevels,
@@ -54,6 +54,7 @@ type DialogState =
       levelId: string;
       parentLevelValueId: string | null;
       levelValueId?: string;
+      levelChoices?: { levelId: string; label: string }[];
     }
   | { open: false };
 
@@ -143,10 +144,9 @@ export default function GeoHierarchyExplorer() {
     (
       parentNode: GeoTreeNode,
       values: GeoLevelValue[],
-      valueLevelId: string,
+      _valueLevelId: string,
       levelList: GeoLevel[]
     ) => {
-      const childLevel = getChildLevel(levelList, valueLevelId);
       setNodesByKey((prev) => {
         const next = { ...prev };
         for (const key of Object.keys(next)) {
@@ -173,7 +173,7 @@ export default function GeoHierarchyExplorer() {
                 kind: "value",
               },
             ],
-            hasChildren: Boolean(childLevel),
+            hasChildren: getChildLevels(levelList, value.level_id).length > 0,
           };
         }
         nodesByKeyRef.current = next;
@@ -304,48 +304,48 @@ export default function GeoHierarchyExplorer() {
     [fetchGeoLevelValues, t]
   );
 
-  const getFetchTargetForNode = useCallback(
+  const getFetchTargetsForNode = useCallback(
     (
       node: GeoTreeNode,
       levelList: GeoLevel[] = levelsRef.current
-    ): { levelId: string; parentValueId: string } | null => {
+    ): { levelId: string; parentValueId: string }[] => {
       if (node.kind === "level") {
-        return { levelId: node.levelId, parentValueId: "" };
+        return [{ levelId: node.levelId, parentValueId: "" }];
       }
-      const childLevel = getChildLevel(levelList, node.levelId);
-      if (!childLevel || !node.value) return null;
-      return {
+      if (!node.value) return [];
+      return getChildLevels(levelList, node.levelId).map((childLevel) => ({
         levelId: childLevel.level_id,
-        parentValueId: node.value.level_value_id,
-      };
+        parentValueId: node.value!.level_value_id,
+      }));
     },
     []
   );
 
-  const getCacheKeyForNode = useCallback(
-    (node: GeoTreeNode) => {
-      const target = getFetchTargetForNode(node);
-      if (!target) return null;
-      return childrenCacheKey(target.levelId, target.parentValueId);
-    },
-    [getFetchTargetForNode]
+  const getCacheKeysForNode = useCallback(
+    (node: GeoTreeNode) =>
+      getFetchTargetsForNode(node).map((target) =>
+        childrenCacheKey(target.levelId, target.parentValueId)
+      ),
+    [getFetchTargetsForNode]
   );
 
   const loadNodeChildren = useCallback(
     async (node: GeoTreeNode, force = false) => {
       const levelList = levelsRef.current;
-      const target = getFetchTargetForNode(node, levelList);
-      if (!target) return;
-      const entry = await ensureChildren(
-        target.levelId,
-        target.parentValueId,
-        force
+      const targets = getFetchTargetsForNode(node, levelList);
+      if (targets.length === 0) return;
+      const entries = await Promise.all(
+        targets.map((target) =>
+          ensureChildren(target.levelId, target.parentValueId, force)
+        )
       );
-      if (entry?.loaded) {
-        materializeChildren(node, entry.values, target.levelId, levelList);
+      const values = entries.flatMap((entry) => entry?.values ?? []);
+      const loaded = entries.every((entry) => entry?.loaded);
+      if (loaded) {
+        materializeChildren(node, values, node.levelId, levelList);
       }
     },
-    [ensureChildren, getFetchTargetForNode, materializeChildren]
+    [ensureChildren, getFetchTargetsForNode, materializeChildren]
   );
 
   const loadLevels = useCallback(async () => {
@@ -464,17 +464,31 @@ export default function GeoHierarchyExplorer() {
 
   const selectedChildrenEntry = useMemo(() => {
     if (!selected) return undefined;
-    const cacheKey = getCacheKeyForNode(selected);
-    return cacheKey ? childrenCache[cacheKey] : undefined;
-  }, [childrenCache, getCacheKeyForNode, selected]);
+    const cacheKeys = getCacheKeysForNode(selected);
+    if (cacheKeys.length === 0) {
+      return {
+        values: [] as GeoLevelValue[],
+        loading: false,
+        error: null,
+        loaded: true,
+      };
+    }
+    const entries = cacheKeys.map((cacheKey) => childrenCache[cacheKey]);
+    return {
+      values: entries.flatMap((entry) => entry?.values ?? []),
+      loading: entries.some((entry) => entry?.loading),
+      error: entries.find((entry) => entry?.error)?.error ?? null,
+      loaded: entries.every((entry) => entry?.loaded),
+    };
+  }, [childrenCache, getCacheKeysForNode, selected]);
 
   // Prefetch each row's child list so table/tree counts populate without expanding.
   useEffect(() => {
     if (!selectedChildrenEntry?.loaded) return;
     for (const value of selectedChildrenEntry.values) {
-      const childLevel = getChildLevel(orderedLevels, value.level_id);
-      if (!childLevel) continue;
-      void ensureChildren(childLevel.level_id, value.level_value_id);
+      for (const childLevel of getChildLevels(orderedLevels, value.level_id)) {
+        void ensureChildren(childLevel.level_id, value.level_value_id);
+      }
     }
   }, [ensureChildren, orderedLevels, selectedChildrenEntry]);
 
@@ -541,9 +555,7 @@ export default function GeoHierarchyExplorer() {
             kind: "value",
           },
         ],
-        hasChildren: Boolean(
-          getChildLevel(levelsRef.current, value.level_id)
-        ),
+        hasChildren: getChildLevels(levelsRef.current, value.level_id).length > 0,
       };
     },
     []
@@ -570,14 +582,18 @@ export default function GeoHierarchyExplorer() {
 
   const getChildCount = useCallback(
     (value: GeoLevelValue) => {
-      const childLevel = getChildLevel(orderedLevels, value.level_id);
-      if (!childLevel) return 0;
-      const entry =
-        childrenCache[
-          childrenCacheKey(childLevel.level_id, value.level_value_id)
-        ];
-      if (!entry?.loaded) return null;
-      return entry.values.length;
+      const childLevels = getChildLevels(orderedLevels, value.level_id);
+      if (childLevels.length === 0) return 0;
+      let total = 0;
+      for (const childLevel of childLevels) {
+        const entry =
+          childrenCache[
+            childrenCacheKey(childLevel.level_id, value.level_value_id)
+          ];
+        if (!entry?.loaded) return null;
+        total += entry.values.length;
+      }
+      return total;
     },
     [childrenCache, orderedLevels]
   );
@@ -605,13 +621,16 @@ export default function GeoHierarchyExplorer() {
         return;
       }
 
-      const childLevel = getChildLevel(orderedLevels, parentNode.levelId);
-      if (!childLevel || !parentNode.value) return;
+      const childLevels = getChildLevels(orderedLevels, parentNode.levelId);
+      if (childLevels.length === 0 || !parentNode.value) return;
+      const primary = childLevels[0];
 
       setDialog({
         open: true,
         mode: "add",
-        title: t("geo_add_named", { name: getLevelLabel(childLevel) }),
+        title: t("geo_add_named", {
+          name: childLevels.map((level) => getLevelLabel(level)).join(" / "),
+        }),
         contextFields: parentNode.path.map((item) => ({
           label:
             item.kind === "level"
@@ -621,11 +640,15 @@ export default function GeoHierarchyExplorer() {
           readOnly: true,
         })),
         nameLabel: t("geo_name_field", {
-          name: getLevelLabel(childLevel),
+          name: getLevelLabel(primary),
         }),
         codeLabel: t("geo_code"),
-        levelId: childLevel.level_id,
+        levelId: primary.level_id,
         parentLevelValueId: parentNode.value.level_value_id,
+        levelChoices: childLevels.map((level) => ({
+          levelId: level.level_id,
+          label: getLevelLabel(level),
+        })),
       });
     },
     [orderedLevels, t]
@@ -693,7 +716,7 @@ export default function GeoHierarchyExplorer() {
           expandedKeys={expandedKeys}
           selectedKey={selectedKey}
           childrenCache={childrenCache}
-          getCacheKeyForNode={getCacheKeyForNode}
+          getCacheKeysForNode={getCacheKeysForNode}
           searchQuery={searchQuery}
           onToggle={handleToggle}
           onSelect={handleSelect}
@@ -701,6 +724,23 @@ export default function GeoHierarchyExplorer() {
       </div>
     </div>
   );
+
+  const childrenPanelTitle = useMemo(() => {
+    if (!selected) return t("geo_children");
+    if (selected.kind === "level") {
+      return t("geo_values_of_level", { name: selected.label });
+    }
+    return t("geo_children_of", { name: selected.label });
+  }, [selected, t]);
+
+  const childrenPanelSubtitle = useMemo(() => {
+    if (!selected || selected.kind !== "value") return null;
+    const childLevels = getChildLevels(orderedLevels, selected.levelId);
+    if (childLevels.length === 0) {
+      return t("geo_no_child_levels");
+    }
+    return childLevels.map((level) => getLevelLabel(level)).join(" · ");
+  }, [orderedLevels, selected, t]);
 
   const addValueAction = useMemo(() => {
     if (orderedLevels.length === 0) return null;
@@ -719,8 +759,8 @@ export default function GeoHierarchyExplorer() {
     }
 
     // Value selected → add a child-level value
-    const childLevel = getChildLevel(orderedLevels, selected.levelId);
-    if (!childLevel) return null;
+    const childLevels = getChildLevels(orderedLevels, selected.levelId);
+    if (childLevels.length === 0) return null;
     return {
       onClick: () => openAddDialog(selected),
     };
@@ -729,6 +769,8 @@ export default function GeoHierarchyExplorer() {
   const childrenPanel = (
     <GeoChildrenTable
       selected={selected}
+      title={childrenPanelTitle}
+      subtitle={childrenPanelSubtitle}
       childrenEntry={selectedChildrenEntry}
       onSelect={handleSelectChild}
       onEdit={(value) => {
@@ -740,6 +782,9 @@ export default function GeoHierarchyExplorer() {
       }}
       onDelete={(value) => setDeleteValueTarget(value)}
       getChildCount={getChildCount}
+      getLevelLabel={(value) =>
+        getLevelLabel(getLevelById(orderedLevels, value.level_id))
+      }
       footerActions={
         addValueAction ? (
           <button
@@ -1016,6 +1061,7 @@ export default function GeoHierarchyExplorer() {
           levelId={dialog.levelId}
           parentLevelValueId={dialog.parentLevelValueId}
           levelValueId={dialog.levelValueId}
+          levelChoices={dialog.levelChoices}
           initialName={dialog.initialName}
           initialCode={dialog.initialCode}
           onClose={() => setDialog({ open: false })}

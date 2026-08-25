@@ -10,7 +10,7 @@ type GeoTreePanelProps = {
   expandedKeys: Set<string>;
   selectedKey: string | null;
   childrenCache: Record<string, ChildrenCacheEntry>;
-  getCacheKeyForNode: (node: GeoTreeNode) => string | null;
+  getCacheKeysForNode: (node: GeoTreeNode) => string[];
   searchQuery: string;
   onToggle: (node: GeoTreeNode) => void;
   onSelect: (node: GeoTreeNode) => void;
@@ -26,7 +26,7 @@ export default function GeoTreePanel({
   expandedKeys,
   selectedKey,
   childrenCache,
-  getCacheKeyForNode,
+  getCacheKeysForNode,
   searchQuery,
   onToggle,
   onSelect,
@@ -77,11 +77,13 @@ export default function GeoTreePanel({
       const expanded = expandedKeys.has(node.key) || (Boolean(query) && descendantMatch);
       if (!expanded) return;
 
-      const cacheKey = getCacheKeyForNode(node);
-      const cache = cacheKey ? childrenCache[cacheKey] : undefined;
+      const cacheKeys = getCacheKeysForNode(node);
+      const cacheLoading = cacheKeys.some(
+        (cacheKey) => childrenCache[cacheKey]?.loading
+      );
       const children = childrenByParent.get(node.key) ?? [];
 
-      if (cache?.loading && children.length === 0) {
+      if (cacheLoading && children.length === 0) {
         result.push({
           node: {
             key: `${node.key}__loading`,
@@ -111,7 +113,7 @@ export default function GeoTreePanel({
     childrenByParent,
     childrenCache,
     expandedKeys,
-    getCacheKeyForNode,
+    getCacheKeysForNode,
     hasMatchingDescendant,
     query,
     t,
@@ -220,9 +222,19 @@ export default function GeoTreePanel({
 
           const expanded = expandedKeys.has(node.key);
           const selected = selectedKey === node.key;
-          const cacheKey = getCacheKeyForNode(node);
-          const cache = cacheKey ? childrenCache[cacheKey] : undefined;
-          const count = cache?.loaded ? cache.values.length : null;
+          const cacheKeys = getCacheKeysForNode(node);
+          const cacheEntries = cacheKeys.map((cacheKey) => childrenCache[cacheKey]);
+          const cacheLoading = cacheEntries.some((entry) => entry?.loading);
+          const loadedEntries = cacheEntries.filter((entry) => entry?.loaded);
+          const count =
+            cacheKeys.length === 0
+              ? 0
+              : loadedEntries.length === cacheKeys.length
+                ? loadedEntries.reduce(
+                    (sum, entry) => sum + (entry?.values.length ?? 0),
+                    0
+                  )
+                : null;
 
           return (
             <div
@@ -247,7 +259,7 @@ export default function GeoTreePanel({
                   onToggle(node);
                 }}
               >
-                {cache?.loading ? (
+                {cacheLoading ? (
                   <LoaderCircle size={16} className="animate-spin" />
                 ) : expanded ? (
                   <ChevronDown size={16} />

@@ -1,17 +1,61 @@
 import type { GeoLevel, GeoLevelValue } from "../types";
 
+export function getRootLevels(levels: GeoLevel[]): GeoLevel[] {
+  return levels.filter((level) => !level.parent_level_id);
+}
+
+export function getChildLevels(
+  levels: GeoLevel[],
+  parentLevelId: string
+): GeoLevel[] {
+  return levels.filter((level) => level.parent_level_id === parentLevelId);
+}
+
+/** First child level only. Prefer getChildLevels when a parent may fork. */
+export function getChildLevel(
+  levels: GeoLevel[],
+  parentLevelId: string
+): GeoLevel | undefined {
+  return getChildLevels(levels, parentLevelId)[0];
+}
+
+export function getLevelById(
+  levels: GeoLevel[],
+  levelId: string
+): GeoLevel | undefined {
+  return levels.find((level) => level.level_id === levelId);
+}
+
+export function getLevelDepth(levels: GeoLevel[], levelId: string): number {
+  let depth = 0;
+  let current = getLevelById(levels, levelId);
+  const seen = new Set<string>();
+  while (current?.parent_level_id && !seen.has(current.level_id)) {
+    seen.add(current.level_id);
+    depth += 1;
+    current = getLevelById(levels, current.parent_level_id);
+  }
+  return depth;
+}
+
+/** Depth-first from each root so forked child levels are all included. */
 export function orderGeoLevelsByHierarchy(levels: GeoLevel[]): GeoLevel[] {
   const result: GeoLevel[] = [];
   const visited = new Set<string>();
-  let current = levels.find((level) => !level.parent_level_id);
 
-  while (current && !visited.has(current.level_id)) {
-    visited.add(current.level_id);
-    result.push(current);
-    current = levels.find((level) => level.parent_level_id === current!.level_id);
+  const walk = (level: GeoLevel) => {
+    if (visited.has(level.level_id)) return;
+    visited.add(level.level_id);
+    result.push(level);
+    for (const child of getChildLevels(levels, level.level_id)) {
+      walk(child);
+    }
+  };
+
+  for (const root of getRootLevels(levels)) {
+    walk(root);
   }
 
-  // Append any disconnected levels so nothing is silently dropped.
   for (const level of levels) {
     if (!visited.has(level.level_id)) {
       result.push(level);
@@ -29,24 +73,6 @@ export function getLevelLabel(level: GeoLevel | undefined, fallback = "Level"): 
 export function getValueLabel(value: GeoLevelValue | undefined, fallback = "—"): string {
   if (!value) return fallback;
   return value.level_value_mnemonic || value.level_value_id;
-}
-
-export function getChildLevel(
-  levels: GeoLevel[],
-  parentLevelId: string
-): GeoLevel | undefined {
-  return levels.find((level) => level.parent_level_id === parentLevelId);
-}
-
-export function getRootLevels(levels: GeoLevel[]): GeoLevel[] {
-  return levels.filter((level) => !level.parent_level_id);
-}
-
-export function getLevelById(
-  levels: GeoLevel[],
-  levelId: string
-): GeoLevel | undefined {
-  return levels.find((level) => level.level_id === levelId);
 }
 
 export function childrenCacheKey(

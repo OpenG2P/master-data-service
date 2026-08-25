@@ -3,6 +3,8 @@ export {
   getLevelLabel,
   getValueLabel,
   getChildLevel,
+  getChildLevels,
+  getLevelDepth,
   getRootLevels,
   getLevelById,
   childrenCacheKey,

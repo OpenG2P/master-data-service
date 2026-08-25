@@ -26,6 +26,7 @@ type GeoNodeDialogProps = {
   levelValueId?: string;
   initialName?: string;
   initialCode?: string;
+  levelChoices?: { levelId: string; label: string }[];
   onClose: () => void;
   onSuccess?: () => void;
 };
@@ -42,6 +43,7 @@ export default function GeoNodeDialog({
   levelValueId,
   initialName = "",
   initialCode = "",
+  levelChoices = [],
   onClose,
   onSuccess,
 }: GeoNodeDialogProps) {
@@ -50,12 +52,16 @@ export default function GeoNodeDialog({
   const { execute: writeLevelValue } = useFetch<GeoLevelValue>();
   const [name, setName] = useState(initialName);
   const [code, setCode] = useState(initialCode);
+  const [selectedLevelId, setSelectedLevelId] = useState(
+    levelChoices[0]?.levelId || levelId
+  );
 
   useEffect(() => {
     if (!open) return;
     setName(initialName);
     setCode(initialCode);
-  }, [open, initialName, initialCode]);
+    setSelectedLevelId(levelChoices[0]?.levelId || levelId);
+  }, [open, initialName, initialCode, levelChoices, levelId]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +80,7 @@ export default function GeoNodeDialog({
         ? await writeLevelValue("/api/geo/add-geo-level-value", {
             method: "POST",
             body: JSON.stringify({
-              level_id: levelId,
+              level_id: selectedLevelId,
               level_value_mnemonic: name.trim() || code.trim(),
               parent_level_value_id: parentLevelValueId ?? "",
             }),
@@ -95,6 +101,17 @@ export default function GeoNodeDialog({
 
   if (!open) return null;
 
+  const chosenChoice = levelChoices.find(
+    (choice) => choice.levelId === selectedLevelId
+  );
+  const dialogTitle =
+    mode === "add" && chosenChoice
+      ? t("geo_add_named", { name: chosenChoice.label })
+      : title;
+  const dialogNameLabel = chosenChoice
+    ? t("geo_name_field", { name: chosenChoice.label })
+    : nameLabel;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
@@ -111,7 +128,7 @@ export default function GeoNodeDialog({
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[#5A5A5A] px-5 py-4">
           <h2 id={titleId} className="text-[16px] font-semibold text-[#F4BB1B]">
-            {title}
+            {dialogTitle}
           </h2>
           <button
             type="button"
@@ -131,6 +148,33 @@ export default function GeoNodeDialog({
           }}
         >
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            {levelChoices.length > 1 ? (
+              <div className="space-y-1.5">
+                <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
+                  {t("geo_child_level")}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {levelChoices.map((choice) => {
+                    const isActive = choice.levelId === selectedLevelId;
+                    return (
+                      <button
+                        key={choice.levelId}
+                        type="button"
+                        onClick={() => setSelectedLevelId(choice.levelId)}
+                        className={`h-9 cursor-pointer rounded-[10px] border px-3 text-[14px] font-medium ${
+                          isActive
+                            ? "border-[#F4BB1B] bg-[#F4BB1B] text-black"
+                            : "border-[#5A5A5A] bg-black text-white/80 hover:border-[#F4BB1B]/60 hover:text-white"
+                        }`}
+                      >
+                        {choice.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             {contextFields.length > 0 ? (
               <div className="space-y-1.5">
                 <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
@@ -156,7 +200,7 @@ export default function GeoNodeDialog({
 
             <label className="block space-y-1.5">
               <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
-                {nameLabel}
+                {dialogNameLabel}
               </span>
               <input
                 type="text"

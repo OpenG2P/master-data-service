@@ -12,21 +12,27 @@ import { getValueLabel } from "../utils";
 
 type GeoChildrenTableProps = {
   selected: GeoTreeNode | null;
+  title?: string;
+  subtitle?: string | null;
   childrenEntry: ChildrenCacheEntry | undefined;
   onSelect: (value: GeoLevelValue) => void;
   onEdit: (value: GeoLevelValue) => void;
   onDelete: (value: GeoLevelValue) => void;
   getChildCount: (value: GeoLevelValue) => number | null;
+  getLevelLabel?: (value: GeoLevelValue) => string | null;
   footerActions?: ReactNode;
 };
 
 export default function GeoChildrenTable({
   selected,
+  title,
+  subtitle,
   childrenEntry,
   onSelect,
   onEdit,
   onDelete,
   getChildCount,
+  getLevelLabel: getRowLevelLabel,
   footerActions,
 }: GeoChildrenTableProps) {
   const t = useTranslations();
@@ -101,8 +107,13 @@ export default function GeoChildrenTable({
   if (!selected) {
     return (
       <div className="absolute inset-0 flex flex-col">
-        <div className="shrink-0 border-b border-[#5A5A5A] px-4 py-2.5 text-start font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]">
-          {t("geo_children")}
+        <div className="shrink-0 border-b border-[#5A5A5A] px-4 py-2.5">
+          <div className="font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]">
+            {title || t("geo_children")}
+          </div>
+          {subtitle ? (
+            <p className="mt-1.5 text-[12px] text-white/45">{subtitle}</p>
+          ) : null}
         </div>
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="font-normal text-[16px] leading-none tracking-normal text-white">
@@ -119,8 +130,13 @@ export default function GeoChildrenTable({
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      <div className="shrink-0 border-b border-[#5A5A5A] px-4 py-2.5 text-start font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]">
-        {t("geo_children")}
+      <div className="shrink-0 border-b border-[#5A5A5A] px-4 py-2.5">
+        <div className="font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]">
+          {title || t("geo_children")}
+        </div>
+        {subtitle ? (
+          <p className="mt-1.5 text-[12px] text-white/45">{subtitle}</p>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pt-0 pb-2 [scrollbar-gutter:stable]">
@@ -148,6 +164,11 @@ export default function GeoChildrenTable({
                     {sortMarker("name")}
                   </button>
                 </th>
+                {getRowLevelLabel ? (
+                  <th className="w-[20%] px-2 py-2 text-[13px] font-semibold text-[#F4BB1B]">
+                    {t("geo_level")}
+                  </th>
+                ) : null}
                 <th className="w-[25%] px-2 py-2 text-[13px] font-semibold text-[#F4BB1B]">
                   <button
                     type="button"
@@ -175,6 +196,11 @@ export default function GeoChildrenTable({
                     <td className="truncate px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal text-white">
                       {getValueLabel(row)}
                     </td>
+                    {getRowLevelLabel ? (
+                      <td className="truncate px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal text-white/80">
+                        {getRowLevelLabel(row) || "—"}
+                      </td>
+                    ) : null}
                     <td className="px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal text-white/80">
                       {count === null ? "—" : count}
                     </td>
