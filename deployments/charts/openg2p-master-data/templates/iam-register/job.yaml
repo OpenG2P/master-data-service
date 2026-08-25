@@ -8,17 +8,19 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-iam-register
+  # Revision suffix so upgrades can create a fresh Job when this is a regular
+  # resource (Rancher skips Helm hooks; Job specs are immutable).
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-{{ .Release.Revision }}
   labels:
     app.kubernetes.io/name: iam-register
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "20"
-    helm.sh/hook-delete-policy: before-hook-creation
+  {{- with .Values.iamRegister.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   backoffLimit: {{ .Values.iamRegister.backoffLimit | default 5 }}
+  ttlSecondsAfterFinished: {{ .Values.iamRegister.ttlSecondsAfterFinished | default 600 }}
   template:
     metadata:
       labels:
@@ -119,5 +121,5 @@ spec:
       volumes:
         - name: payload
           configMap:
-            name: {{ .Release.Name }}-iam-register-payload
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-payload
 {{- end }}
