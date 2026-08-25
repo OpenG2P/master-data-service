@@ -1,13 +1,4 @@
-INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES 
-('PROG_CASH_TRANSFER','PROGRAM_NAME','CASH_TRANSFER','Cash Transfer Programme',NULL,1),
-('PROG_FOOD_SUPPORT','PROGRAM_NAME','FOOD_SUPPORT','Food Support Programme',NULL,2),
-('PROG_HEALTH_INSURANCE','PROGRAM_NAME','HEALTH_INSURANCE','Health Insurance Scheme',NULL,3),
-('PROG_DISABILITY_ALLOWANCE','PROGRAM_NAME','DISABILITY_ALLOWANCE','Disability Allowance',NULL,4),
-('PROG_ELDERLY_PENSION','PROGRAM_NAME','ELDERLY_PENSION','Elderly Pension',NULL,5),
-('PROG_SCHOOL_FEEDING','PROGRAM_NAME','SCHOOL_FEEDING','School Feeding Programme',NULL,6),
-('PROG_PUBLIC_WORKS','PROGRAM_NAME','PUBLIC_WORKS','Public Works Programme',NULL,7),
-('UPSNP','PROGRAM_NAME','UPSNP','Urban Productive Safety Net Programme',NULL,8),
-('RPSNP','PROGRAM_NAME','RPSNP','Rural Productive Safety Net Programme',NULL,9),
+INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES
 ('LVH_AGRICULTURE','PRIMARY_LIVELIHOOD','AGRICULTURE','Agriculture, Forestry and Fishing',NULL,1),
 ('LVH_LIVESTOCK','PRIMARY_LIVELIHOOD','LIVESTOCK','Livestock Rearing',NULL,2),
 ('LVH_CRAFT','PRIMARY_LIVELIHOOD','CRAFT','Craft and Related Trades',NULL,3),

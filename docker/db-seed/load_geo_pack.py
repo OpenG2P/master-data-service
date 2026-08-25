@@ -211,20 +211,16 @@ def seed_codelists(conn, pack_dir, manifest, domains):
 
 
 def seed_sql_codelists(conn, domains):
-    """Fill gaps the pack does not define, from scripts/seed-data/codelists.
+    """Fill lists the pack does not define, from remaining scripts/seed-data SQL.
 
-    Pack JSON is authoritative and is loaded first. These SQL files use
-    ON CONFLICT DO NOTHING so they only insert lists the pack omitted — for
-    example agriculture crops on XKM, which has core lists only.
+    Pack JSON is loaded first. SQL uses ON CONFLICT DO NOTHING so it only
+    inserts lists the pack omitted (e.g. social PRIMARY_LIVELIHOOD).
     """
     root = os.environ.get("CODELISTS_SQL_DIR", "/seed/codelists")
     if not os.path.isdir(root):
         print("[geo-pack] no SQL codelist fixtures found — skipping")
         return
-    wanted = ["core"] + [d for d in domains if d]
-    agri = os.path.join(root, "agriculture")
-    if os.path.isdir(agri) and "agriculture" not in wanted:
-        wanted.append("agriculture")
+    wanted = [d for d in domains if d]
     applied = []
     with conn.cursor() as cur:
         for domain in wanted:
