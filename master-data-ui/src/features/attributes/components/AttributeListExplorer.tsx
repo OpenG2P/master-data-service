@@ -6,11 +6,17 @@ import { useRouter } from "@/i18n/navigation";
 import { Search, Database } from "lucide-react";
 import Can from "@/components/Can";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import LoadingState from "@/components/LoadingState";
+import TableSkeleton from "@/components/TableSkeleton";
 import Pagination from "@/components/Pagination";
+import AddButton from "@/components/AddButton";
+import DeleteButton from "@/components/DeleteButton";
+import EditButton from "@/components/EditButton";
+import Button from "@/components/Button";
 import { useFetch } from "@/shared/hooks/useFetch";
 import { useAllAttributes } from "../hooks";
 import AttributeDialog from "./AttributeDialog";
+import { toast } from "react-toastify";
+import { getErrorMessage } from "@/shared/utils/errorHandler";
 import type { Attribute } from "../types";
 
 const PAGE_SIZE = 10;
@@ -32,7 +38,9 @@ export default function AttributeListExplorer() {
         mode: "add" | "edit";
         attribute?: Attribute;
     }>({ open: false, mode: "add" });
+    const [isSaving, setIsSaving] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState<Attribute | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const { execute: deleteAttribute } = useFetch();
 
@@ -48,6 +56,7 @@ export default function AttributeListExplorer() {
 
     const proceedDelete = async () => {
         if (!confirmDelete) return;
+        setIsDeleting(true);
         const result = await deleteAttribute("/api/attributes/delete-attribute", {
             method: "POST",
             body: JSON.stringify({
@@ -55,76 +64,67 @@ export default function AttributeListExplorer() {
                 cascade: true,
             }),
         });
+        setIsDeleting(false);
         if (result?.attribute_id) {
+            toast.success(t("attribute_deleted_successfully"));
             refresh();
+        } else {
+            const rawError = (result as any)?.error || (result as any)?.statusText;
+            const errorCode = (result as any)?.code;
+            const errorMessage = getErrorMessage(rawError, errorCode, t);
+            toast.error(errorMessage);
         }
         setConfirmDelete(null);
     };
 
     return (
-        <section className="flex h-full min-h-0 flex-col overflow-hidden bg-black p-5 text-white">
-            <div className="relative flex min-h-0 flex-1 flex-col border border-[#5A5A5A]">
-                {/* Header */}
-                <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#5A5A5A] px-4 py-4">
-                    <div className="flex items-center gap-3">
-                        <Database size={18} className="text-[#F4BB1B]" />
-                        <h1 className="text-[18px] font-semibold text-white">
-                            {t("reference_data")}
-                        </h1>
+        <div>
+            <div className="flex items-center justify-between gap-4 mb-6">
+                <h1 className="font-semibold text-[24px] text-black">{t("reference_data")}</h1>
+                <div className="flex items-center gap-3">
+                    {/* Search */}
+                    <div className="relative">
+                        <Search
+                            size={14}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-black"
+                        />
+                        <input
+                            type="text"
+                            value={searchText}
+                            onChange={(e) => {
+                                setSearchText(e.target.value);
+                                setPage(1);
+                            }}
+                            placeholder={t("search_attributes")}
+                            className="h-9 w-60 rounded-[10px] border border-[#ED7C22] bg-white pl-8 pr-3 text-[16px] text-black placeholder:text-gray-600 focus:outline-none"
+                        />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search
-                                size={14}
-                                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
-                            />
-                            <input
-                                type="text"
-                                value={searchText}
-                                onChange={(e) => {
-                                    setSearchText(e.target.value);
-                                    setPage(1);
-                                }}
-                                placeholder={t("search_attributes")}
-                                className="h-9 w-56 rounded-[8px] border border-[#5A5A5A] bg-white/5 pl-8 pr-3 text-[16px] text-white placeholder:text-white/30 focus:border-[#F4BB1B] focus:outline-none"
-                            />
-                        </div>
-
-                        <Can action={REFERENCE_DATA_ACTIONS.create}>
-                            <button
-                                type="button"
-                                onClick={() => setDialog({ open: true, mode: "add" })}
-                                className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-6 text-[16px] font-medium text-black"
-                            >
-                                {t("add_new_attribute")}
-                                <span className="text-[20px] font-bold leading-none text-black">
-                                    +
-                                </span>
-                            </button>
-                        </Can>
-                    </div>
+                    <Can action={REFERENCE_DATA_ACTIONS.create}>
+                        <AddButton onClick={() => setDialog({ open: true, mode: "add" })} label={t("add_new_attribute")} />
+                    </Can>
                 </div>
+            </div>
 
-                {/* Table */}
-                {loading ? (
-                    <LoadingState compact />
-                ) : (
-                    <div className="min-h-0 flex-1 overflow-auto">
-                        <table className="w-full text-[16px]">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-[#3A3A3A]">
-                                    <th className="w-12 bg-black px-4 py-3 text-left font-semibold text-[#F4BB1B]">
+            {/* Table */}
+            {loading ? (
+                <TableSkeleton rows={10} columns={4} columnWidths={["12%", "38%", "25%", "25%"]} />
+            ) : (
+                <div className="bg-white rounded-[10px] py-6 shadow-sm">
+                    <div className="overflow-auto">
+                                <table className="w-full border-collapse bg-white table-fixed">
+                            <thead>
+                                <tr>
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "12%" }}>
                                         {t("col_no")}
                                     </th>
-                                    <th className="bg-black px-4 py-3 text-left font-semibold text-[#F4BB1B]">
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "38%" }}>
                                         {t("attribute_code")}
                                     </th>
-                                    <th className="w-40 bg-black px-4 py-3 text-left font-semibold text-[#F4BB1B]">
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "25%" }}>
                                         {t("is_hierarchical")}
                                     </th>
-                                    <th className="w-48 bg-black px-4 py-3 text-right font-semibold text-[#F4BB1B]">
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "25%" }}>
                                         {t("col_actions")}
                                     </th>
                                 </tr>
@@ -134,7 +134,7 @@ export default function AttributeListExplorer() {
                                     <tr>
                                         <td
                                             colSpan={4}
-                                            className="px-4 py-10 text-center text-white/40"
+                                            className="text-center py-10 px-4 text-gray-600"
                                         >
                                             {t("no_attributes")}
                                         </td>
@@ -143,54 +143,53 @@ export default function AttributeListExplorer() {
                                     attributes.map((item, idx) => (
                                         <tr
                                             key={item.attribute_id}
-                                            className="cursor-pointer border-b border-[#5A5A5A]/40 hover:bg-white/5"
+                                            className={`cursor-pointer transition-colors duration-150 ${idx % 2 === 1 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100`}
                                             onClick={() =>
                                                 router.push(
                                                     `/reference-data/${encodeURIComponent(item.attribute_id)}`,
                                                 )
                                             }
                                         >
-                                            <td className="px-4 py-3 font-medium text-white/50">
-                                                {String(
-                                                    (currentPage - 1) * PAGE_SIZE + idx + 1,
-                                                ).padStart(2, "0")}
+                                            <td className="py-2 px-9 align-middle">
+                                                <div className="text-[16px] text-gray-500">
+                                                    {String(
+                                                        (currentPage - 1) * PAGE_SIZE + idx + 1,
+                                                    ).padStart(2, "0")}
+                                                </div>
                                             </td>
-                                            <td className="px-4 py-3 font-medium text-white">
-                                                {item.attribute_display || item.attribute_code}
+                                            <td className="py-2 px-9 align-middle">
+                                                <div className="text-[16px] text-black truncate" title={item.attribute_display || item.attribute_code}>
+                                                    {item.attribute_display || item.attribute_code}
+                                                </div>
                                             </td>
-                                            <td className="px-4 py-3 font-medium text-white/60">
-                                                {item.is_hierarchical ? t("yes") : t("no")}
+                                            <td className="py-2 px-9 align-middle">
+                                                <div className="text-[16px] text-gray-600">
+                                                    {item.is_hierarchical ? t("yes") : t("no")}
+                                                </div>
                                             </td>
                                             <td
-                                                className="px-4 py-3 text-right"
+                                                className="py-2 px-9 align-middle"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <div className="flex items-center justify-end gap-4">
+                                                <div className="flex items-center justify-start gap-4">
                                                     <Can action={REFERENCE_DATA_ACTIONS.edit}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setDialog({
-                                                                    open: true,
-                                                                    mode: "edit",
-                                                                    attribute: item,
-                                                                })
-                                                            }
-                                                            className="font-medium text-white/50 hover:opacity-80 transition-opacity"
-                                                        >
+                                                        <EditButton onClick={() =>
+                                                            setDialog({
+                                                                open: true,
+                                                                mode: "edit",
+                                                                attribute: item,
+                                                            })
+                                                        }>
                                                             {t("edit")}
-                                                        </button>
+                                                        </EditButton>
                                                     </Can>
                                                     <Can action={REFERENCE_DATA_ACTIONS.delete}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setConfirmDelete(item)
-                                                            }
-                                                            className="font-medium text-red-400 hover:opacity-80 transition-opacity"
+                                                        <DeleteButton 
+                                                            onClick={() => setConfirmDelete(item)}
+                                                            loading={isDeleting && confirmDelete?.attribute_id === item.attribute_id}
                                                         >
                                                             {t("delete")}
-                                                        </button>
+                                                        </DeleteButton>
                                                     </Can>
                                                 </div>
                                             </td>
@@ -200,28 +199,36 @@ export default function AttributeListExplorer() {
                             </tbody>
                         </table>
                     </div>
-                )}
 
-                {/* Pagination */}
-                {total > PAGE_SIZE && (
-                    <div className="shrink-0 border-t border-[#5A5A5A] px-4 py-3 flex justify-end">
-                        <Pagination
-                            page={currentPage}
-                            pageSize={PAGE_SIZE}
-                            total={total}
-                            onPageChange={setPage}
-                        />
-                    </div>
-                )}
-            </div>
+                    {/* Pagination */}
+                    {total > PAGE_SIZE && (
+                        <div className="shrink-0 border-t border-gray-200 px-4 py-3 flex justify-end">
+                            <Pagination
+                                page={currentPage}
+                                pageSize={PAGE_SIZE}
+                                total={total}
+                                onPageChange={setPage}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Add / Edit dialog */}
             <AttributeDialog
                 open={dialog.open}
                 mode={dialog.mode}
                 attribute={dialog.attribute}
-                onClose={() => setDialog({ open: false, mode: "add" })}
-                onSuccess={refresh}
+                onClose={() => {
+                    setDialog({ open: false, mode: "add" });
+                    setIsSaving(false);
+                }}
+                onSuccess={() => {
+                    toast.success(dialog.mode === "add" ? t("attribute_added_successfully") : t("attribute_updated_successfully"));
+                    refresh();
+                    setDialog({ open: false, mode: "add" });
+                    setIsSaving(false);
+                }}
             />
 
             {/* Delete confirm */}
@@ -234,6 +241,6 @@ export default function AttributeListExplorer() {
                 onConfirm={proceedDelete}
                 onClose={() => setConfirmDelete(null)}
             />
-        </section>
+        </div>
     );
 }

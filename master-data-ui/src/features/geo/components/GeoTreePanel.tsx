@@ -187,7 +187,7 @@ export default function GeoTreePanel({
 
   if (nodes.length === 0) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center px-4 text-[14px] text-white/45">
+      <div className="flex h-full min-h-0 items-center justify-center px-4 text-[14px] text-gray-400">
         {t("geo_no_levels")}
       </div>
     );
@@ -199,10 +199,10 @@ export default function GeoTreePanel({
       tabIndex={0}
       role="tree"
       aria-label={t("geo_hierarchy")}
-      className="h-full min-h-0 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none focus-visible:ring-1 focus-visible:ring-[#F4BB1B] [scrollbar-gutter:stable]"
+      className="h-full min-h-0 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none focus-visible:ring-1 focus-visible:ring-(--color-yellow) [scrollbar-gutter:stable]"
     >
       {visibleNodes.length === 0 ? (
-        <p className="px-2 py-6 text-center text-[13px] text-white/45">
+        <p className="px-2 py-6 text-center text-[13px] text-gray-400">
           {t("no_results")}
         </p>
       ) : (
@@ -211,7 +211,7 @@ export default function GeoTreePanel({
             return (
               <div
                 key={node.key}
-                className="flex items-center gap-2 px-2 py-1.5 font-normal text-[16px] leading-none tracking-normal text-white/45"
+                className="flex items-center gap-2 px-2 py-1.5 font-normal text-[16px] leading-none tracking-normal text-gray-400"
                 style={{ paddingLeft: 8 + depth * 16 }}
               >
                 <LoaderCircle size={14} className="animate-spin" />
@@ -244,14 +244,14 @@ export default function GeoTreePanel({
               aria-selected={selected}
               className={`group flex w-full items-center gap-1 rounded px-1 py-1.5 font-normal text-[16px] leading-none tracking-normal ${
                 selected
-                  ? "bg-[#F4BB1B]/20 text-[#F4BB1B]"
-                  : "text-white hover:bg-white/[0.06]"
+                  ? "bg-(--color-yellow)/20 text-(--color-yellow)"
+                  : "text-black hover:bg-gray-100"
               }`}
               style={{ paddingLeft: 4 + depth * 14 }}
             >
               <button
                 type="button"
-                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-white/70 hover:bg-white/10 disabled:opacity-0"
+                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-gray-600 hover:bg-gray-200 disabled:opacity-0"
                 disabled={!node.hasChildren}
                 aria-label={expanded ? t("collapse") : t("expand")}
                 onClick={(event) => {
@@ -277,7 +277,7 @@ export default function GeoTreePanel({
                   {node.label}
                 </span>
                 {count !== null && node.hasChildren ? (
-                  <span className="shrink-0 font-normal text-[16px] leading-none tracking-normal text-white/45">
+                  <span className="shrink-0 font-normal text-[16px] leading-none tracking-normal text-gray-400">
                     ({count})
                   </span>
                 ) : null}

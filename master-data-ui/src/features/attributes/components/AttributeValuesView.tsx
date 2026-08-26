@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
 import Can from "@/components/Can";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import LoadingState from "@/components/LoadingState";
+import TableSkeleton from "@/components/TableSkeleton";
 import Pagination from "@/components/Pagination";
+import { toast } from "react-toastify";
+import { getErrorMessage } from "@/shared/utils/errorHandler";
+import AddButton from "@/components/AddButton";
+import EditButton from "@/components/EditButton";
+import DeleteButton from "@/components/DeleteButton";
 import { useAttributeValues, valueHasChildren } from "../hooks";
 import AttributeValueDialog from "./AttributeValueDialog";
 import type { Attribute, AttributeValue } from "../types";
@@ -24,6 +30,7 @@ interface AttributeValuesViewProps {
 
 export default function AttributeValuesView({ attribute }: AttributeValuesViewProps) {
     const t = useTranslations();
+    const router = useRouter();
 
     const [parentValueId, setParentValueId] = useState<string | null>(null);
     const [breadcrumb, setBreadcrumb] = useState<AttributeValue[]>([]);
@@ -38,6 +45,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
     }>({ open: false, mode: "add" });
 
     const [confirmDelete, setConfirmDelete] = useState<AttributeValue | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const { execute: deleteValue } = useFetch();
 
@@ -92,6 +100,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
 
     const proceedDelete = async () => {
         if (!confirmDelete) return;
+        setIsDeleting(true);
         const result = await deleteValue("/api/attributes/delete-attribute-value", {
             method: "POST",
             body: JSON.stringify({
@@ -99,104 +108,108 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                 attribute_id: confirmDelete.attribute_id,
             }),
         });
+        setIsDeleting(false);
         if (result?.value_id || result?.attribute_id) {
+            toast.success(t("attr_value_updated_successfully"));
             refresh();
+        } else {
+            const rawError = (result as any)?.error || (result as any)?.statusText;
+            const errorCode = (result as any)?.code;
+            const errorMessage = getErrorMessage(rawError, errorCode, t);
+            toast.error(errorMessage);
         }
         setConfirmDelete(null);
     };
 
     return (
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-black text-white">
-            <div className="flex flex-1 flex-col border border-[#5A5A5A] min-h-0">
-                {/* Header row */}
-                <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#5A5A5A] px-4 py-3">
-                    <div className="flex flex-col gap-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[16px] font-semibold text-white">
-                                {t("attr_values_title")}
-                            </span>
-                            {breadcrumb.length > 0 && (
-                                <div className="flex items-center gap-1 text-[16px] text-white/50">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleBreadcrumbClick(-1)}
-                                        className="hover:text-[#F4BB1B] transition-colors"
-                                    >
-                                        {t("root")}
-                                    </button>
-                                    {breadcrumb.map((crumb, i) => (
-                                        <span key={crumb.value_id} className="flex items-center gap-1">
-                                            <ChevronRight size={14} />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleBreadcrumbClick(i)}
-                                                className="hover:text-[#F4BB1B] transition-colors max-w-32 truncate"
-                                            >
-                                                {crumb.value_display || crumb.value_code}
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        {isHierarchical && (
-                            <span className="text-[14px] text-white/40">
-                                {t("attr_hierarchical_hint")}
-                            </span>
-                        )}
+        <div>
+            <div className="flex items-center justify-between gap-4 mb-6">
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => router.push("/reference-data")}
+                            className="flex items-center gap-2 text-[18px] font-semibold text-black/80 hover:text-black transition-colors"
+                        >
+                            <ArrowLeft size={18} />
+                            {t("reference_data")}
+                        </button>
+                        <span className="text-[22px] text-black">&gt;</span>
+                        <h1 className="font-semibold text-[18px] text-black">{attribute.attribute_display || attribute.attribute_code}</h1>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search
-                                size={14}
-                                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
-                            />
-                            <input
-                                type="text"
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                                placeholder={t("search_attribute_values")}
-                                className="h-9 w-52 rounded-[8px] border border-[#5A5A5A] bg-white/5 pl-8 pr-3 text-[16px] text-white placeholder:text-white/30 focus:border-[#F4BB1B] focus:outline-none"
-                            />
-                        </div>
-
-                        <Can action={REFERENCE_DATA_ACTIONS.create}>
+                    {isHierarchical && (
+                        <span className="text-[14px] text-gray-400">
+                            {t("attr_hierarchical_hint")}
+                        </span>
+                    )}
+                    {breadcrumb.length > 0 && (
+                        <div className="flex items-center gap-1 text-[16px] text-gray-500">
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setValueDialog({ open: true, mode: "add" })
-                                }
-                                className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-6 text-[16px] font-medium text-black"
+                                onClick={() => handleBreadcrumbClick(-1)}
+                                className="hover:text-[#ED7C22] transition-colors"
                             >
-                                {t("add_attribute_value")}
-                                <span className="text-[20px] font-bold leading-none text-black">
-                                    +
-                                </span>
+                                {t("root")}
                             </button>
-                        </Can>
-                    </div>
+                            {breadcrumb.map((crumb, i) => (
+                                <span key={crumb.value_id} className="flex items-center gap-1">
+                                    <ChevronRight size={14} />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBreadcrumbClick(i)}
+                                        className="hover:text-[#ED7C22] transition-colors max-w-32 truncate"
+                                    >
+                                        {crumb.value_display || crumb.value_code}
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
+                <div className="flex items-center gap-3">
+                    {/* Search */}
+                    <div className="relative">
+                        <Search
+                            size={14}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        />
+                        <input
+                            type="text"
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            placeholder={t("search_attribute_values")}
+                            className="h-9 w-56 rounded-lg border border-gray-300 bg-white pl-8 pr-3 text-[16px] text-black placeholder:text-gray-400 focus:border-(--color-yellow) focus:outline-none"
+                        />
+                    </div>
 
-                {/* Table */}
-                {loading ? (
-                    <LoadingState compact />
-                ) : (
-                    <div className="min-h-0 flex-1 overflow-auto">
-                        <table className="w-full text-[16px]">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-[#3A3A3A]">
-                                    <th className="w-12 bg-black px-4 py-3 text-left font-semibold text-[#F4BB1B]">
+                    <Can action={REFERENCE_DATA_ACTIONS.create}>
+                        <AddButton
+                            onClick={() => setValueDialog({ open: true, mode: "add" })}
+                            label={t("add_attribute_value")}
+                        />
+                    </Can>
+                </div>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+                <TableSkeleton rows={10} columns={4} columnWidths={["25%", "25%", "25%", "25%"]} />
+            ) : (
+                <div className="bg-white rounded-[10px] py-6 shadow-sm">
+                    <div className="overflow-auto">
+                        <table className="w-full border-collapse bg-white table-fixed">
+                            <thead>
+                                <tr>
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "25%" }}>
                                         {t("col_no")}
                                     </th>
-                                    <th className="bg-black px-4 py-3 text-left font-semibold text-[#F4BB1B]">
-                                        {t("value_code")}
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "25%" }}>
+                                        {t("value_display")}
                                     </th>
-                                    <th className="w-28 bg-black px-4 py-3 text-left font-semibold text-[#F4BB1B]">
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "25%" }}>
                                         {t("sort_order")}
                                     </th>
-                                    <th className="w-44 bg-black px-4 py-3 text-right font-semibold text-[#F4BB1B]">
+                                    <th className="text-left pb-3 px-9 border-b border-gray-200 font-semibold text-[#ED7C22] text-[16px] tracking-wider" style={{ width: "25%" }}>
                                         {t("col_actions")}
                                     </th>
                                 </tr>
@@ -206,7 +219,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                                     <tr>
                                         <td
                                             colSpan={4}
-                                            className="px-4 py-10 text-center text-white/40"
+                                            className="text-center py-10 px-4 text-gray-600"
                                         >
                                             {t("no_results")}
                                         </td>
@@ -219,38 +232,41 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                                         return (
                                             <tr
                                                 key={item.value_id}
-                                                className={`border-b border-[#5A5A5A]/40 ${isHierarchical ? "cursor-pointer hover:bg-white/5" : "hover:bg-white/[0.02]"}`}
+                                                className={`cursor-pointer transition-colors duration-150 ${idx % 2 === 1 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100`}
                                                 onClick={() => handleDrillDown(item)}
                                             >
-                                                <td className="px-4 py-3 font-medium text-white/50">
-                                                    {String(
-                                                        (currentPage - 1) * PAGE_SIZE + idx + 1,
-                                                    ).padStart(2, "0")}
+                                                <td className="py-2 px-9 align-middle">
+                                                    <div className="text-[16px] text-gray-500">
+                                                        {String(
+                                                            (currentPage - 1) * PAGE_SIZE + idx + 1,
+                                                        ).padStart(2, "0")}
+                                                    </div>
                                                 </td>
-                                                <td className="px-4 py-3 font-medium text-white">
+                                                <td className="py-2 px-9 align-middle">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="truncate">
+                                                        <div className="text-[16px] text-black truncate" title={item.value_display || item.value_code}>
                                                             {item.value_display || item.value_code}
-                                                        </span>
+                                                        </div>
                                                         {hasChildren && (
                                                             <ChevronRight
                                                                 size={16}
-                                                                className="text-[#F4BB1B] shrink-0"
+                                                                className="text-[#ED7C22] shrink-0"
                                                             />
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 font-medium text-white/60">
-                                                    {item.sort_order ?? 0}
+                                                <td className="py-2 px-9 align-middle">
+                                                    <div className="text-[16px] text-gray-600">
+                                                        {item.sort_order ?? 0}
+                                                    </div>
                                                 </td>
                                                 <td
-                                                    className="px-4 py-3 text-right"
+                                                    className="py-2 px-9 align-middle"
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    <div className="flex items-center justify-end gap-4">
+                                                    <div className="flex items-center justify-start gap-4">
                                                         <Can action={REFERENCE_DATA_ACTIONS.edit}>
-                                                            <button
-                                                                type="button"
+                                                            <EditButton 
                                                                 onClick={() =>
                                                                     setValueDialog({
                                                                         open: true,
@@ -258,21 +274,21 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                                                                         value: item,
                                                                     })
                                                                 }
-                                                                className="font-medium text-white/50 hover:opacity-80 transition-opacity"
+                                                                title={t("edit")}
                                                             >
                                                                 {t("edit")}
-                                                            </button>
+                                                            </EditButton>
                                                         </Can>
                                                         <Can action={REFERENCE_DATA_ACTIONS.delete}>
-                                                            <button
-                                                                type="button"
+                                                            <DeleteButton
                                                                 onClick={() =>
                                                                     setConfirmDelete(item)
                                                                 }
-                                                                className="font-medium text-red-400 hover:opacity-80 transition-opacity"
+                                                                loading={isDeleting && confirmDelete?.value_id === item.value_id}
+                                                                title={t("delete")}
                                                             >
-                                                                {t("delete")}
-                                                            </button>
+                                                                {isDeleting && confirmDelete?.value_id === item.value_id ? "Deleting" : t("delete")}
+                                                            </DeleteButton>
                                                         </Can>
                                                     </div>
                                                 </td>
@@ -283,20 +299,20 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                             </tbody>
                         </table>
                     </div>
-                )}
 
-                {/* Pagination */}
-                {attributeValues.length > PAGE_SIZE && (
-                    <div className="shrink-0 border-t border-[#5A5A5A] px-4 py-3 flex justify-end">
-                        <Pagination
-                            page={currentPage}
-                            pageSize={PAGE_SIZE}
-                            total={attributeValues.length}
-                            onPageChange={setPage}
-                        />
-                    </div>
-                )}
-            </div>
+                    {/* Pagination */}
+                    {attributeValues.length > PAGE_SIZE && (
+                        <div className="shrink-0 border-t border-gray-200 px-4 py-3 flex justify-end">
+                            <Pagination
+                                page={currentPage}
+                                pageSize={PAGE_SIZE}
+                                total={attributeValues.length}
+                                onPageChange={setPage}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Value add/edit dialog */}
             <AttributeValueDialog
@@ -315,10 +331,11 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                 title={t("confirm_remove_attribute_value")}
                 message={`${t("confirm_remove_attribute_value_msg")} "${confirmDelete?.value_display || confirmDelete?.value_code}"?`}
                 danger
+                confirming={isDeleting}
                 confirmLabel={t("delete")}
                 onConfirm={proceedDelete}
                 onClose={() => setConfirmDelete(null)}
             />
-        </section>
+        </div>
     );
 }

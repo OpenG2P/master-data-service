@@ -20,40 +20,40 @@ export default function Pagination({
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-[14px] text-white">
+    <div className="flex items-center justify-end gap-3">
+      <span className="text-[16px] text-(--color-text-muted)">
         {start} - {end} of {total}
       </span>
 
       <button
         type="button"
-        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded bg-[#5A5A5A] disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center justify-center min-w-10 h-8.5 px-3 rounded bg-(--color-accent) text-black text-[16px] font-medium cursor-pointer transition-colors duration-150 disabled:bg-(--color-grey) disabled:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
         aria-label="Previous page"
       >
         <Image
           src="/arrow_back_01.png"
-          width={14}
-          height={14}
-          alt=""
-          className="block invert"
+          width={16}
+          height={16}
+          alt="Previous"
+          className="block"
         />
       </button>
 
       <button
         type="button"
-        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded bg-[#5A5A5A] disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center justify-center min-w-10 h-8.5 px-3 rounded bg-(--color-accent) text-black text-[16px] font-medium cursor-pointer transition-colors duration-150 disabled:bg-(--color-grey) disabled:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
         aria-label="Next page"
       >
         <Image
           src="/arrow_next_01.png"
-          width={14}
-          height={14}
-          alt=""
-          className="block invert"
+          width={16}
+          height={16}
+          alt="Next"
+          className="block"
         />
       </button>
     </div>

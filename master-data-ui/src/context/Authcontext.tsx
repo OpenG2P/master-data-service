@@ -86,12 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (res.ok) {
                     setUser(data);
                     setIsLoggedIn(true);
-                } else {
-                    console.log(data);
                 }
 
             } catch (err) {
-                console.error("Request failed:", err);
             } finally {
                 setIsLoading(false);
             }
@@ -102,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (isLoading) {
         return (
-            <div className="w-full min-h-screen flex items-center justify-center bg-neutral-second">
+            <div className="w-full min-h-screen flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-4">
                     <img
                         src="/loading.gif"

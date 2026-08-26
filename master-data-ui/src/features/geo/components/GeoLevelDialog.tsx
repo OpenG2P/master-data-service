@@ -4,6 +4,8 @@ import { useEffect, useId, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFetch } from "@/shared/hooks/useFetch";
+import { toast } from "react-toastify";
+import { getErrorMessage } from "@/shared/utils/errorHandler";
 import type { GeoLevel } from "../types";
 
 type GeoLevelDialogProps = {
@@ -73,6 +75,11 @@ export default function GeoLevelDialog({
     if (result?.level_id) {
       onSuccess?.();
       onClose();
+    } else {
+      const rawError = (result as any)?.error || (result as any)?.statusText;
+      const errorCode = (result as any)?.code;
+      const errorMessage = getErrorMessage(rawError, errorCode, t);
+      toast.error(errorMessage);
     }
   };
 
@@ -80,7 +87,7 @@ export default function GeoLevelDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -90,43 +97,45 @@ export default function GeoLevelDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md rounded-[10px] border border-[#5A5A5A] bg-black text-white shadow-2xl"
+        className="relative w-full bg-white rounded-[10px] shadow-lg max-h-[80vh] p-8 border-4 border-[#EABB13]"
+        style={{ maxWidth: "600px" }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#5A5A5A] px-5 py-4">
-          <h2 id={titleId} className="text-[16px] font-semibold text-[#F4BB1B]">
+        <div className="flex items-center justify-between mb-6">
+          <h2 id={titleId} className="text-[22px] font-bold text-[#ED7C22]">
             {mode === "edit" ? t("geo_edit_level") : t("geo_add_level")}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+            className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
             aria-label={t("close")}
           >
-            <X size={16} />
+            <X size={30} />
           </button>
         </div>
 
         <form
-          className="space-y-4 px-5 py-5"
+          className="modal-scroll overflow-y-auto max-h-[calc(80vh-120px)] pr-2 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             void handleSubmit();
           }}
         >
           <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
+            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
               {t("geo_parent_level")}
             </span>
             <input
               type="text"
               value={parentLevelLabel ?? t("geo_parent_level_none")}
               readOnly
-              className="h-10 w-full rounded border border-[#5A5A5A] bg-[#1A1A1A] px-3 text-[14px] text-white/80 outline-none"
+              className="h-10 w-full rounded border border-gray-300 bg-gray-50 px-3 text-[14px] text-gray-700 outline-none"
             />
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
+            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
               {t("geo_level_name")}
             </span>
             <input
@@ -135,12 +144,12 @@ export default function GeoLevelDialog({
               onChange={(event) => setName(event.target.value)}
               autoFocus
               placeholder={t("geo_level_name_placeholder")}
-              className="h-10 w-full rounded border border-[#5A5A5A] bg-black px-3 text-[14px] text-white outline-none placeholder:text-[#8A8A8A] focus:border-[#F4BB1B]"
+              className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
             />
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
+            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
               {t("geo_level_code")}
             </span>
             <input
@@ -148,21 +157,21 @@ export default function GeoLevelDialog({
               value={code}
               onChange={(event) => setCode(event.target.value)}
               placeholder={t("geo_level_code_placeholder")}
-              className="h-10 w-full rounded border border-[#5A5A5A] bg-black px-3 text-[14px] text-white outline-none placeholder:text-[#8A8A8A] focus:border-[#F4BB1B]"
+              className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
             />
           </label>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex gap-4 w-full justify-center pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="h-9 cursor-pointer rounded-[10px] border border-[#5A5A5A] px-4 text-[14px] font-medium text-white hover:bg-white/5"
+              className="px-8 py-2 bg-black text-white font-semibold rounded-[10px] hover:bg-black/80 transition-colors text-[16px] cursor-pointer"
             >
               {t("cancel")}
             </button>
             <button
               type="submit"
-              className="h-9 cursor-pointer rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
+              className="px-8 py-2 bg-(--color-yellow) text-black font-semibold rounded-[10px] hover:bg-(--color-accent-hover) transition-colors text-[16px] cursor-pointer"
             >
               {mode === "edit" ? t("save") : t("add")}
             </button>

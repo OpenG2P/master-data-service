@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import Pagination from "@/components/Pagination";
+import DeleteButton from "@/components/DeleteButton";
+import EditButton from "@/components/EditButton";
 import type {
   ChildrenCacheEntry,
   GeoLevelValue,
@@ -21,6 +23,7 @@ type GeoChildrenTableProps = {
   getChildCount: (value: GeoLevelValue) => number | null;
   getLevelLabel?: (value: GeoLevelValue) => string | null;
   footerActions?: ReactNode;
+  deletingValueId?: string | null;
 };
 
 export default function GeoChildrenTable({
@@ -34,6 +37,7 @@ export default function GeoChildrenTable({
   getChildCount,
   getLevelLabel: getRowLevelLabel,
   footerActions,
+  deletingValueId,
 }: GeoChildrenTableProps) {
   const t = useTranslations();
   const [page, setPage] = useState(1);
@@ -87,7 +91,7 @@ export default function GeoChildrenTable({
     sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : "";
 
   const footer = showFooter ? (
-    <div className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#5A5A5A] px-4 py-2">
+    <div className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-2">
       <div className="flex w-fit flex-wrap items-center gap-2">
         {footerActions}
       </div>
@@ -107,19 +111,19 @@ export default function GeoChildrenTable({
   if (!selected) {
     return (
       <div className="absolute inset-0 flex flex-col">
-        <div className="shrink-0 border-b border-[#5A5A5A] px-4 py-2.5">
-          <div className="font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]">
+        <div className="shrink-0 border-b border-gray-200 px-4 py-2.5">
+          <div className="text-[16px] leading-none tracking-normal text-black">
             {title || t("geo_children")}
           </div>
           {subtitle ? (
-            <p className="mt-1.5 text-[12px] text-white/45">{subtitle}</p>
+            <p className="mt-1.5 text-[12px] text-gray-400">{subtitle}</p>
           ) : null}
         </div>
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="font-normal text-[16px] leading-none tracking-normal text-white">
+          <p className="text-[16px] leading-none tracking-normal text-black">
             {t("geo_select_node_title")}
           </p>
-          <p className="max-w-sm text-[14px] text-white/45">
+          <p className="max-w-sm text-[16px] text-gray-400">
             {t("geo_select_node_hint")}
           </p>
         </div>
@@ -130,31 +134,35 @@ export default function GeoChildrenTable({
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      <div className="shrink-0 border-b border-[#5A5A5A] px-4 py-2.5">
-        <div className="font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]">
+      <div className="shrink-0 border-b border-gray-200 px-4 py-2.5">
+        <div className="text-[16px] leading-none tracking-normal text-black">
           {title || t("geo_children")}
         </div>
         {subtitle ? (
-          <p className="mt-1.5 text-[12px] text-white/45">{subtitle}</p>
+          <p className="mt-1.5 text-[12px] text-gray-400">{subtitle}</p>
         ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pt-0 pb-2 [scrollbar-gutter:stable]">
         {loading ? (
-          <p className="px-1 py-8 text-center text-[14px] text-white/45">
-            {t("loading")}
-          </p>
+          <div className="flex items-center justify-center py-8 bg-white">
+            <img
+              src="/loading.gif"
+              alt="Loading"
+              className="w-12 h-12 rounded-[10px]"
+            />
+          </div>
         ) : error ? (
-          <p className="px-1 py-8 text-center text-[14px] text-red-300">{error}</p>
+          <p className="px-1 py-8 text-center text-[16px] text-red-500">{error}</p>
         ) : pageRows.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-1 py-10 text-center">
-            <p className="text-[14px] text-white/45">{t("geo_no_level_values")}</p>
+            <p className="text-[16px] text-gray-400">{t("geo_no_level_values")}</p>
           </div>
         ) : (
-          <table className="w-full table-fixed border-collapse text-left">
-            <thead className="sticky top-0 bg-black">
-              <tr className="border-b border-[#3A3A3A]">
-                <th className="w-[45%] px-2 py-2 text-[13px] font-semibold text-[#F4BB1B]">
+          <table className="w-full border-collapse bg-white table-fixed">
+            <thead>
+              <tr>
+                <th className="text-left py-3 px-9 border-b border-gray-200 font-semibold text-black text-[16px] tracking-wider" style={{ width: "45%" }}>
                   <button
                     type="button"
                     className="cursor-pointer"
@@ -165,11 +173,11 @@ export default function GeoChildrenTable({
                   </button>
                 </th>
                 {getRowLevelLabel ? (
-                  <th className="w-[20%] px-2 py-2 text-[13px] font-semibold text-[#F4BB1B]">
+                  <th className="text-left py-3 px-9 border-b border-gray-200 font-semibold text-black text-[16px] tracking-wider" style={{ width: "20%" }}>
                     {t("geo_level")}
                   </th>
                 ) : null}
-                <th className="w-[25%] px-2 py-2 text-[13px] font-semibold text-[#F4BB1B]">
+                <th className="text-left py-3 px-9 border-b border-gray-200 font-semibold text-black text-[16px] tracking-wider" style={{ width: "25%" }}>
                   <button
                     type="button"
                     className="cursor-pointer"
@@ -179,53 +187,54 @@ export default function GeoChildrenTable({
                     {sortMarker("children")}
                   </button>
                 </th>
-                <th className="w-[30%] px-2 py-2 text-[13px] font-semibold text-[#F4BB1B]">
+                <th className="text-left py-3 px-9 border-b border-gray-200 font-semibold text-black text-[16px] tracking-wider" style={{ width: "30%" }}>
                   {t("col_actions")}
                 </th>
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((row) => {
+              {pageRows.map((row, index) => {
                 const count = getChildCount(row);
                 return (
                   <tr
                     key={row.level_value_id}
-                    className="cursor-pointer border-b border-[#3A3A3A] hover:bg-white/[0.03]"
+                    className={`cursor-pointer transition-colors duration-150 ${index % 2 === 1 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100`}
                     onClick={() => onSelect(row)}
                   >
-                    <td className="truncate px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal text-white">
-                      {getValueLabel(row)}
+                    <td className="py-2 px-9 align-middle">
+                      <div className="truncate text-[16px] text-black" title={getValueLabel(row)}>
+                        {getValueLabel(row)}
+                      </div>
                     </td>
                     {getRowLevelLabel ? (
-                      <td className="truncate px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal text-white/80">
-                        {getRowLevelLabel(row) || "—"}
+                      <td className="py-2 px-9 align-middle">
+                        <div className="truncate text-[16px] text-gray-600" title={getRowLevelLabel(row) || "—"}>
+                          {getRowLevelLabel(row) || "—"}
+                        </div>
                       </td>
                     ) : null}
-                    <td className="px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal text-white/80">
-                      {count === null ? "—" : count}
+                    <td className="py-2 px-9 align-middle">
+                      <div className="text-[16px] text-gray-600">
+                        {count === null ? "—" : count}
+                      </div>
                     </td>
-                    <td className="px-2 py-2.5 font-normal text-[16px] leading-none tracking-normal">
+                    <td className="py-2 px-9 align-middle">
                       <div className="flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onEdit(row);
-                          }}
-                          className="cursor-pointer text-white/80 hover:text-[#F4BB1B] hover:underline"
-                        >
+                        <EditButton onClick={(event) => {
+                          event.stopPropagation();
+                          onEdit(row);
+                        }}>
                           {t("edit")}
-                        </button>
-                        <button
-                          type="button"
+                        </EditButton>
+                        <DeleteButton
                           onClick={(event) => {
                             event.stopPropagation();
                             onDelete(row);
                           }}
-                          className="cursor-pointer text-red-300 hover:underline"
+                          loading={deletingValueId === row.level_value_id}
                         >
                           {t("delete")}
-                        </button>
+                        </DeleteButton>
                       </div>
                     </td>
                   </tr>
