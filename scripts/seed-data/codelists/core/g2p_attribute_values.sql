@@ -9,7 +9,7 @@
 -- Values are unchanged from what the widgets carried, so a deployment with no
 -- country pack behaves exactly as it did.
 
-INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES 
+INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES
 ('AGE_METHOD:DOCUMENTED','AGE_METHOD','DOCUMENTED','DOCUMENTED',NULL,1),
 ('AGE_METHOD:ESTIMATED','AGE_METHOD','ESTIMATED','ESTIMATED',NULL,2),
 ('AGE_METHOD:CALCULATED','AGE_METHOD','CALCULATED','CALCULATED',NULL,3),

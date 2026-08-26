@@ -1,4 +1,4 @@
-INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES 
+INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES
 -- Source of Income
 ('SOI_CROP_PRODUCTION','SOURCE_OF_INCOME','CROP_PRODUCTION','Crop Production',NULL,1),
 ('SOI_LIVESTOCK_PRODUCTION','SOURCE_OF_INCOME','LIVESTOCK_PRODUCTION','Livestock Production',NULL,2),

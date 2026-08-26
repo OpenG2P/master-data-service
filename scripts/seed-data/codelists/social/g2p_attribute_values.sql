@@ -1,4 +1,4 @@
-INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES 
+INSERT INTO "public"."g2p_attribute_values" ("value_id","attribute_id","value_code","value_display","parent_value_id","sort_order") VALUES
 ('PROG_CASH_TRANSFER','PROGRAM_NAME','CASH_TRANSFER','Cash Transfer Programme',NULL,1),
 ('PROG_FOOD_SUPPORT','PROGRAM_NAME','FOOD_SUPPORT','Food Support Programme',NULL,2),
 ('PROG_HEALTH_INSURANCE','PROGRAM_NAME','HEALTH_INSURANCE','Health Insurance Scheme',NULL,3),

@@ -1,4 +1,4 @@
-INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribute_display","is_hierarchical") VALUES 
+INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribute_display","is_hierarchical") VALUES
 ('SOURCE_OF_INCOME','SOURCE_OF_INCOME','Source of Income','FALSE'),
 ('CROP_COMMODITY','CROP_COMMODITY','Crop Commodity','FALSE'),
 ('CROP_SEASON','CROP_SEASON','Crop Season','FALSE'),

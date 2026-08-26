@@ -114,10 +114,10 @@ class G2PGeoService(BaseService):
                 # dropdown looks exactly like a country with no regions, so the
                 # mistake surfaces as missing data rather than as an error.
                 level = (
-                    await session.execute(
-                        select(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_id)
-                    )
-                ).scalars().first()
+                    (await session.execute(select(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_id)))
+                    .scalars()
+                    .first()
+                )
                 if not level:
                     return []
                 level_id = level.level_id
@@ -182,8 +182,8 @@ class G2PGeoService(BaseService):
         level_mnemonic: str,
         exclude_level_id: Optional[str] = None,
     ) -> bool:
-        query = select(func.count()).select_from(G2PGeoLevel).where(
-            G2PGeoLevel.level_mnemonic == level_mnemonic
+        query = (
+            select(func.count()).select_from(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_mnemonic)
         )
         if exclude_level_id:
             query = query.where(G2PGeoLevel.level_id != exclude_level_id)
@@ -251,9 +251,7 @@ class G2PGeoService(BaseService):
                 level_mnemonic = (payload.level_mnemonic or "").strip()
                 if not level_mnemonic:
                     raise GeoServiceError("G2P-GEO-400", "level_mnemonic cannot be empty")
-                if await self._mnemonic_exists(
-                    session, level_mnemonic, exclude_level_id=payload.level_id
-                ):
+                if await self._mnemonic_exists(session, level_mnemonic, exclude_level_id=payload.level_id):
                     raise GeoServiceError(
                         "G2P-GEO-409",
                         f"level_mnemonic already exists: {level_mnemonic}",

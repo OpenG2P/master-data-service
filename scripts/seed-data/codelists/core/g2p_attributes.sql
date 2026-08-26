@@ -9,7 +9,7 @@
 -- Values are unchanged from what the widgets carried, so a deployment with no
 -- country pack behaves exactly as it did.
 
-INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribute_display","is_hierarchical") VALUES 
+INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribute_display","is_hierarchical") VALUES
 ('AGE_METHOD','AGE_METHOD','Age Method','FALSE'),
 ('CITIZENSHIP_CATEGORY','CITIZENSHIP_CATEGORY','Citizenship Category','FALSE'),
 ('COOKING_FUEL_TYPE','COOKING_FUEL_TYPE','Cooking Fuel Type','FALSE'),

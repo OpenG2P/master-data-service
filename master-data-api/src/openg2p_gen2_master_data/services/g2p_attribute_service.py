@@ -387,9 +387,7 @@ class G2PAttributeService(BaseService):
 
             if value_count:
                 await session.execute(
-                    delete(G2PAttributeValue).where(
-                        G2PAttributeValue.attribute_id == attribute_id
-                    )
+                    delete(G2PAttributeValue).where(G2PAttributeValue.attribute_id == attribute_id)
                 )
             await session.delete(attribute)
             await session.commit()
@@ -469,9 +467,11 @@ class G2PAttributeService(BaseService):
             value = await self._get_value_by_id(
                 session,
                 payload.value_id,
-                self._empty_to_none(payload.attribute_id)
-                if "attribute_id" in payload.model_fields_set
-                else None,
+                (
+                    self._empty_to_none(payload.attribute_id)
+                    if "attribute_id" in payload.model_fields_set
+                    else None
+                ),
             )
             if not value:
                 raise AttributeServiceError(
@@ -506,10 +506,7 @@ class G2PAttributeService(BaseService):
                 ):
                     raise AttributeServiceError(
                         "G2P-ATTR-409",
-                        (
-                            f"value_code already exists for attribute "
-                            f"'{value.attribute_id}': {value_code}"
-                        ),
+                        (f"value_code already exists for attribute " f"'{value.attribute_id}': {value_code}"),
                     )
                 value.value_code = value_code
 

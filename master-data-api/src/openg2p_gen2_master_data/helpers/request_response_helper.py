@@ -668,9 +668,7 @@ class RequestResponseHelper(BaseService):
             response_header=self._geo_write_response_header(g2p_request),
             response_body=DeleteGeoLevelValueResponseBody(
                 pagination_response=None,
-                response_payload=DeleteGeoLevelValueResponsePayload(
-                    level_value_id=level_value_id
-                ),
+                response_payload=DeleteGeoLevelValueResponsePayload(level_value_id=level_value_id),
             ),
         )
 
