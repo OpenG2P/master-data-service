@@ -1,5 +1,4 @@
-from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from openg2p_fastapi_common.schemas import (
     G2PRequest,
@@ -23,12 +22,6 @@ class AttributeData(BaseModel):
     attribute_code: Optional[str] = None
     attribute_display: Optional[str] = None
     is_hierarchical: Optional[bool] = False
-    display_name_i18n: Optional[Dict[str, Any]] = None
-
-    # Which pack, and which version, this came from — so a consumer can assert
-    # it seeded against the pack it meant to rather than assume.
-    country: Optional[str] = None
-    version: Optional[str] = None
 
 
 class AttributeValueData(BaseModel):
@@ -44,27 +37,11 @@ class AttributeValueData(BaseModel):
     value_display: Optional[str] = None
     parent_value_id: Optional[str] = None
     sort_order: Optional[int] = None
-    display_name_i18n: Optional[Dict[str, Any]] = None
-
-    # Semantic roles this value plays, from the pack's closed vocabulary.
-    # Consumers should match on a role rather than on the literal value —
-    # `relationship_to_head = 'SELF'` is only true for countries that happen to
-    # use that code, and it fails silently for the rest.
-    roles: Optional[List[str]] = None
-
-    # NULL for the core lists; a domain name such as 'agriculture' otherwise.
-    domain: Optional[str] = None
-    country: Optional[str] = None
-    version: Optional[str] = None
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
 
 
 # ---- get_all_attributes -----------------------------------------------------
 class GetAttributesRequestPayload(BaseModel):
-    # Restrict to one domain, or omit for the core lists every registry uses.
-    domain: Optional[str] = None
-    include_domains: Optional[bool] = False
+    pass
 
 
 class GetAttributesRequestBody(G2PRequestBody):
@@ -95,15 +72,11 @@ class GetAttributeValuesRequestPayload(BaseModel):
         default=None,
         description="Code-list id. When set, returns all values for that attribute.",
     )
-    domain: Optional[str] = Field(default=None, description="Optional domain filter.")
-    include_domains: Optional[bool] = False
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "attribute_id": "string",
-                "domain": "string",
-                "include_domains": False,
             }
         }
     )
@@ -139,11 +112,6 @@ class AddAttributeRequestPayload(BaseModel):
     attribute_code: str
     attribute_display: str
     is_hierarchical: Optional[bool] = False
-    display_name_i18n: Optional[Dict[str, Any]] = None
-    country: Optional[str] = None
-    version: Optional[str] = None
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
 
 
 class AddAttributeRequestBody(G2PRequestBody):
@@ -168,11 +136,6 @@ class UpdateAttributeRequestPayload(BaseModel):
     attribute_code: Optional[str] = None
     attribute_display: Optional[str] = None
     is_hierarchical: Optional[bool] = None
-    display_name_i18n: Optional[Dict[str, Any]] = None
-    country: Optional[str] = None
-    version: Optional[str] = None
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
 
 
 class UpdateAttributeRequestBody(G2PRequestBody):
@@ -227,13 +190,6 @@ class AddAttributeValueRequestPayload(BaseModel):
     value_display: str
     parent_value_id: Optional[str] = None
     sort_order: Optional[int] = 0
-    display_name_i18n: Optional[Dict[str, Any]] = None
-    roles: Optional[List[str]] = None
-    domain: Optional[str] = None
-    country: Optional[str] = None
-    version: Optional[str] = None
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
 
 
 class AddAttributeValueRequestBody(G2PRequestBody):
@@ -260,13 +216,6 @@ class UpdateAttributeValueRequestPayload(BaseModel):
     value_display: Optional[str] = None
     parent_value_id: Optional[str] = None
     sort_order: Optional[int] = None
-    display_name_i18n: Optional[Dict[str, Any]] = None
-    roles: Optional[List[str]] = None
-    domain: Optional[str] = None
-    country: Optional[str] = None
-    version: Optional[str] = None
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
 
 
 class UpdateAttributeValueRequestBody(G2PRequestBody):

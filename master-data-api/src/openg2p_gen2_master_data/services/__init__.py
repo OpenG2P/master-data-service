@@ -1,3 +1,2 @@
 from .g2p_attribute_service import G2PAttributeService
 from .g2p_geo_service import G2PGeoService
-from .g2p_partner_service import G2PPartnerService

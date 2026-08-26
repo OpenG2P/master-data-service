@@ -6,6 +6,7 @@ kind: Deployment
 metadata:
   name: {{ include "common.names.fullname" . }}
   labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+    app.kubernetes.io/component: master-data-api
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -18,9 +19,11 @@ spec:
   {{- end }}
   selector:
     matchLabels: {{- include "common.labels.matchLabels" (dict "customLabels" .Values.podLabels "context" $) | nindent 6 }}
+      app.kubernetes.io/component: master-data-api
   template:
     metadata:
       labels: {{- include "common.labels.standard" (dict "customLabels" .Values.podLabels "context" $) | nindent 8 }}
+        app.kubernetes.io/component: master-data-api
       {{- if .Values.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
       {{- end }}

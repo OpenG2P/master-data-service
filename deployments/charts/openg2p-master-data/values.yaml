@@ -102,6 +102,17 @@ iamRegister:
   backoffLimit: 5
   tokenMaxAttempts: 30
   registerMaxAttempts: 10
+  ttlSecondsAfterFinished: 600
+  # Commons/Rancher skips Helm hooks — override these to null there so the Job
+  # runs as a regular resource. Standalone installs keep post-install hooks.
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  payloadAnnotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "19"
+    "helm.sh/hook-delete-policy": before-hook-creation
   resources:
     requests:
       cpu: 25m
@@ -408,9 +419,8 @@ geoSeed:
     tag: "develop"
   waitImage: jbergknoff/postgresql-client:latest
   backoffLimit: 2
-  # Simplified boundary GeoJSON is uploaded here and the URL recorded in
-  # g2p_geo_level_values.boundary_simplified_uri. Leave `endpoint` empty to skip
-  # uploading — the hierarchy still loads, only the map layer is unavailable.
+  # Optional MinIO settings kept for pack assets; the geo loader stores only
+  # the hierarchy (level / value mnemonics), not boundary URIs.
   objectStore:
     endpoint: http://commons-minio:9000
     bucket: openg2p-geo

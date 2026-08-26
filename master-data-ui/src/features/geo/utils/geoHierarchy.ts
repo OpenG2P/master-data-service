@@ -23,12 +23,12 @@ export function orderGeoLevelsByHierarchy(levels: GeoLevel[]): GeoLevel[] {
 
 export function getLevelLabel(level: GeoLevel | undefined, fallback = "Level"): string {
   if (!level) return fallback;
-  return level.display_name || level.level_mnemonic || level.level_id;
+  return level.level_mnemonic || level.level_id;
 }
 
 export function getValueLabel(value: GeoLevelValue | undefined, fallback = "—"): string {
   if (!value) return fallback;
-  return value.display_name || value.level_value_mnemonic || value.level_value_id;
+  return value.level_value_mnemonic || value.level_value_id;
 }
 
 export function getChildLevel(

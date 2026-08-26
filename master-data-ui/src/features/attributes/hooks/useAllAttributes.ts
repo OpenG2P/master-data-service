@@ -11,7 +11,6 @@ export function useAllAttributes(searchText?: string) {
             body: JSON.stringify({
                 current_page: 1,
                 page_size: 1000,
-                include_domains: true,
             }),
         },
     });

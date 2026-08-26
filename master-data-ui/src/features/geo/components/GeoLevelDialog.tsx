@@ -51,15 +51,14 @@ export default function GeoLevelDialog({
   }, [open, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim() || !code.trim()) return;
+    if (!(code.trim() || name.trim())) return;
 
     const result =
       mode === "add"
         ? await writeLevel("/api/geo/add-geo-level", {
             method: "POST",
             body: JSON.stringify({
-              level_mnemonic: code.trim(),
-              display_name: name.trim(),
+              level_mnemonic: (code.trim() || name.trim()),
               parent_level_id: parentLevelId ?? "",
             }),
           })
@@ -67,8 +66,7 @@ export default function GeoLevelDialog({
             method: "POST",
             body: JSON.stringify({
               level_id: levelId,
-              level_mnemonic: code.trim(),
-              display_name: name.trim(),
+              level_mnemonic: (code.trim() || name.trim()),
             }),
           });
 

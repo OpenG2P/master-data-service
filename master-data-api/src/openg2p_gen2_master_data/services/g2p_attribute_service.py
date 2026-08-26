@@ -1,7 +1,6 @@
 import logging
 import uuid
-from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import delete, func, select
@@ -31,12 +30,7 @@ class AttributeServiceError(Exception):
 
 
 class G2PAttributeService(BaseService):
-    """Reads the country's code lists.
-
-    Domain lists (crops, livestock) are excluded by default: a social registry
-    has no use for them, and returning everything would make the common case pay
-    for the uncommon one.
-    """
+    """Reads the country's code lists."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -55,9 +49,6 @@ class G2PAttributeService(BaseService):
             attribute_code=row.attribute_code,
             attribute_display=row.attribute_display,
             is_hierarchical=bool(row.is_hierarchical),
-            display_name_i18n=row.display_name_i18n,
-            country=row.country,
-            version=row.version,
         )
 
     @staticmethod
@@ -69,44 +60,17 @@ class G2PAttributeService(BaseService):
             value_display=row.value_display,
             parent_value_id=row.parent_value_id,
             sort_order=row.sort_order,
-            display_name_i18n=row.display_name_i18n,
-            roles=row.roles or [],
-            domain=row.domain,
-            country=row.country,
-            version=row.version,
-            valid_from=row.valid_from,
-            valid_to=row.valid_to,
         )
 
-    async def get_attributes(
-        self, domain: Optional[str] = None, include_domains: bool = False
-    ) -> List[AttributeData]:
+    async def get_attributes(self) -> List[AttributeData]:
         async with get_session_maker()() as session:
             stmt = select(G2PAttribute).order_by(G2PAttribute.attribute_id)
             rows = (await session.execute(stmt)).scalars().all()
-
-        if domain or not include_domains:
-            # Attributes carry no domain of their own — it lives on the values —
-            # so filter by which attributes actually have values in scope.
-            ids = await self._attribute_ids_in_scope(domain, include_domains)
-            rows = [r for r in rows if r.attribute_id in ids]
-
         return [self._to_attribute_data(r) for r in rows]
-
-    async def _attribute_ids_in_scope(self, domain, include_domains) -> set:
-        async with get_session_maker()() as session:
-            stmt = select(G2PAttributeValue.attribute_id).distinct()
-            if domain:
-                stmt = stmt.where(G2PAttributeValue.domain == domain)
-            elif not include_domains:
-                stmt = stmt.where(G2PAttributeValue.domain.is_(None))
-            return set((await session.execute(stmt)).scalars().all())
 
     async def get_attribute_values(
         self,
         attribute_id: Optional[str] = None,
-        domain: Optional[str] = None,
-        include_domains: bool = False,
         page_size: int = 1000,
         page_number: int = 1,
         data_policies: Optional[List[dict]] = None,
@@ -121,10 +85,6 @@ class G2PAttributeService(BaseService):
             def scoped(stmt):
                 if attribute_id:
                     stmt = stmt.where(G2PAttributeValue.attribute_id == attribute_id)
-                if domain:
-                    stmt = stmt.where(G2PAttributeValue.domain == domain)
-                elif not include_domains:
-                    stmt = stmt.where(G2PAttributeValue.domain.is_(None))
                 if policy_condition is not None:
                     stmt = stmt.where(policy_condition)
                 return stmt
@@ -244,11 +204,6 @@ class G2PAttributeService(BaseService):
         attribute_code: str,
         attribute_display: str,
         is_hierarchical: bool = False,
-        display_name_i18n: Optional[Dict[str, Any]] = None,
-        country: Optional[str] = None,
-        version: Optional[str] = None,
-        valid_from: Optional[date] = None,
-        valid_to: Optional[date] = None,
     ) -> AttributeData:
         attribute_code = attribute_code.strip()
         attribute_display = attribute_display.strip()
@@ -270,11 +225,6 @@ class G2PAttributeService(BaseService):
                 attribute_code=attribute_code,
                 attribute_display=attribute_display,
                 is_hierarchical=bool(is_hierarchical),
-                display_name_i18n=display_name_i18n,
-                country=country,
-                version=version,
-                valid_from=valid_from,
-                valid_to=valid_to,
             )
             session.add(attribute)
             await session.commit()
@@ -343,17 +293,6 @@ class G2PAttributeService(BaseService):
                         )
                 attribute.is_hierarchical = is_hierarchical
 
-            if "display_name_i18n" in fields_set:
-                attribute.display_name_i18n = payload.display_name_i18n
-            if "country" in fields_set:
-                attribute.country = payload.country
-            if "version" in fields_set:
-                attribute.version = payload.version
-            if "valid_from" in fields_set:
-                attribute.valid_from = payload.valid_from
-            if "valid_to" in fields_set:
-                attribute.valid_to = payload.valid_to
-
             await session.commit()
             await session.refresh(attribute)
             return self._to_attribute_data(attribute)
@@ -403,13 +342,6 @@ class G2PAttributeService(BaseService):
         value_display: str,
         parent_value_id: Optional[str] = None,
         sort_order: Optional[int] = 0,
-        display_name_i18n: Optional[Dict[str, Any]] = None,
-        roles: Optional[List[str]] = None,
-        domain: Optional[str] = None,
-        country: Optional[str] = None,
-        version: Optional[str] = None,
-        valid_from: Optional[date] = None,
-        valid_to: Optional[date] = None,
     ) -> AttributeValueData:
         value_code = value_code.strip()
         value_display = value_display.strip()
@@ -451,13 +383,6 @@ class G2PAttributeService(BaseService):
                 value_display=value_display,
                 parent_value_id=parent_value_id,
                 sort_order=0 if sort_order is None else sort_order,
-                display_name_i18n=display_name_i18n,
-                roles=roles,
-                domain=domain,
-                country=country,
-                version=version,
-                valid_from=valid_from,
-                valid_to=valid_to,
             )
             session.add(value)
             await session.commit()
@@ -532,20 +457,6 @@ class G2PAttributeService(BaseService):
 
             if "sort_order" in fields_set:
                 value.sort_order = payload.sort_order
-            if "display_name_i18n" in fields_set:
-                value.display_name_i18n = payload.display_name_i18n
-            if "roles" in fields_set:
-                value.roles = payload.roles
-            if "domain" in fields_set:
-                value.domain = payload.domain
-            if "country" in fields_set:
-                value.country = payload.country
-            if "version" in fields_set:
-                value.version = payload.version
-            if "valid_from" in fields_set:
-                value.valid_from = payload.valid_from
-            if "valid_to" in fields_set:
-                value.valid_to = payload.valid_to
 
             await session.commit()
             await session.refresh(value)

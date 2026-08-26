@@ -192,11 +192,6 @@ class G2PGeoController(BaseController):
             level = await self.geo_service.add_geo_level(
                 level_mnemonic=payload.level_mnemonic,
                 parent_level_id=payload.parent_level_id,
-                display_name=payload.display_name,
-                display_name_i18n=payload.display_name_i18n,
-                version=payload.version,
-                valid_from=payload.valid_from,
-                valid_to=payload.valid_to,
             )
             return self.request_response_helper.construct_add_geo_level_success_response(
                 add_geo_level_request, level
@@ -255,15 +250,6 @@ class G2PGeoController(BaseController):
                 level_id=payload.level_id,
                 level_value_mnemonic=payload.level_value_mnemonic,
                 parent_level_value_id=payload.parent_level_value_id,
-                pcode=payload.pcode,
-                pcode_source=payload.pcode_source,
-                boundary_uri=payload.boundary_uri,
-                boundary_simplified_uri=payload.boundary_simplified_uri,
-                display_name=payload.display_name,
-                display_name_i18n=payload.display_name_i18n,
-                version=payload.version,
-                valid_from=payload.valid_from,
-                valid_to=payload.valid_to,
             )
             return self.request_response_helper.construct_add_geo_level_value_success_response(
                 add_geo_level_value_request, value

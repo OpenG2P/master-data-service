@@ -16,9 +16,7 @@ export async function POST(request: NextRequest) {
 			request_payload: {
 				level_value_id: body.level_value_id,
 				level_value_mnemonic: body.level_value_mnemonic,
-				display_name: body.display_name || body.level_value_mnemonic,
 				parent_level_value_id: body.parent_level_value_id,
-				pcode: body.pcode,
 			},
 		}),
 		transformResponse: (responseBody) => responseBody?.response_payload,

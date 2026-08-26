@@ -17,8 +17,8 @@ configured does not put invented figures against a real place's name. Real
 country packs are a value change away, and carry the licence obligations their
 manifest records.
 
-Idempotent — the loader upserts on P-code, so re-running on upgrade refreshes
-the pack in place rather than duplicating it.
+Idempotent — the loader upserts on level_value_id, so re-running on upgrade
+refreshes the pack in place rather than duplicating it.
 */}}
 apiVersion: batch/v1
 kind: Job
