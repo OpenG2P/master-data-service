@@ -60,6 +60,12 @@ postgres-init:
 #   * maps MASTER_DATA_ADMIN onto the commons-provisioned `admin` user
 # ---------------------------------------------------------------------------
 keycloak-init:
+  # Distinct name: this chart's kc-init would otherwise render the same
+  # ConfigMap name as a parent chart's own keycloak-init (both default to
+  # <release>-keycloak-init-config). Under commons-services the parent's won,
+  # so this Job ran against a config with no master-data client and created
+  # nothing, and iam-register then hung on invalid_client.
+  nameOverride: md-kc-init
   enabled: true
   keycloak:
     url: 'http://commons-keycloak:80'
