@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Search, ArrowLeft } from "lucide-react";
+import { ChevronRight, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
 import Can from "@/components/Can";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import SearchInput from "@/components/SearchInput";
 import TableSkeleton from "@/components/TableSkeleton";
 import Pagination from "@/components/Pagination";
 import { toast } from "react-toastify";
@@ -168,19 +169,11 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Search */}
-                    <div className="relative">
-                        <Search
-                            size={14}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                        />
-                        <input
-                            type="text"
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            placeholder={t("search_attribute_values")}
-                            className="h-9 w-56 rounded-lg border border-gray-300 bg-white pl-8 pr-3 text-[16px] text-black placeholder:text-gray-400 focus:border-(--color-yellow) focus:outline-none"
-                        />
-                    </div>
+                    <SearchInput
+                        value={searchText}
+                        onChange={setSearchText}
+                        placeholder={t("search_attribute_values")}
+                    />
 
                     <Can action={REFERENCE_DATA_ACTIONS.create}>
                         <AddButton
@@ -195,7 +188,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
             {loading ? (
                 <TableSkeleton rows={10} columns={4} columnWidths={["25%", "25%", "25%", "25%"]} />
             ) : (
-                <div className="bg-white rounded-[10px] py-6 shadow-sm">
+                <div className="bg-white rounded-[10px] pt-6 pb-3 shadow-sm">
                     <div className="overflow-auto">
                         <table className="w-full border-collapse bg-white table-fixed">
                             <thead>
@@ -302,7 +295,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
 
                     {/* Pagination */}
                     {attributeValues.length > PAGE_SIZE && (
-                        <div className="shrink-0 border-t border-gray-200 px-4 py-3 flex justify-end">
+                        <div className="shrink-0 border-t border-gray-200 px-4 pt-3 flex justify-end">
                             <Pagination
                                 page={currentPage}
                                 pageSize={PAGE_SIZE}

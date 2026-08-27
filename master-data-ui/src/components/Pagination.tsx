@@ -27,7 +27,7 @@ export default function Pagination({
 
       <button
         type="button"
-        className="flex items-center justify-center min-w-10 h-8.5 px-3 rounded bg-(--color-accent) text-black text-[16px] font-medium cursor-pointer transition-colors duration-150 disabled:bg-(--color-grey) disabled:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center justify-center min-w-10 h-8.5 px-3 rounded-[10px] bg-(--color-accent) text-black text-[16px] font-medium cursor-pointer transition-colors duration-150 disabled:bg-(--color-grey) disabled:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
         aria-label="Previous page"
@@ -43,7 +43,7 @@ export default function Pagination({
 
       <button
         type="button"
-        className="flex items-center justify-center min-w-10 h-8.5 px-3 rounded bg-(--color-accent) text-black text-[16px] font-medium cursor-pointer transition-colors duration-150 disabled:bg-(--color-grey) disabled:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center justify-center min-w-10 h-8.5 px-3 rounded-[10px] bg-(--color-accent) text-black text-[16px] font-medium cursor-pointer transition-colors duration-150 disabled:bg-(--color-grey) disabled:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
         aria-label="Next page"

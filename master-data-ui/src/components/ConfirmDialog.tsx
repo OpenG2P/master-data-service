@@ -44,7 +44,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -113,7 +113,7 @@ export default function ConfirmDialog({
                 ></path>
               </svg>
             )}
-            {confirmLabel ?? t("delete")}
+            {confirming ? t("deleting") : (confirmLabel ?? t("delete"))}
           </Button>
         </div>
       </div>

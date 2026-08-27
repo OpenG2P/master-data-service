@@ -199,7 +199,7 @@ export default function GeoTreePanel({
       tabIndex={0}
       role="tree"
       aria-label={t("geo_hierarchy")}
-      className="h-full min-h-0 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none focus-visible:ring-1 focus-visible:ring-(--color-yellow) [scrollbar-gutter:stable]"
+      className="h-full min-h-0 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none focus-visible:ring-1 focus-visible:ring-(--color-yellow)"
     >
       {visibleNodes.length === 0 ? (
         <p className="px-2 py-6 text-center text-[13px] text-gray-400">

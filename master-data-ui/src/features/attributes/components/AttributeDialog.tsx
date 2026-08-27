@@ -124,7 +124,7 @@ export default function AttributeDialog({
 
                 <div className="modal-scroll overflow-y-auto max-h-[calc(80vh-120px)] pr-2 space-y-5">
                     <div className="flex flex-col gap-2">
-                        <label className="text-[16px] font-medium text-gray-700">
+                        <label className="text-[16px] font-medium text-black">
                             {t("attribute_code")}
                             <span className="text-red-500 ml-1">*</span>
                         </label>
@@ -166,7 +166,7 @@ export default function AttributeDialog({
                                 )}
                             </div>
                         </div>
-                        <span className="text-[16px] font-medium text-gray-700">
+                        <span className="text-[16px] font-medium text-black">
                             {t("is_hierarchical")}
                         </span>
                     </label>

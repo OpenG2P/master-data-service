@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { Search, Database } from "lucide-react";
+import { Database } from "lucide-react";
 import Can from "@/components/Can";
+import SearchInput from "@/components/SearchInput";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TableSkeleton from "@/components/TableSkeleton";
 import Pagination from "@/components/Pagination";
@@ -83,22 +84,14 @@ export default function AttributeListExplorer() {
                 <h1 className="font-semibold text-[24px] text-black">{t("reference_data")}</h1>
                 <div className="flex items-center gap-3">
                     {/* Search */}
-                    <div className="relative">
-                        <Search
-                            size={14}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-black"
-                        />
-                        <input
-                            type="text"
-                            value={searchText}
-                            onChange={(e) => {
-                                setSearchText(e.target.value);
-                                setPage(1);
-                            }}
-                            placeholder={t("search_attributes")}
-                            className="h-9 w-60 rounded-[10px] border border-[#ED7C22] bg-white pl-8 pr-3 text-[16px] text-black placeholder:text-gray-600 focus:outline-none"
-                        />
-                    </div>
+                    <SearchInput
+                        value={searchText}
+                        onChange={(value) => {
+                            setSearchText(value);
+                            setPage(1);
+                        }}
+                        placeholder={t("search_attributes")}
+                    />
 
                     <Can action={REFERENCE_DATA_ACTIONS.create}>
                         <AddButton onClick={() => setDialog({ open: true, mode: "add" })} label={t("add_new_attribute")} />
@@ -110,7 +103,7 @@ export default function AttributeListExplorer() {
             {loading ? (
                 <TableSkeleton rows={10} columns={4} columnWidths={["12%", "38%", "25%", "25%"]} />
             ) : (
-                <div className="bg-white rounded-[10px] py-6 shadow-sm">
+                <div className="bg-white rounded-[10px] pt-6 pb-3 shadow-sm">
                     <div className="overflow-auto">
                                 <table className="w-full border-collapse bg-white table-fixed">
                             <thead>
@@ -202,7 +195,7 @@ export default function AttributeListExplorer() {
 
                     {/* Pagination */}
                     {total > PAGE_SIZE && (
-                        <div className="shrink-0 border-t border-gray-200 px-4 py-3 flex justify-end">
+                        <div className="shrink-0 border-t border-gray-200 px-4 pt-3 flex justify-end">
                             <Pagination
                                 page={currentPage}
                                 pageSize={PAGE_SIZE}
@@ -238,6 +231,7 @@ export default function AttributeListExplorer() {
                 message={`${t("confirm_remove_attribute_msg")} "${confirmDelete?.attribute_display || confirmDelete?.attribute_code}"?`}
                 danger
                 confirmLabel={t("delete")}
+                confirming={isDeleting}
                 onConfirm={proceedDelete}
                 onClose={() => setConfirmDelete(null)}
             />

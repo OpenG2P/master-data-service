@@ -144,7 +144,7 @@ export default function AttributeValueDialog({
                 >
                     <div className="space-y-4">
                         <label className="block space-y-1.5">
-                            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
+                            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
                                 {t("value_code")}
                                 <span className="text-red-500 ml-1">*</span>
                             </span>
@@ -160,7 +160,7 @@ export default function AttributeValueDialog({
                         </label>
 
                         <label className="block space-y-1.5">
-                            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
+                            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
                                 {t("sort_order")}
                             </span>
                             <input

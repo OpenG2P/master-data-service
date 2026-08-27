@@ -23,16 +23,13 @@ interface GeoNodeDialogProps {
   title?: string;
   contextFields?: GeoNodeDialogField[];
   nameLabel?: string;
-  codeLabel?: string;
   levelId: string;
   parentLevelValueId?: string | null;
   levelValueId?: string;
   initialName?: string;
-  initialCode?: string;
   levelChoices?: { levelId: string; label: string }[];
   onClose: () => void;
   onSuccess?: () => void;
-  saving?: boolean;
 };
 
 export default function GeoNodeDialog({
@@ -41,32 +38,29 @@ export default function GeoNodeDialog({
   title,
   contextFields,
   nameLabel,
-  codeLabel,
   levelId,
   parentLevelValueId = null,
   levelValueId,
   initialName = "",
-  initialCode = "",
   levelChoices = [],
   onClose,
   onSuccess,
-  saving = false,
 }: GeoNodeDialogProps) {
   const t = useTranslations();
   const titleId = useId();
   const { execute: writeLevelValue } = useFetch<GeoLevelValue>();
   const [name, setName] = useState(initialName);
-  const [code, setCode] = useState(initialCode);
   const [selectedLevelId, setSelectedLevelId] = useState(
     levelChoices[0]?.levelId || levelId
   );
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName(initialName);
-    setCode(initialCode);
     setSelectedLevelId(levelChoices[0]?.levelId || levelId);
-  }, [open, initialName, initialCode, levelChoices, levelId]);
+    setSaving(false);
+  }, [open, initialName, levelChoices, levelId]);
 
   useEffect(() => {
     if (!open) return;
@@ -78,7 +72,9 @@ export default function GeoNodeDialog({
   }, [open, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim() && !code.trim()) return;
+    if (!name.trim()) return;
+
+    setSaving(true);
 
     const result =
       mode === "add"
@@ -86,7 +82,7 @@ export default function GeoNodeDialog({
             method: "POST",
             body: JSON.stringify({
               level_id: selectedLevelId,
-              level_value_mnemonic: name.trim() || code.trim(),
+              level_value_mnemonic: name.trim(),
               parent_level_value_id: parentLevelValueId ?? "",
             }),
           })
@@ -94,9 +90,11 @@ export default function GeoNodeDialog({
             method: "POST",
             body: JSON.stringify({
               level_value_id: levelValueId,
-              level_value_mnemonic: name.trim() || code.trim(),
+              level_value_mnemonic: name.trim(),
             }),
           });
+
+    setSaving(false);
 
     if (result?.level_value_id) {
       toast.success(mode === "add" ? t("geo_value_added_successfully") : t("geo_value_updated_successfully"));
@@ -161,9 +159,9 @@ export default function GeoNodeDialog({
           }}
         >
           <div className="space-y-4">
-            {levelChoices.length > 1 ? (
+            {levelChoices.length >= 1 ? (
               <div className="space-y-1.5">
-                <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
                   {t("geo_child_level")}
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -190,11 +188,11 @@ export default function GeoNodeDialog({
 
             {contextFields && contextFields.length > 0 ? (
               <div className="space-y-1.5">
-                <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
                   {t("geo_hierarchy_path")}
                 </span>
                 <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2.5">
-                  <p className="break-words text-[13px] leading-relaxed text-gray-700">
+                  <p className="wrap-break-word text-[13px] leading-relaxed text-gray-700">
                     {contextFields.map((field, index) => (
                       <span key={`${field.label}-${index}`}>
                         {index > 0 ? (
@@ -212,7 +210,7 @@ export default function GeoNodeDialog({
             ) : null}
 
             <label className="block space-y-1.5">
-              <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
+              <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
                 {dialogNameLabel}
               </span>
               <input
@@ -220,24 +218,13 @@ export default function GeoNodeDialog({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 autoFocus
-                className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-(--color-yellow)"
-              />
-            </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
-                {codeLabel}
-              </span>
-              <input
-                type="text"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
+                placeholder={t("geo_level_value_mnemonic_placeholder")}
                 className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-(--color-yellow)"
               />
             </label>
           </div>
 
-          <div className="flex gap-4 w-full justify-center pt-4">
+          <div className="flex gap-4 w-full justify-end pt-4">
             <Button
               variant="secondary"
               onClick={onClose}
@@ -248,9 +235,31 @@ export default function GeoNodeDialog({
             <Button
               variant="primary"
               type="submit"
-              loading={saving}
+              disabled={saving}
             >
-              {saving ? t("saving") : (mode === "add" ? t("add") : t("save"))}
+              {saving && (
+                <svg
+                  className="animate-spin h-4 w-4 mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              )}
+              {saving ? t("saving") : t("save")}
             </Button>
           </div>
         </form>

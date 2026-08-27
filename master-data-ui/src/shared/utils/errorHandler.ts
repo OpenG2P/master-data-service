@@ -36,8 +36,14 @@ export function getErrorMessage(
 
   // Geo Service Error Codes
   if (code === "G2P-GEO-409") {
+    if (error.includes("level_mnemonic already exists with this parent")) {
+      return t("error_geo_level_exists_with_parent");
+    }
     if (error.includes("level_mnemonic already exists")) {
       return t("error_geo_level_exists");
+    }
+    if (error.includes("level_value_mnemonic already exists with this parent and level")) {
+      return t("error_geo_value_exists_with_parent_level");
     }
     if (error.includes("Cannot delete level") || error.includes("Cannot delete level value")) {
       return t("error_cannot_delete_with_dependencies");
@@ -71,6 +77,13 @@ export function getErrorMessage(
   }
   if (error.includes("not found")) {
     return t("error_not_found");
+  }
+  // Handle PostgreSQL unique constraint violations
+  if (error.includes("duplicate key value violates unique constraint")) {
+    if (error.includes("ix_g2p_geo_levels_level_mnemonic")) {
+      return t("error_geo_level_exists");
+    }
+    return t("error_duplicate_key");
   }
 
   // If no pattern matches, return the original error

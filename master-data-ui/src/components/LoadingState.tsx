@@ -21,7 +21,7 @@ export default function LoadingState({
 
   if (loaderOnly) {
     return (
-      <div className="flex items-center justify-center py-12 px-4 min-h-[200px] bg-white">
+      <div className="flex items-center justify-center py-12 px-4 min-h-50 bg-white">
         <Image
           src="/loading.gif"
           alt={text}
@@ -41,8 +41,8 @@ export default function LoadingState({
         fullScreen
           ? "fixed inset-0 z-50 flex items-center justify-center bg-white"
           : compact
-            ? "flex items-center justify-center p-6 min-h-[120px] bg-white"
-            : "flex items-center justify-center py-12 px-4 min-h-[200px] bg-white"
+            ? "flex items-center justify-center p-6 min-h-30 bg-white"
+            : "flex items-center justify-center py-12 px-4 min-h-50 bg-white"
       }
     >
       <div className="flex flex-col items-center gap-4">

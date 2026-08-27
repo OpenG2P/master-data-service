@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFetch } from "@/shared/hooks/useFetch";
+import Button from "@/components/Button";
 import { toast } from "react-toastify";
 import { getErrorMessage } from "@/shared/utils/errorHandler";
 import type { GeoLevel } from "../types";
@@ -15,7 +16,6 @@ type GeoLevelDialogProps = {
   parentLevelId?: string | null;
   parentLevelLabel: string | null;
   initialName?: string;
-  initialCode?: string;
   onClose: () => void;
   onSuccess?: () => void;
 };
@@ -27,7 +27,6 @@ export default function GeoLevelDialog({
   parentLevelId = null,
   parentLevelLabel,
   initialName = "",
-  initialCode = "",
   onClose,
   onSuccess,
 }: GeoLevelDialogProps) {
@@ -35,13 +34,13 @@ export default function GeoLevelDialog({
   const titleId = useId();
   const { execute: writeLevel } = useFetch<GeoLevel>();
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName(initialName);
-    setCode(initialCode);
-  }, [initialCode, initialName, open]);
+    setSaving(false);
+  }, [initialName, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,14 +52,16 @@ export default function GeoLevelDialog({
   }, [open, onClose]);
 
   const handleSubmit = async () => {
-    if (!(code.trim() || name.trim())) return;
+    if (!name.trim()) return;
+
+    setSaving(true);
 
     const result =
       mode === "add"
         ? await writeLevel("/api/geo/add-geo-level", {
             method: "POST",
             body: JSON.stringify({
-              level_mnemonic: (code.trim() || name.trim()),
+              level_mnemonic: name.trim(),
               parent_level_id: parentLevelId ?? "",
             }),
           })
@@ -68,11 +69,14 @@ export default function GeoLevelDialog({
             method: "POST",
             body: JSON.stringify({
               level_id: levelId,
-              level_mnemonic: (code.trim() || name.trim()),
+              level_mnemonic: name.trim(),
             }),
           });
 
+    setSaving(false);
+
     if (result?.level_id) {
+      toast.success(mode === "add" ? t("geo_level_added_successfully") : t("geo_level_updated_successfully"));
       onSuccess?.();
       onClose();
     } else {
@@ -87,7 +91,7 @@ export default function GeoLevelDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -123,7 +127,7 @@ export default function GeoLevelDialog({
           }}
         >
           <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
               {t("geo_parent_level")}
             </span>
             <input
@@ -135,46 +139,56 @@ export default function GeoLevelDialog({
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
-              {t("geo_level_name")}
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+              {t("geo_level_mnemonic")}
             </span>
             <input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               autoFocus
-              placeholder={t("geo_level_name_placeholder")}
+              placeholder={t("geo_level_mnemonic_placeholder")}
               className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
             />
           </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium uppercase tracking-wide text-gray-500">
-              {t("geo_level_code")}
-            </span>
-            <input
-              type="text"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              placeholder={t("geo_level_code_placeholder")}
-              className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
-            />
-          </label>
-
-          <div className="flex gap-4 w-full justify-center pt-4">
-            <button
-              type="button"
+          <div className="flex gap-4 w-full justify-end pt-4">
+            <Button
+              variant="secondary"
               onClick={onClose}
-              className="px-8 py-2 bg-black text-white font-semibold rounded-[10px] hover:bg-black/80 transition-colors text-[16px] cursor-pointer"
+              disabled={saving}
             >
               {t("cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
-              className="px-8 py-2 bg-(--color-yellow) text-black font-semibold rounded-[10px] hover:bg-(--color-accent-hover) transition-colors text-[16px] cursor-pointer"
+              disabled={saving}
             >
-              {mode === "edit" ? t("save") : t("add")}
-            </button>
+              {saving && (
+                <svg
+                  className="animate-spin h-4 w-4 mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              )}
+              {saving ? t("saving") : t("save")}
+            </Button>
           </div>
         </form>
       </div>

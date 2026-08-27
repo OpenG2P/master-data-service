@@ -3,7 +3,7 @@
 interface ButtonProps {
   children: React.ReactNode;
   type?: "button" | "submit" | "reset";
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "warning";
   disabled?: boolean;
   loading?: boolean;
   onClick?: () => void;
@@ -23,8 +23,9 @@ export default function Button({
 
   const variantStyles = {
     primary: "bg-black text-white hover:bg-gray-800",
-    secondary: "bg-[#e1e1e1] text-black/50 hover:bg-[#d1d1d1]",
+    secondary: "bg-[#e1e1e1] text-black hover:bg-[#d1d1d1]",
     danger: "bg-red-500 text-white hover:bg-red-600",
+    warning: "bg-[#f4bb1b] text-black hover:bg-[#e5a818]",
   };
 
   return (

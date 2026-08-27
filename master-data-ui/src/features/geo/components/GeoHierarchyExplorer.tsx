@@ -1,7 +1,7 @@
 "use client";
 
-import LoadingState from "@/components/LoadingState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import SearchInput from "@/components/SearchInput";
 import { useAuth } from "@/context/Authcontext";
 import { useFetch } from "@/shared/hooks/useFetch";
 import { withCsrfHeaders } from "@/shared/utils/csrf";
@@ -34,7 +34,7 @@ import type {
   GeoLevelValue,
   GeoTreeNode,
 } from "../types";
-import { ArrowLeft, MapPin, Menu, Search, Settings2, X } from "lucide-react";
+import { ArrowLeft, MapPin, Menu, Settings2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   useCallback,
@@ -109,6 +109,7 @@ export default function GeoHierarchyExplorer() {
   });
 
   const [isSavingNode, setIsSavingNode] = useState(false);
+  const [isDeletingNode, setIsDeletingNode] = useState(false);
 
   const [levels, setLevels] = useState<GeoLevel[]>([]);
   const [levelsLoading, setLevelsLoading] = useState(true);
@@ -496,7 +497,10 @@ export default function GeoHierarchyExplorer() {
     const entries = cacheKeys.map((cacheKey) => childrenCache[cacheKey]);
     return {
       values: entries.flatMap((entry) => entry?.values ?? []),
-      loading: entries.some((entry) => entry?.loading),
+      loading: cacheKeys.some(
+        (cacheKey) =>
+          !childrenCache[cacheKey] || childrenCache[cacheKey].loading
+      ),
       error: entries.find((entry) => entry?.error)?.error ?? null,
       loaded: entries.every((entry) => entry?.loaded),
     };
@@ -645,7 +649,7 @@ export default function GeoHierarchyExplorer() {
       setNodeForm({
         open: true,
         mode: "add",
-        levelId: primary.level_id,
+        levelId: parentNode.levelId,
         parentLevelValueId: parentNode.value.level_value_id,
         contextFields: parentNode.path.map((item) => ({
           label:
@@ -690,7 +694,7 @@ export default function GeoHierarchyExplorer() {
 
   const proceedDeleteValue = useCallback(
     async (value: GeoLevelValue) => {
-      toast.info(t("deleting"));
+      setIsDeletingNode(true);
       const result = await deleteLevelValue("/api/geo/delete-geo-level-value", {
         method: "POST",
         body: JSON.stringify({
@@ -709,12 +713,13 @@ export default function GeoHierarchyExplorer() {
         const errorMessage = getErrorMessage(rawError, errorCode, t);
         toast.error(errorMessage);
       }
+      setIsDeletingNode(false);
     },
     [deleteLevelValue, refreshSelectedChildren, t, toast]
   );
 
   const treePanel = (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="absolute inset-0 flex min-h-0 flex-col">
       <div className="shrink-0 border-b border-gray-200 px-4 py-2.5 text-start font-normal text-[16px] leading-none tracking-normal text-black">
         {t("geo_panel_hierarchy")}
       </div>
@@ -793,7 +798,7 @@ export default function GeoHierarchyExplorer() {
       getLevelLabel={(value) =>
         getLevelLabel(getLevelById(orderedLevels, value.level_id))
       }
-      deletingValueId={deleteValueTarget?.level_value_id}
+      deletingValueId={null}
       footerActions={
         addValueAction ? (
           <AddButton onClick={addValueAction.onClick} label={t("geo_add_level_value")} />
@@ -802,13 +807,6 @@ export default function GeoHierarchyExplorer() {
     />
   );
 
-  if (levelsLoading) {
-    return (
-      <section className="flex min-h-0 flex-1 flex-col bg-white">
-        <LoadingState compact />
-      </section>
-    );
-  }
 
   if (levelsError) {
     return (
@@ -822,37 +820,18 @@ export default function GeoHierarchyExplorer() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between gap-4 mb-6">
+    <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col">
+      <div className="mb-6 flex shrink-0 items-center justify-between gap-4">
         <h1 className="font-semibold text-[24px] text-black">{t("geo_locations")}</h1>
         <div className="flex items-center gap-3">
-          <label className="relative w-[min(100%,20rem)] shrink-0 sm:w-80">
-            <span className="sr-only">{t("search")}</span>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t("search")}
-              className="h-9 w-full rounded border border-gray-300 bg-white px-3 pr-9 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow) [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center text-red-500 hover:text-red-400"
-                aria-label={t("close")}
-              >
-                <X size={15} strokeWidth={2.5} />
-              </button>
-            ) : (
-              <Search
-                size={15}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-            )}
-          </label>
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={t("search")}
+            width="w-[min(100%,20rem)] sm:w-80"
+          />
           <Button 
-            variant="primary" 
+            variant="warning" 
             onClick={() => setManageLevelsOpen(true)}
             className="inline-flex h-9 shrink-0 items-center gap-2"
           >
@@ -862,7 +841,7 @@ export default function GeoHierarchyExplorer() {
         </div>
       </div>
 
-      <section className="flex min-h-[600px] flex-1 flex-col gap-3 bg-white p-3 text-black sm:gap-4 sm:p-5 rounded-[10px] shadow-sm">
+      <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden bg-white p-3 text-black sm:gap-4 sm:p-5 rounded-[10px] shadow-sm">
       <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <nav
           aria-label={t("geo_breadcrumb")}
@@ -917,7 +896,7 @@ export default function GeoHierarchyExplorer() {
                   key="breadcrumb-more"
                   className="relative inline-flex shrink-0 items-center gap-2"
                 >
-                  <span className="text-gray-400" aria-hidden>
+                  <span className="text-black" aria-hidden>
                     &gt;
                   </span>
                   <button
@@ -937,7 +916,7 @@ export default function GeoHierarchyExplorer() {
                         aria-label={t("close")}
                         onClick={() => setBreadcrumbMoreOpen(false)}
                       />
-                      <ul className="absolute left-0 top-full z-30 mt-1 min-w-[12rem] max-w-[18rem] rounded border border-gray-300 bg-white py-1 shadow-lg">
+                      <ul className="absolute left-0 top-full z-30 mt-1 min-w-48 max-w-[18rem] rounded border border-gray-300 bg-white py-1 shadow-lg">
                         {breadcrumbSegments.collapsed.map((item) => (
                           <li key={`${item.kind}-${item.id}`}>
                             <button
@@ -967,7 +946,7 @@ export default function GeoHierarchyExplorer() {
                 key={`${item.kind}-${item.id}`}
                 className="inline-flex min-w-0 items-center gap-2"
               >
-                <span className="shrink-0 text-gray-400" aria-hidden>
+                <span className="shrink-0 text-black" aria-hidden>
                   &gt;
                 </span>
                 {isLast ? (
@@ -979,7 +958,7 @@ export default function GeoHierarchyExplorer() {
                     type="button"
                     title={item.label}
                     onClick={() => handleBreadcrumbClick(item)}
-                    className="min-w-0 max-w-[9rem] cursor-pointer truncate font-normal text-gray-600 hover:text-(--color-yellow) hover:underline"
+                    className="min-w-0 max-w-36 cursor-pointer truncate font-normal text-gray-600 hover:text-(--color-yellow) hover:underline"
                   >
                     {item.label}
                   </button>
@@ -998,15 +977,15 @@ export default function GeoHierarchyExplorer() {
         ) : null}
 
         {isMobile ? (
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             {mobileShowDetails ? childrenPanel : treePanel}
           </div>
         ) : (
           <div
-            className={`min-h-0 flex-1 overflow-hidden ${
+            className={`h-full min-h-0 flex-1 overflow-hidden ${
               isDesktop
-                ? "grid grid-cols-[20rem_minmax(0,1fr)]"
-                : "grid grid-cols-1"
+                ? "grid grid-cols-[20rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
+                : "grid grid-cols-1 grid-rows-[minmax(0,1fr)]"
             }`}
           >
             {isDesktop ? (
@@ -1043,7 +1022,7 @@ export default function GeoHierarchyExplorer() {
                 <X size={16} />
               </button>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="relative min-h-0 flex-1 overflow-hidden">
               {treePanel}
             </div>
           </aside>
@@ -1055,20 +1034,24 @@ export default function GeoHierarchyExplorer() {
           open={nodeForm.open}
           mode={nodeForm.mode}
           title={nodeForm.mode === "add" ? t("geo_add_level_value") : t("geo_edit_level_value")}
+          nameLabel={t("geo_level_value_mnemonic")}
           levelId={nodeForm.levelId}
           parentLevelValueId={nodeForm.parentLevelValueId}
           levelValueId={nodeForm.node?.kind === "value" ? nodeForm.node.value?.level_value_id : undefined}
           initialName={nodeForm.node?.kind === "value" ? nodeForm.node.label : ""}
-          initialCode={nodeForm.node?.kind === "value" ? nodeForm.node.label : ""}
-          levelChoices={nodeForm.node?.kind === "level" ? getChildLevels(orderedLevels, nodeForm.levelId).map((l) => ({ levelId: l.level_id, label: getLevelLabel(l) })) : []}
+          levelChoices={
+            nodeForm.mode === "add" && nodeForm.parentLevelValueId
+              ? getChildLevels(orderedLevels, nodeForm.levelId).map((l) => ({
+                  levelId: l.level_id,
+                  label: getLevelLabel(l),
+                }))
+              : []
+          }
           contextFields={nodeForm.contextFields}
           onClose={() => {
             setNodeForm({ open: false, mode: "add", levelId: "", parentLevelValueId: null, contextFields: [] });
-            setIsSavingNode(false);
           }}
-          saving={isSavingNode}
           onSuccess={async () => {
-            setIsSavingNode(false);
             await refreshSelectedChildren();
             setNodeForm({ open: false, mode: "add", levelId: "", parentLevelValueId: null, contextFields: [] });
           }}
@@ -1083,6 +1066,7 @@ export default function GeoHierarchyExplorer() {
         })}
         confirmLabel={t("delete")}
         danger
+        confirming={isDeletingNode}
         onConfirm={() => {
           if (!deleteValueTarget) return;
           void proceedDeleteValue(deleteValueTarget);

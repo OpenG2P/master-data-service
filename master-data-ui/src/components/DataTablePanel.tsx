@@ -67,7 +67,7 @@ export default function DataTablePanel<T extends Record<string, unknown>>({
         <div className="flex items-center gap-3">
           {onAddNew && <AddButton onClick={onAddNew} label={t("add_new")} />}
 
-          <label className="relative w-[240px]">
+          <label className="relative w-60">
             <span className="sr-only">{t("search")}</span>
             <input
               type="search"
@@ -77,7 +77,7 @@ export default function DataTablePanel<T extends Record<string, unknown>>({
                 setPage(1);
               }}
               placeholder={t("search")}
-              className="h-9 w-full rounded-[4px] border border-gray-300 bg-white px-3 pr-9 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
+              className="h-9 w-full rounded-sm border border-gray-300 bg-white px-3 pr-9 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
             />
             <Search
               size={15}
