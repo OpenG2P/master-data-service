@@ -133,7 +133,7 @@ masterDataAPI:
     create: false
     name: ""
   image:
-    repository: registry.gitlab.com/openg2p/platform-services/master-data-service/master-data-api
+    repository: openg2p/master-data-api
     tag: "develop"
     pullPolicy: Always
   podSecurityContext:
@@ -268,7 +268,7 @@ masterDataUi:
     create: false
     name: ""
   image:
-    repository: registry.gitlab.com/openg2p/platform-services/master-data-service/master-data-ui
+    repository: openg2p/master-data-ui
     tag: "develop"
     pullPolicy: Always
   podSecurityContext:
@@ -409,8 +409,8 @@ geoSeed:
   domains: []
   image:
     # Same registry and tag convention as masterDataAPI above; CI rewrites the
-    # tag via CHART_IMAGE_PATHS in .gitlab-ci.yml.
-    repository: registry.gitlab.com/openg2p/platform-services/master-data-service/master-data-db-seed
+    # tag via chart-image-paths in .github/workflows/build-publish.yml.
+    repository: openg2p/master-data-db-seed
     tag: "develop"
   waitImage: jbergknoff/postgresql-client:latest
   backoffLimit: 2

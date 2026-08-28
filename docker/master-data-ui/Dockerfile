@@ -1,7 +1,7 @@
 # Master Data UI — Next.js standalone image.
 #
-# Built with docker context = master-data-ui (see .gitlab-ci.yml). Published as
-# registry.gitlab.com/openg2p/platform-services/master-data-service/master-data-ui.
+# Built with docker context = master-data-ui (see .github/workflows/build-publish.yml). Published as
+# openg2p/master-data-ui.
 FROM node:20-alpine AS base
 WORKDIR /app
 
