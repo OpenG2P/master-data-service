@@ -78,11 +78,9 @@ export function useFetch<T = any>({
 
             const result = await res.json();
             if (!res.ok) {
-                console.error(`Error fetching data from ${finalUrl}:`, {
-                    status: res.status,
-                    statusText: res.statusText,
-                    error: result?.error || result
-                });
+                const errorMessage = result?.statusText || result?.error || result?.message || res.statusText || `Error ${res.status}`;
+                setError(errorMessage);
+                return { ...result, error: errorMessage };
             }
 
             setData(result);

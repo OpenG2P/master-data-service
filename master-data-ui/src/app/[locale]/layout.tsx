@@ -3,9 +3,10 @@ import { Roboto } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { AuthProviders } from "@/context/AuthProviders";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import Sidebar from "@/components/Sidebar";
+import { RbacProvider } from "@/context/RbacContext";
+import Layout from "@/components/Layout";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "../globals.css";
 
 const roboto = Roboto({
@@ -13,14 +14,13 @@ const roboto = Roboto({
   style: ["normal"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-roboto",
 });
 
 export const metadata: Metadata = {
   title: "Master Data UI",
   description: "OpenG2P Master Data UI",
   icons: {
-    icon: [{ url: "/openg2p-icon.svg", type: "image/svg+xml" }],
+    icon: "/openg2p-icon.svg",
   },
 };
 
@@ -36,19 +36,13 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale}>
-      <body className={`${roboto.variable} ${roboto.className} antialiased`}>
+      <body className={`${roboto.className} antialiased`}>
         <NextIntlClientProvider messages={messages}>
           <AuthProviders>
-            <div className="flex h-dvh flex-col overflow-hidden bg-[#F3F1F4]">
-              <Header />
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                <Sidebar />
-                <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                  {children}
-                </main>
-              </div>
-              {/* <Footer /> */}
-            </div>
+            <RbacProvider>
+              <Layout>{children}</Layout>
+              <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+            </RbacProvider>
           </AuthProviders>
         </NextIntlClientProvider>
       </body>

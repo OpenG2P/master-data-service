@@ -6,11 +6,19 @@ import { useTranslations } from "next-intl";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useFetch } from "@/shared/hooks/useFetch";
 import GeoLevelDialog from "./GeoLevelDialog";
+import AddButton from "@/components/AddButton";
+import DeleteButton from "@/components/DeleteButton";
+import EditButton from "@/components/EditButton";
+import Button from "@/components/Button";
+import { toast } from "react-toastify";
+import { getErrorMessage } from "@/shared/utils/errorHandler";
 import type { GeoLevel } from "../types";
 import {
-  getChildLevel,
   getLevelById,
+  getLevelDepth,
   getLevelLabel,
+  getRootLevels,
+  orderGeoLevelsByHierarchy,
 } from "../utils";
 
 type GeoManageLevelsDialogProps = {
@@ -29,6 +37,7 @@ export default function GeoManageLevelsDialog({
   const t = useTranslations();
   const titleId = useId();
   const { execute: deleteLevel } = useFetch<{ level_id: string }>();
+  const [isSaving, setIsSaving] = useState(false);
   const [levelForm, setLevelForm] = useState<
     | { open: false }
     | {
@@ -38,17 +47,27 @@ export default function GeoManageLevelsDialog({
         parentLevelId?: string | null;
         parentLevelLabel: string | null;
         initialName?: string;
-        initialCode?: string;
       }
   >({ open: false });
   const [deleteTarget, setDeleteTarget] = useState<GeoLevel | null>(null);
+  const [showMainDialog, setShowMainDialog] = useState(true);
 
   useEffect(() => {
     if (!open) {
       setLevelForm({ open: false });
       setDeleteTarget(null);
+      setShowMainDialog(true);
     }
   }, [open]);
+
+  useEffect(() => {
+    // Hide main dialog when sub-dialogs are open
+    if (levelForm.open || deleteTarget) {
+      setShowMainDialog(false);
+    } else if (open) {
+      setShowMainDialog(true);
+    }
+  }, [levelForm.open, deleteTarget, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,23 +80,22 @@ export default function GeoManageLevelsDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deleteTarget, levelForm.open, onClose, open]);
 
-  const deepestLevel = levels[levels.length - 1];
-  const canAddLevel =
-    levels.length === 0 ||
-    (deepestLevel != null && !getChildLevel(levels, deepestLevel.level_id));
+  const ordered = useMemo(() => orderGeoLevelsByHierarchy(levels), [levels]);
+  const roots = useMemo(() => getRootLevels(ordered), [ordered]);
 
   const rows = useMemo(
     () =>
-      levels.map((level) => {
+      ordered.map((level) => {
         const parent = level.parent_level_id
-          ? getLevelById(levels, level.parent_level_id)
+          ? getLevelById(ordered, level.parent_level_id)
           : undefined;
         return {
           level,
           parentLabel: parent ? getLevelLabel(parent) : null,
+          depth: getLevelDepth(ordered, level.level_id),
         };
       }),
-    [levels]
+    [ordered]
   );
 
   const proceedDelete = async (level: GeoLevel) => {
@@ -87,8 +105,16 @@ export default function GeoManageLevelsDialog({
     });
 
     if (result?.level_id) {
+      toast.success(t("geo_level_deleted_successfully"));
       setDeleteTarget(null);
+      setIsSaving(false);
       await onChanged?.();
+    } else {
+      setIsSaving(false);
+      const rawError = (result as any)?.error || (result as any)?.statusText;
+      const errorCode = (result as any)?.code;
+      const errorMessage = getErrorMessage(rawError, errorCode, t);
+      toast.error(errorMessage);
     }
   };
 
@@ -96,49 +122,58 @@ export default function GeoManageLevelsDialog({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
-        role="presentation"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) onClose();
-        }}
-      >
+      {showMainDialog && (
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          className="flex max-h-[min(80vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-[10px] border border-[#5A5A5A] bg-black text-white shadow-2xl"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) onClose();
+          }}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-[#5A5A5A] px-5 py-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="relative w-full bg-white rounded-[10px] shadow-lg max-h-[80vh] p-8 border-4 border-[#EABB13]"
+            style={{ maxWidth: "900px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
             <h2
               id={titleId}
-              className="font-normal text-[16px] leading-none tracking-normal text-[#F4BB1B]"
+              className="text-[22px] font-bold text-[#ED7C22]"
             >
               {t("geo_manage_levels_title")}
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+              className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
               aria-label={t("close")}
             >
-              <X size={16} />
+              <X size={30} />
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="modal-scroll overflow-y-auto max-h-[calc(80vh-120px)] pr-2">
             {rows.length === 0 ? (
-              <p className="px-5 py-8 text-center text-[14px] text-white/45">
+              <p className="px-5 py-8 text-center text-[14px] text-gray-400">
                 {t("geo_no_levels")}
               </p>
             ) : (
-              <ul className="divide-y divide-[#5A5A5A]">
-                {rows.map(({ level, parentLabel }) => (
+              <ul className="divide-y divide-gray-200">
+                {rows.map(({ level, parentLabel, depth }) => (
                   <li key={level.level_id} className="px-5 py-4">
-                    <p className="font-normal text-[16px] leading-none tracking-normal text-white">
+                    <p
+                      className="font-semibold text-[16px] leading-none tracking-normal text-black"
+                      style={{ paddingLeft: `${depth * 16}px` }}
+                    >
                       {getLevelLabel(level)}
                     </p>
-                    <p className="mt-2 text-[13px] text-white/55">
+                    <p
+                      className="mt-2 text-[13px] text-gray-500"
+                      style={{ paddingLeft: `${depth * 16}px` }}
+                    >
                       {t("geo_parent")}: {parentLabel ?? "—"}
                     </p>
                     <div className="mt-3 flex flex-wrap justify-end gap-4 text-[14px]">
@@ -147,56 +182,52 @@ export default function GeoManageLevelsDialog({
                         onClick={() =>
                           setLevelForm({
                             open: true,
-                            mode: "edit",
-                            levelId: level.level_id,
-                            parentLevelId: level.parent_level_id,
-                            parentLevelLabel: parentLabel,
-                            initialName: level.level_mnemonic || "",
-                            initialCode: level.level_mnemonic || "",
+                            mode: "add",
+                            parentLevelId: level.level_id,
+                            parentLevelLabel: getLevelLabel(level),
                           })
                         }
-                        className="cursor-pointer text-white/80 hover:text-[#F4BB1B] hover:underline"
+                        className="cursor-pointer text-gray-600 hover:text-black hover:underline"
                       >
+                        {t("geo_add_child_level")}
+                      </button>
+                      <EditButton onClick={() =>
+                        setLevelForm({
+                          open: true,
+                          mode: "edit",
+                          levelId: level.level_id,
+                          parentLevelId: level.parent_level_id,
+                          parentLevelLabel: parentLabel,
+                          initialName: level.level_mnemonic || "",
+                        })
+                      }>
                         {t("edit")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(level)}
-                        className="cursor-pointer text-red-300 hover:underline"
-                      >
+                      </EditButton>
+                      <DeleteButton onClick={() => setDeleteTarget(level)}>
                         {t("delete")}
-                      </button>
+                      </DeleteButton>
                     </div>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-
-          <div className="shrink-0 border-t border-[#5A5A5A] px-5 py-4">
-            <button
-              type="button"
-              disabled={!canAddLevel}
-              onClick={() =>
-                setLevelForm({
-                  open: true,
-                  mode: "add",
-                  parentLevelId: deepestLevel?.level_id ?? null,
-                  parentLevelLabel: deepestLevel
-                    ? getLevelLabel(deepestLevel)
-                    : null,
-                })
-              }
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/40"
-            >
-              {t("geo_add_level")}
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[10px] bg-white text-[14px] font-bold leading-none text-black">
-                +
-              </span>
-            </button>
+            <div className="shrink-0 pt-4 px-5">
+              <AddButton
+                onClick={() =>
+                  setLevelForm({
+                    open: true,
+                    mode: "add",
+                    parentLevelId: null,
+                    parentLevelLabel: null,
+                  })
+                }
+                label={roots.length === 0 ? t("geo_add_level") : t("geo_add_root_level")}
+              />
+            </div>
           </div>
         </div>
       </div>
+      )}
 
       <GeoLevelDialog
         open={levelForm.open}
@@ -207,7 +238,6 @@ export default function GeoManageLevelsDialog({
           levelForm.open ? levelForm.parentLevelLabel : null
         }
         initialName={levelForm.open ? levelForm.initialName : undefined}
-        initialCode={levelForm.open ? levelForm.initialCode : undefined}
         onClose={() => setLevelForm({ open: false })}
         onSuccess={() => {
           void onChanged?.();
@@ -222,8 +252,10 @@ export default function GeoManageLevelsDialog({
         })}
         confirmLabel={t("delete")}
         danger
+        confirming={isSaving}
         onConfirm={() => {
           if (!deleteTarget) return;
+          setIsSaving(true);
           void proceedDelete(deleteTarget);
         }}
         onClose={() => setDeleteTarget(null)}

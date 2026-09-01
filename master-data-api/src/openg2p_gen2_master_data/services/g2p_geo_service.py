@@ -165,13 +165,38 @@ class G2PGeoService(BaseService):
         self,
         session,
         level_mnemonic: str,
+        parent_level_id: Optional[str] = None,
         exclude_level_id: Optional[str] = None,
     ) -> bool:
         query = select(func.count()).select_from(G2PGeoLevel).where(
             G2PGeoLevel.level_mnemonic == level_mnemonic
         )
+        if parent_level_id is not None:
+            query = query.where(G2PGeoLevel.parent_level_id == parent_level_id)
+        else:
+            query = query.where(G2PGeoLevel.parent_level_id.is_(None))
         if exclude_level_id:
             query = query.where(G2PGeoLevel.level_id != exclude_level_id)
+        return (await session.execute(query)).scalar_one() > 0
+
+    async def _value_mnemonic_exists(
+        self,
+        session,
+        level_id: str,
+        level_value_mnemonic: str,
+        parent_level_value_id: Optional[str] = None,
+        exclude_level_value_id: Optional[str] = None,
+    ) -> bool:
+        query = select(func.count()).select_from(G2PGeoLevelValue).where(
+            G2PGeoLevelValue.level_id == level_id,
+            G2PGeoLevelValue.level_value_mnemonic == level_value_mnemonic
+        )
+        if parent_level_value_id is not None:
+            query = query.where(G2PGeoLevelValue.parent_level_value_id == parent_level_value_id)
+        else:
+            query = query.where(G2PGeoLevelValue.parent_level_value_id.is_(None))
+        if exclude_level_value_id:
+            query = query.where(G2PGeoLevelValue.level_value_id != exclude_level_value_id)
         return (await session.execute(query)).scalar_one() > 0
 
     async def add_geo_level(
@@ -187,10 +212,10 @@ class G2PGeoService(BaseService):
         parent_level_id = self._empty_to_none(parent_level_id)
 
         async with get_session_maker()() as session:
-            if await self._mnemonic_exists(session, level_mnemonic):
+            if await self._mnemonic_exists(session, level_mnemonic, parent_level_id):
                 raise GeoServiceError(
                     "G2P-GEO-409",
-                    f"level_mnemonic already exists: {level_mnemonic}",
+                    f"level_mnemonic already exists with this parent: {level_mnemonic}",
                 )
 
             if parent_level_id:
@@ -226,12 +251,16 @@ class G2PGeoService(BaseService):
                 level_mnemonic = (payload.level_mnemonic or "").strip()
                 if not level_mnemonic:
                     raise GeoServiceError("G2P-GEO-400", "level_mnemonic cannot be empty")
+                # Get the current parent_level_id (either from payload or existing level)
+                parent_level_id = level.parent_level_id
+                if "parent_level_id" in fields_set:
+                    parent_level_id = self._empty_to_none(payload.parent_level_id)
                 if await self._mnemonic_exists(
-                    session, level_mnemonic, exclude_level_id=payload.level_id
+                    session, level_mnemonic, parent_level_id, exclude_level_id=payload.level_id
                 ):
                     raise GeoServiceError(
                         "G2P-GEO-409",
-                        f"level_mnemonic already exists: {level_mnemonic}",
+                        f"level_mnemonic already exists with this parent: {level_mnemonic}",
                     )
                 level.level_mnemonic = level_mnemonic
 
@@ -308,6 +337,12 @@ class G2PGeoService(BaseService):
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {level_id}")
 
+            if await self._value_mnemonic_exists(session, level_id, level_value_mnemonic, parent_level_value_id):
+                raise GeoServiceError(
+                    "G2P-GEO-409",
+                    f"level_value_mnemonic already exists with this parent and level: {level_value_mnemonic}",
+                )
+
             if parent_level_value_id:
                 parent_value = await session.get(G2PGeoLevelValue, parent_level_value_id)
                 if not parent_value:
@@ -354,6 +389,17 @@ class G2PGeoService(BaseService):
                 level_value_mnemonic = (payload.level_value_mnemonic or "").strip()
                 if not level_value_mnemonic:
                     raise GeoServiceError("G2P-GEO-400", "level_value_mnemonic cannot be empty")
+                # Get the current parent_level_value_id (either from payload or existing value)
+                parent_level_value_id = value.parent_level_value_id
+                if "parent_level_value_id" in fields_set:
+                    parent_level_value_id = self._empty_to_none(payload.parent_level_value_id)
+                if await self._value_mnemonic_exists(
+                    session, value.level_id, level_value_mnemonic, parent_level_value_id, exclude_level_value_id=payload.level_value_id
+                ):
+                    raise GeoServiceError(
+                        "G2P-GEO-409",
+                        f"level_value_mnemonic already exists with this parent and level: {level_value_mnemonic}",
+                    )
                 value.level_value_mnemonic = level_value_mnemonic
 
             if "parent_level_value_id" in fields_set:

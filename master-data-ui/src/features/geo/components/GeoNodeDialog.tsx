@@ -4,6 +4,9 @@ import { useEffect, useId, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFetch } from "@/shared/hooks/useFetch";
+import Button from "@/components/Button";
+import { toast } from "react-toastify";
+import { getErrorMessage } from "@/shared/utils/errorHandler";
 import type { GeoLevelValue } from "../types";
 
 export type GeoNodeDialogMode = "add" | "edit";
@@ -14,18 +17,17 @@ export type GeoNodeDialogField = {
   readOnly?: boolean;
 };
 
-type GeoNodeDialogProps = {
+interface GeoNodeDialogProps {
   open: boolean;
   mode: GeoNodeDialogMode;
-  title: string;
-  contextFields: GeoNodeDialogField[];
-  nameLabel: string;
-  codeLabel: string;
+  title?: string;
+  contextFields?: GeoNodeDialogField[];
+  nameLabel?: string;
   levelId: string;
   parentLevelValueId?: string | null;
   levelValueId?: string;
   initialName?: string;
-  initialCode?: string;
+  levelChoices?: { levelId: string; label: string }[];
   onClose: () => void;
   onSuccess?: () => void;
 };
@@ -36,12 +38,11 @@ export default function GeoNodeDialog({
   title,
   contextFields,
   nameLabel,
-  codeLabel,
   levelId,
   parentLevelValueId = null,
   levelValueId,
   initialName = "",
-  initialCode = "",
+  levelChoices = [],
   onClose,
   onSuccess,
 }: GeoNodeDialogProps) {
@@ -49,13 +50,17 @@ export default function GeoNodeDialog({
   const titleId = useId();
   const { execute: writeLevelValue } = useFetch<GeoLevelValue>();
   const [name, setName] = useState(initialName);
-  const [code, setCode] = useState(initialCode);
+  const [selectedLevelId, setSelectedLevelId] = useState(
+    levelChoices[0]?.levelId || levelId
+  );
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName(initialName);
-    setCode(initialCode);
-  }, [open, initialName, initialCode]);
+    setSelectedLevelId(levelChoices[0]?.levelId || levelId);
+    setSaving(false);
+  }, [open, initialName, levelChoices, levelId]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,15 +72,17 @@ export default function GeoNodeDialog({
   }, [open, onClose]);
 
   const handleSubmit = async () => {
-    if (!name.trim() && !code.trim()) return;
+    if (!name.trim()) return;
+
+    setSaving(true);
 
     const result =
       mode === "add"
         ? await writeLevelValue("/api/geo/add-geo-level-value", {
             method: "POST",
             body: JSON.stringify({
-              level_id: levelId,
-              level_value_mnemonic: name.trim() || code.trim(),
+              level_id: selectedLevelId,
+              level_value_mnemonic: name.trim(),
               parent_level_value_id: parentLevelValueId ?? "",
             }),
           })
@@ -83,21 +90,42 @@ export default function GeoNodeDialog({
             method: "POST",
             body: JSON.stringify({
               level_value_id: levelValueId,
-              level_value_mnemonic: name.trim() || code.trim(),
+              level_value_mnemonic: name.trim(),
             }),
           });
 
+    setSaving(false);
+
     if (result?.level_value_id) {
+      toast.success(mode === "add" ? t("geo_value_added_successfully") : t("geo_value_updated_successfully"));
       onSuccess?.();
       onClose();
+    } else {
+      const rawError = (result as any)?.error || (result as any)?.statusText;
+      const errorCode = (result as any)?.code;
+      const errorMessage = getErrorMessage(rawError, errorCode, t);
+      toast.error(errorMessage);
     }
   };
 
   if (!open) return null;
 
+  const chosenChoice = levelChoices.find(
+    (choice) => choice.levelId === selectedLevelId
+  );
+  const dialogTitle =
+    mode === "add" && chosenChoice
+      ? t("geo_add_named", { name: chosenChoice.label })
+      : mode === "add"
+      ? t("geo_add_level_value")
+      : title || t("geo_edit_level_value");
+  const dialogNameLabel = chosenChoice
+    ? t("geo_name_field", { name: chosenChoice.label })
+    : nameLabel;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -107,45 +135,72 @@ export default function GeoNodeDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[min(90vh,720px)] w-full max-w-md flex-col overflow-hidden rounded-[10px] border border-[#5A5A5A] bg-black text-white shadow-2xl"
+        className="relative w-full bg-white rounded-[10px] shadow-lg max-h-[80vh] p-8 border-4 border-[#EABB13]"
+        style={{ maxWidth: "600px" }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-[#5A5A5A] px-5 py-4">
-          <h2 id={titleId} className="text-[16px] font-semibold text-[#F4BB1B]">
-            {title}
-          </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 id={titleId} className="text-[22px] font-bold text-[#ED7C22]">{dialogTitle}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+            className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
             aria-label={t("close")}
           >
-            <X size={16} />
+            <X size={30} />
           </button>
         </div>
 
         <form
-          className="flex min-h-0 flex-1 flex-col"
+          className="modal-scroll overflow-y-auto max-h-[calc(80vh-120px)] pr-2"
           onSubmit={(event) => {
             event.preventDefault();
             void handleSubmit();
           }}
         >
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
-            {contextFields.length > 0 ? (
+          <div className="space-y-4">
+            {levelChoices.length >= 1 ? (
               <div className="space-y-1.5">
-                <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+                  {t("geo_child_level")}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {levelChoices.map((choice) => {
+                    const isActive = choice.levelId === selectedLevelId;
+                    return (
+                      <button
+                        key={choice.levelId}
+                        type="button"
+                        onClick={() => setSelectedLevelId(choice.levelId)}
+                        className={`h-9 cursor-pointer rounded-[10px] border px-3 text-[14px] font-medium ${
+                          isActive
+                            ? "border-(--color-yellow) bg-(--color-yellow) text-black"
+                            : "border-gray-300 bg-white text-gray-600 hover:border-(--color-yellow)/60 hover:text-black"
+                        }`}
+                      >
+                        {choice.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {contextFields && contextFields.length > 0 ? (
+              <div className="space-y-1.5">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
                   {t("geo_hierarchy_path")}
                 </span>
-                <div className="rounded border border-[#5A5A5A] bg-[#1A1A1A] px-3 py-2.5">
-                  <p className="break-words text-[13px] leading-relaxed text-white/80">
+                <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <p className="wrap-break-word text-[13px] leading-relaxed text-gray-700">
                     {contextFields.map((field, index) => (
                       <span key={`${field.label}-${index}`}>
                         {index > 0 ? (
-                          <span className="mx-1.5 text-white/35" aria-hidden>
+                          <span className="mx-1.5 text-gray-400" aria-hidden>
                             /
                           </span>
                         ) : null}
-                        <span className="text-white/45">{field.label}:</span>{" "}
+                        <span className="text-gray-500">{field.label}:</span>{" "}
                         <span>{field.value}</span>
                       </span>
                     ))}
@@ -155,45 +210,57 @@ export default function GeoNodeDialog({
             ) : null}
 
             <label className="block space-y-1.5">
-              <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
-                {nameLabel}
+              <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+                {dialogNameLabel}
               </span>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 autoFocus
-                className="h-10 w-full rounded border border-[#5A5A5A] bg-black px-3 text-[14px] text-white outline-none focus:border-[#F4BB1B]"
-              />
-            </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-[12px] font-medium uppercase tracking-wide text-white/55">
-                {codeLabel}
-              </span>
-              <input
-                type="text"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                className="h-10 w-full rounded border border-[#5A5A5A] bg-black px-3 text-[14px] text-white outline-none focus:border-[#F4BB1B]"
+                placeholder={t("geo_level_value_mnemonic_placeholder")}
+                className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-(--color-yellow)"
               />
             </label>
           </div>
 
-          <div className="flex shrink-0 justify-end gap-3 border-t border-[#5A5A5A] px-5 py-4">
-            <button
-              type="button"
+          <div className="flex gap-4 w-full justify-end pt-4">
+            <Button
+              variant="secondary"
               onClick={onClose}
-              className="h-9 cursor-pointer rounded-[10px] border border-[#5A5A5A] px-4 text-[14px] font-medium text-white hover:bg-white/5"
+              disabled={saving}
             >
               {t("cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
-              className="h-9 cursor-pointer rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
+              disabled={saving}
             >
-              {mode === "add" ? t("add") : t("save")}
-            </button>
+              {saving && (
+                <svg
+                  className="animate-spin h-4 w-4 mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              )}
+              {saving ? t("saving") : t("save")}
+            </Button>
           </div>
         </form>
       </div>
