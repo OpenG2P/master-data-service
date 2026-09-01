@@ -10,7 +10,7 @@ questions:
   type: boolean
   default: true
   label: Enable Keycloak Init
-  
+
 - variable: global.masterDataUiHostname
   description: Hostname under which Master Data UI will be accessed
   type: string
