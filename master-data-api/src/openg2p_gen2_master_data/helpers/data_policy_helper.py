@@ -38,9 +38,7 @@ class DataPolicyHelper:
         if not data_policies:
             return None
 
-        policies_data = [
-            p for p in data_policies if p.get("policy_target") == policy_target
-        ]
+        policies_data = [p for p in data_policies if p.get("policy_target") == policy_target]
         if not policies_data:
             return None
 

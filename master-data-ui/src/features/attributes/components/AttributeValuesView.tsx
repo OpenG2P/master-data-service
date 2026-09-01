@@ -259,7 +259,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                                                 >
                                                     <div className="flex items-center justify-start gap-4">
                                                         <Can action={REFERENCE_DATA_ACTIONS.edit}>
-                                                            <EditButton 
+                                                            <EditButton
                                                                 onClick={() =>
                                                                     setValueDialog({
                                                                         open: true,

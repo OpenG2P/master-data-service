@@ -99,10 +99,10 @@ class G2PGeoService(BaseService):
                 # dropdown looks exactly like a country with no regions, so the
                 # mistake surfaces as missing data rather than as an error.
                 level = (
-                    await session.execute(
-                        select(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_id)
-                    )
-                ).scalars().first()
+                    (await session.execute(select(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_id)))
+                    .scalars()
+                    .first()
+                )
                 if not level:
                     return []
                 level_id = level.level_id
@@ -168,8 +168,8 @@ class G2PGeoService(BaseService):
         parent_level_id: Optional[str] = None,
         exclude_level_id: Optional[str] = None,
     ) -> bool:
-        query = select(func.count()).select_from(G2PGeoLevel).where(
-            G2PGeoLevel.level_mnemonic == level_mnemonic
+        query = (
+            select(func.count()).select_from(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_mnemonic)
         )
         if parent_level_id is not None:
             query = query.where(G2PGeoLevel.parent_level_id == parent_level_id)
@@ -187,9 +187,13 @@ class G2PGeoService(BaseService):
         parent_level_value_id: Optional[str] = None,
         exclude_level_value_id: Optional[str] = None,
     ) -> bool:
-        query = select(func.count()).select_from(G2PGeoLevelValue).where(
-            G2PGeoLevelValue.level_id == level_id,
-            G2PGeoLevelValue.level_value_mnemonic == level_value_mnemonic
+        query = (
+            select(func.count())
+            .select_from(G2PGeoLevelValue)
+            .where(
+                G2PGeoLevelValue.level_id == level_id,
+                G2PGeoLevelValue.level_value_mnemonic == level_value_mnemonic,
+            )
         )
         if parent_level_value_id is not None:
             query = query.where(G2PGeoLevelValue.parent_level_value_id == parent_level_value_id)
@@ -337,7 +341,9 @@ class G2PGeoService(BaseService):
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {level_id}")
 
-            if await self._value_mnemonic_exists(session, level_id, level_value_mnemonic, parent_level_value_id):
+            if await self._value_mnemonic_exists(
+                session, level_id, level_value_mnemonic, parent_level_value_id
+            ):
                 raise GeoServiceError(
                     "G2P-GEO-409",
                     f"level_value_mnemonic already exists with this parent and level: {level_value_mnemonic}",
@@ -394,7 +400,11 @@ class G2PGeoService(BaseService):
                 if "parent_level_value_id" in fields_set:
                     parent_level_value_id = self._empty_to_none(payload.parent_level_value_id)
                 if await self._value_mnemonic_exists(
-                    session, value.level_id, level_value_mnemonic, parent_level_value_id, exclude_level_value_id=payload.level_value_id
+                    session,
+                    value.level_id,
+                    level_value_mnemonic,
+                    parent_level_value_id,
+                    exclude_level_value_id=payload.level_value_id,
                 ):
                     raise GeoServiceError(
                         "G2P-GEO-409",

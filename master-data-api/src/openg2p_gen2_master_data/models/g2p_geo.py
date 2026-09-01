@@ -15,9 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 class G2PGeoLevel(BaseORMModel):
     __tablename__ = "g2p_geo_levels"
-    __table_args__ = (
-        UniqueConstraint("level_mnemonic", "parent_level_id", name="uq_level_mnemonic_parent"),
-    )
+    __table_args__ = (UniqueConstraint("level_mnemonic", "parent_level_id", name="uq_level_mnemonic_parent"),)
 
     level_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     level_mnemonic: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -31,7 +29,9 @@ class G2PGeoLevel(BaseORMModel):
 class G2PGeoLevelValue(BaseORMModel):
     __tablename__ = "g2p_geo_level_values"
     __table_args__ = (
-        UniqueConstraint("level_value_mnemonic", "parent_level_value_id", "level_id", name="uq_value_mnemonic_parent_level"),
+        UniqueConstraint(
+            "level_value_mnemonic", "parent_level_value_id", "level_id", name="uq_value_mnemonic_parent_level"
+        ),
     )
 
     level_value_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
