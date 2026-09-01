@@ -35,7 +35,6 @@ class Initializer(BaseInitializer):
         G2PGeoController().post_init()
         G2PAttributeController().post_init()
 
-
         # Initialize cache
         FastAPICache.init(InMemoryBackend(), prefix="master-data-cache")
 

@@ -177,7 +177,7 @@ export default function AttributeListExplorer() {
                                                         </EditButton>
                                                     </Can>
                                                     <Can action={REFERENCE_DATA_ACTIONS.delete}>
-                                                        <DeleteButton 
+                                                        <DeleteButton
                                                             onClick={() => setConfirmDelete(item)}
                                                             loading={isDeleting && confirmDelete?.attribute_id === item.attribute_id}
                                                         >

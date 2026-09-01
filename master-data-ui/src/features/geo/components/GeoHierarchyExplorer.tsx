@@ -830,8 +830,8 @@ export default function GeoHierarchyExplorer() {
             placeholder={t("search")}
             width="w-[min(100%,20rem)] sm:w-80"
           />
-          <Button 
-            variant="warning" 
+          <Button
+            variant="warning"
             onClick={() => setManageLevelsOpen(true)}
             className="inline-flex h-9 shrink-0 items-center gap-2"
           >

@@ -7,8 +7,8 @@ type TableSkeletonProps = {
   headerRow?: boolean;
 };
 
-export default function TableSkeleton({ 
-  rows = 10, 
+export default function TableSkeleton({
+  rows = 10,
   columns = 4,
   columnWidths,
   headerRow = true
