@@ -35,6 +35,11 @@ MASTER_DATA_CSRF_EXCLUDED_PATHS = (
     # ambient credential to abuse — and these two endpoints only read.
     "/attributes/get_all_attributes",
     "/attributes/get_attribute_values",
+    # Same for geo reads: registry walks the hierarchy over REST instead of
+    # connecting to the master-data database, and those calls are also
+    # server-to-server with a Bearer token and no cookies.
+    "/geo/get_all_geo_levels",
+    "/geo/get_geo_level_values",
 )
 
 # IAMInitializer after Settings.get_config() so iam-core middleware
