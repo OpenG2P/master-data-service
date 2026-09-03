@@ -23,6 +23,12 @@ spec:
   template:
     metadata:
       labels: {{- include "common.labels.standard" (dict "customLabels" .Values.podLabels "context" $) | nindent 8 }}
+        {{- /*
+          Distinguishes the API pod from the UI pod, which carries the same
+          app.kubernetes.io/name. Added to the POD labels only, never to
+          selector.matchLabels above — that field is immutable, so changing it
+          would break every existing install on upgrade.
+        */}}
         app.kubernetes.io/component: master-data-api
       {{- if .Values.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
