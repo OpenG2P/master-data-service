@@ -23,6 +23,18 @@ MASTER_DATA_CSRF_EXCLUDED_PATHS = (
     "/docs",
     "/redoc",
     "/docs/oauth2-redirect",
+    # Read-only attribute catalogue, pulled by each registry's db-seed Job at
+    # install time. The comment above always claimed seed callers were exempt,
+    # but no seed path was ever listed, so every registry install failed with
+    # "Forbidden. CSRF token missing or invalid." the moment it tried to
+    # populate its attributes.
+    #
+    # Safe to exempt: CsrfMiddleware is a double-submit check defending against
+    # a BROWSER being induced to send a request with ambient cookies. db-seed is
+    # a server-to-server caller with no cookies and no session, so there is no
+    # ambient credential to abuse — and these two endpoints only read.
+    "/attributes/get_all_attributes",
+    "/attributes/get_attribute_values",
 )
 
 # IAMInitializer after Settings.get_config() so iam-core middleware

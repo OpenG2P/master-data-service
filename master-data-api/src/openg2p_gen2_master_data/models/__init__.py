@@ -6,3 +6,7 @@ from .g2p_geo import (
     G2PGeoLevel,
     G2PGeoLevelValue,
 )
+from .g2p_sample import (
+    G2PSampleHousehold,
+    G2PSampleIndividual,
+)

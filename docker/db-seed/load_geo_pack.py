@@ -242,10 +242,28 @@ def seed_sql_codelists(conn, domains):
 
 
 
+def _clean_id(value):
+    """Normalise a foundational ID to its digits-and-letters form.
+
+    Packs write national IDs in a human-readable grouped form ("4028 6914
+    8701"). That string is copied verbatim into every downstream system --
+    registries store it as `foundational_id`, and the mock identity system
+    stores it as `individualId` -- and eSignet then matches it EXACTLY. So an
+    operator who types the ID the way it is printed on a card, without the
+    grouping, gets "invalid_individual_id" and no indication why.
+
+    Stripping whitespace once here, at the point the pack is read, is what
+    keeps the registry and the ID system agreeing on the same string.
+    """
+    if not isinstance(value, str):
+        return value
+    return "".join(value.split()) or None
+
+
 SAMPLE_INDIVIDUAL_COLS = [
     "individual_id", "household_id", "given_name", "fathers_name", "full_name",
     "gender", "relationship_to_head", "marital_status", "education_level",
-    "employment_status", "disability_status", "birth_year", "age", "phone",
+    "employment_status", "disability_status", "birth_date", "birth_year", "age", "phone",
     "national_id", "geo_pcode", "address_parts", "latitude", "longitude",
     "country", "version",
 ]
@@ -295,6 +313,8 @@ def seed_samples(conn, pack_dir, manifest):
                     row.append(version)
                 elif c == "address_parts":
                     row.append(json.dumps(rec.get("address_parts") or {}))
+                elif c == "national_id":
+                    row.append(_clean_id(rec.get(c)))
                 else:
                     row.append(rec.get(c))
             out.append(tuple(row))
@@ -302,6 +322,18 @@ def seed_samples(conn, pack_dir, manifest):
 
     inds = rows_for("individuals.json", SAMPLE_INDIVIDUAL_COLS)
     hhs = rows_for("households.json", SAMPLE_HOUSEHOLD_COLS)
+
+    # The API creates these tables with SQLAlchemy's create_all, which creates a
+    # MISSING table and never adds a column to one that already exists. So on any
+    # environment seeded before birth_date was introduced the column is simply
+    # absent, and the insert below fails on a column list that looks correct.
+    #
+    # Adding it here rather than in a migration keeps the seed job self-sufficient
+    # and idempotent: IF NOT EXISTS makes the second run a no-op.
+    with conn.cursor() as cur:
+        cur.execute("ALTER TABLE g2p_sample_individuals "
+                    "ADD COLUMN IF NOT EXISTS birth_date date")
+    conn.commit()
 
     # Households first: an individual references one, and seeding the other way
     # round leaves a window where the reference dangles.

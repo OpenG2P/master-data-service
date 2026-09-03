@@ -26,6 +26,14 @@ spec:
       port: {{ .Values.service.port }}
       protocol: TCP
       targetPort: http
+  {{- /*
+    Without the component clause this selector matches the UI pod too: both
+    carry app.kubernetes.io/name=masterData, and only the UI service narrowed
+    itself. The API Service then load-balanced across API and UI, so callers got
+    the Next.js app about half the time — a 307 to /en/... and then HTML or 403
+    instead of a JSON response. Intermittent by nature, which is what made it
+    look like a flaky API rather than a routing fault.
+  */}}
   selector: {{- include "common.labels.matchLabels" (dict "customLabels" .Values.podLabels "context" $) | nindent 4 }}
     app.kubernetes.io/component: master-data-api
 {{- end -}}
