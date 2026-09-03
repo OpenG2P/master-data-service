@@ -2,10 +2,10 @@ import logging
 import uuid
 from typing import List, Optional
 
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import delete, func, select
 
-from ..engine import get_session_maker
 from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import G2PAttribute, G2PAttributeValue
 from ..repositories import AttributeValueRepository
@@ -63,7 +63,8 @@ class G2PAttributeService(BaseService):
         )
 
     async def get_attributes(self) -> List[AttributeData]:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             stmt = select(G2PAttribute).order_by(G2PAttribute.attribute_id)
             rows = (await session.execute(stmt)).scalars().all()
         return [self._to_attribute_data(r) for r in rows]
@@ -75,7 +76,8 @@ class G2PAttributeService(BaseService):
         page_number: int = 1,
         data_policies: Optional[List[dict]] = None,
     ) -> tuple[List[AttributeValueData], int]:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             policy_condition = await self._build_attribute_value_policy_condition(
                 data_policies,
                 session,
@@ -213,7 +215,8 @@ class G2PAttributeService(BaseService):
                 "attribute_code and attribute_display are required",
             )
 
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             if await self._attribute_code_exists(session, attribute_code):
                 raise AttributeServiceError(
                     "G2P-ATTR-409",
@@ -232,7 +235,8 @@ class G2PAttributeService(BaseService):
             return self._to_attribute_data(attribute)
 
     async def update_attribute(self, payload) -> AttributeData:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             attribute = await session.get(G2PAttribute, payload.attribute_id)
             if not attribute:
                 raise AttributeServiceError(
@@ -303,7 +307,8 @@ class G2PAttributeService(BaseService):
         *,
         cascade: bool = False,
     ) -> str:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             attribute = await session.get(G2PAttribute, attribute_id)
             if not attribute:
                 raise AttributeServiceError(
@@ -353,7 +358,8 @@ class G2PAttributeService(BaseService):
 
         parent_value_id = self._empty_to_none(parent_value_id)
 
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             attribute = await session.get(G2PAttribute, attribute_id)
             if not attribute:
                 raise AttributeServiceError(
@@ -388,7 +394,8 @@ class G2PAttributeService(BaseService):
             return self._to_value_data(value)
 
     async def update_attribute_value(self, payload) -> AttributeValueData:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             value = await self._get_value_by_id(
                 session,
                 payload.value_id,
@@ -464,7 +471,8 @@ class G2PAttributeService(BaseService):
         value_id: str,
         attribute_id: Optional[str] = None,
     ) -> tuple[str, str]:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             value = await self._get_value_by_id(session, value_id, attribute_id)
             if not value:
                 raise AttributeServiceError(

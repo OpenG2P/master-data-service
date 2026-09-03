@@ -11,6 +11,11 @@ global:
   masterDataDBUser: '{{ if eq .Release.Name "master-data" }}master_data_user{{ else }}{{ printf "%s_master_data_user" .Release.Name | replace "-" "_" }}{{ end }}'
   masterDataDBSecret: '{{ if eq .Release.Name "master-data" }}master-data{{ else }}{{ .Release.Name }}-master-data{{ end }}'
   masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
+  # SQLAlchemy pool per gunicorn worker process. Defaults match fastapi-common.
+  dbPoolSize: 5
+  dbPoolMaxOverflow: 10
+  dbPoolPrePing: true
+  dbPoolRecycle: 1800
 
   # IAM (JWT validation + DP_ role -> permission resolution). Consumed by
   # master-data Settings (MASTER_DATA_API_*); override per environment.
@@ -183,6 +188,10 @@ masterDataAPI:
     MASTER_DATA_API_DB_DBNAME: '{{ tpl .Values.global.masterDataDB $ }}'
     MASTER_DATA_API_DB_PORT: '{{ .Values.global.masterDataDBPort }}'
     MASTER_DATA_API_DB_USERNAME: '{{ tpl .Values.global.masterDataDBUser $ }}'
+    MASTER_DATA_API_DB_POOL_SIZE: '{{ .Values.global.dbPoolSize }}'
+    MASTER_DATA_API_DB_POOL_MAX_OVERFLOW: '{{ .Values.global.dbPoolMaxOverflow }}'
+    MASTER_DATA_API_DB_POOL_PRE_PING: '{{ .Values.global.dbPoolPrePing }}'
+    MASTER_DATA_API_DB_POOL_RECYCLE: '{{ .Values.global.dbPoolRecycle }}'
     MASTER_DATA_API_PORT: '{{ .Values.containerPort }}'
     MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
     # Auth / CSRF (iam-core fields inherited on master-data Settings).
