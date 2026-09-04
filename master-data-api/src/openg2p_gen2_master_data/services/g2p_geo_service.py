@@ -2,10 +2,10 @@ import logging
 import uuid
 from typing import List, Optional
 
-from sqlalchemy import delete, func, or_, select
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
+from sqlalchemy import delete, func, or_, select
 
-from ..engine import get_session_maker
 from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import G2PGeoLevel, G2PGeoLevelValue
 from ..repositories import GeoLevelValueRepository
@@ -67,7 +67,8 @@ class G2PGeoService(BaseService):
         Returns:
             List of GeoLevelData
         """
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             query = select(G2PGeoLevel)
             levels = (await session.execute(query)).scalars().all()
             return [self._to_level_data(level) for level in levels]
@@ -89,7 +90,8 @@ class G2PGeoService(BaseService):
         Returns:
             List of GeoLevelValueData
         """
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
                 # Fall back to the level's NAME. Callers hand-configure this —
@@ -215,7 +217,8 @@ class G2PGeoService(BaseService):
 
         parent_level_id = self._empty_to_none(parent_level_id)
 
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             if await self._mnemonic_exists(session, level_mnemonic, parent_level_id):
                 raise GeoServiceError(
                     "G2P-GEO-409",
@@ -241,7 +244,8 @@ class G2PGeoService(BaseService):
             return self._to_level_data(level)
 
     async def update_geo_level(self, payload) -> GeoLevelData:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, payload.level_id)
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {payload.level_id}")
@@ -286,7 +290,8 @@ class G2PGeoService(BaseService):
             return self._to_level_data(level)
 
     async def delete_geo_level(self, level_id: str) -> str:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {level_id}")
@@ -336,7 +341,8 @@ class G2PGeoService(BaseService):
 
         parent_level_value_id = self._empty_to_none(parent_level_value_id)
 
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {level_id}")
@@ -369,7 +375,8 @@ class G2PGeoService(BaseService):
             return self._to_value_data(value)
 
     async def update_geo_level_value(self, payload) -> GeoLevelValueData:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             value = await session.get(G2PGeoLevelValue, payload.level_value_id)
             if not value:
                 raise GeoServiceError(
@@ -435,7 +442,8 @@ class G2PGeoService(BaseService):
         *,
         cascade: bool = False,
     ) -> str:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             value = await session.get(G2PGeoLevelValue, level_value_id)
             if not value:
                 raise GeoServiceError(
