@@ -144,7 +144,7 @@ masterDataAPI:
     name: ""
   image:
     repository: openg2p/master-data-api
-    tag: "1.1.0"
+    tag: "1.1.3"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
@@ -283,7 +283,7 @@ masterDataUi:
     name: ""
   image:
     repository: openg2p/master-data-ui
-    tag: "1.1.0"
+    tag: "1.1.3"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
@@ -425,7 +425,7 @@ geoSeed:
     # Same registry and tag convention as masterDataAPI above; CI rewrites the
     # tag via chart-image-paths in .github/workflows/build-publish.yml.
     repository: openg2p/master-data-db-seed
-    tag: "1.1.0"
+    tag: "1.1.3"
   waitImage: jbergknoff/postgresql-client:latest
   backoffLimit: 2
   # Optional MinIO settings kept for pack assets; the geo loader stores only
