@@ -35,12 +35,12 @@ jobs:
               {
                 "arg": "FASTAPI_COMMON_REF",
                 "repo": "https://github.com/openg2p/openg2p-fastapi-common",
-                "ref": "1.2"
+                "ref": "1.2.1"
               },
               {
-                "arg": "IAM_SERVICE_REF",
+                "arg": "IAM_CORE_REF",
                 "repo": "https://github.com/openg2p/iam",
-                "ref": "1.4"
+                "ref": "1.4.2"
               }
             ]
           },
