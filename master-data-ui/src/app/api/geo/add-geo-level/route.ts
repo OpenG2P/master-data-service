@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
 			},
 			request_payload: {
 				level_mnemonic: body.level_mnemonic,
-				display_name: body.display_name || body.level_mnemonic,
 				parent_level_id: body.parent_level_id ?? null,
 			},
 		}),

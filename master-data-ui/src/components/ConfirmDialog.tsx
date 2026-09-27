@@ -3,6 +3,7 @@
 import { useEffect, useId } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Button from "@/components/Button";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -11,6 +12,7 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  confirming?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 };
@@ -22,6 +24,7 @@ export default function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   danger = false,
+  confirming = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -41,7 +44,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -51,45 +54,67 @@ export default function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md rounded-[10px] border border-[#5A5A5A] bg-black text-white shadow-2xl"
+        className="relative w-full max-w-150 bg-white rounded-[10px] shadow-lg flex flex-col items-center p-8 border-4 border-[#dc3545]"
       >
-        <div className="flex items-center justify-between border-b border-[#5A5A5A] px-5 py-4">
-          <h2 id={titleId} className="text-[16px] font-semibold text-[#F4BB1B]">
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
-            aria-label={t("close")}
-          >
-            <X size={16} />
-          </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          aria-label={t("close")}
+        >
+          <X size={30} />
+        </button>
+
+        <div className="mb-6 mt-4">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
+            <div className="w-14 h-14 bg-[#dc3545] rounded-full flex items-center justify-center">
+              <span className="text-white text-[32px] font-bold">!</span>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-5 px-5 py-5">
-          <p className="text-[14px] leading-relaxed text-white/80">{message}</p>
+        <h2 id={titleId} className="text-[22px] font-bold text-black mb-2 text-center">{title}</h2>
+        <p className="text-black/70 text-[18px] text-center mb-8 px-4">
+          {message}
+        </p>
 
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-9 cursor-pointer rounded-[10px] border border-[#5A5A5A] px-4 text-[14px] font-medium text-white hover:bg-white/5"
-            >
-              {cancelLabel ?? t("cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              className={`h-9 cursor-pointer rounded-[10px] px-4 text-[14px] font-semibold ${
-                danger
-                  ? "bg-red-500 text-white hover:bg-red-400"
-                  : "bg-[#F4BB1B] text-black"
-              }`}
-            >
-              {confirmLabel ?? t("delete")}
-            </button>
-          </div>
+        <div className="flex gap-4 w-full justify-center">
+          <Button
+            variant="primary"
+            onClick={onClose}
+            disabled={confirming}
+          >
+            {cancelLabel ?? t("cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            disabled={confirming}
+          >
+            {confirming && (
+              <svg
+                className="animate-spin h-4 w-4 mr-2"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            )}
+            {confirming ? t("deleting") : (confirmLabel ?? t("delete"))}
+          </Button>
         </div>
       </div>
     </div>

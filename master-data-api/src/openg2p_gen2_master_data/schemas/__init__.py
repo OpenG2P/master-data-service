@@ -92,14 +92,3 @@ from .g2p_geo import (
     DeleteGeoLevelValueResponseBody,
     DeleteGeoLevelValueResponse,
 )
-from .g2p_partner import (
-    GetAllPartnersRequest,
-    GetAllPartnersRequestPayload,
-    G2PPartnersResponse,
-    G2PPartnersResponseBody,
-    GetPartnerRequest,
-    GetPartnerRequestPayload,
-    G2PPartnerResponse,
-    G2PPartnerResponseBody,
-    G2PPartnerData,
-)

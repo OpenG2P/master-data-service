@@ -13,9 +13,7 @@ export async function POST(request: NextRequest) {
 				filter_by: body.filter_by ?? "",
 				search_text: body.search_text ?? "",
 			},
-			request_payload: {
-				include_domains: body.include_domains ?? true,
-			},
+			request_payload: {},
 		}),
 		transformResponse: (responseBody) => ({
 			attributes: responseBody?.response_payload?.attributes ?? [],

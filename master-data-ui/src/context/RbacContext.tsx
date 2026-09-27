@@ -51,7 +51,6 @@ export function RbacProvider({ children }: { children: ReactNode }) {
 
             setActionSet(new Set<string>(permissions));
         } catch (err) {
-            console.error("Failed to load RBAC actions:", err);
             setActionSet(new Set());
         } finally {
             setLoading(false);
@@ -91,7 +90,7 @@ export function RbacProvider({ children }: { children: ReactNode }) {
 
     if (loading) {
         return (
-            <div className="w-full min-h-screen flex items-center justify-center bg-neutral-second">
+            <div className="w-full min-h-screen flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-4">
                     <img
                         src="/loading.gif"

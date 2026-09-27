@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Pagination from "@/components/Pagination";
+import AddButton from "@/components/AddButton";
 
 export type DataTableColumn<T> = {
   key: string;
@@ -60,106 +61,98 @@ export default function DataTablePanel<T extends Record<string, unknown>>({
   );
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-black p-5 pb-12 text-white">
-      <div className="relative flex min-h-0 flex-1 flex-col border border-[#5A5A5A]">
-        {/* Label | Add New | Search */}
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#5A5A5A] px-4 py-4">
-          <h1 className="text-[18px] font-semibold text-white">{tableLabel}</h1>
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h1 className="font-semibold text-[24px] text-black">{tableLabel}</h1>
+        <div className="flex items-center gap-3">
+          {onAddNew && <AddButton onClick={onAddNew} label={t("add_new")} />}
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onAddNew}
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] bg-[#F4BB1B] px-4 text-[14px] font-semibold text-black"
-            >
-              {t("add_new")}
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[10px] bg-white text-[14px] font-bold leading-none text-black">
-                +
-              </span>
-            </button>
-
-            <label className="relative w-[240px]">
-              <span className="sr-only">{t("search")}</span>
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
-                placeholder={t("search")}
-                className="h-9 w-full rounded-[4px] border border-[#5A5A5A] bg-black px-3 pr-9 text-[14px] text-white outline-none placeholder:text-[#8A8A8A] focus:border-[#F4BB1B]"
-              />
-              <Search
-                size={15}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white"
-              />
-            </label>
-          </div>
+          <label className="relative w-60">
+            <span className="sr-only">{t("search")}</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder={t("search")}
+              className="h-9 w-full rounded-sm border border-gray-300 bg-white px-3 pr-9 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
+            />
+            <Search
+              size={15}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+          </label>
         </div>
+      </div>
 
-        {/* Table */}
-        <div className="relative min-h-0 flex-1">
-          <div className="h-full overflow-auto px-4 pb-10 pt-2">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-[#3A3A3A]">
-                  {columns.map((column) => (
-                    <th
-                      key={column.key}
-                      className={`px-3 py-3 text-[14px] font-semibold text-[#F4BB1B] ${column.className ?? ""}`}
-                    >
+      {/* Table */}
+      <div className="bg-white rounded-[10px] py-6 shadow-sm">
+        <div className="overflow-auto px-4">
+          <table className="w-full border-collapse bg-white table-fixed">
+            <thead>
+              <tr>
+                {columns.map((column) => (
+                  <th
+                    key={column.key}
+                    className={`text-left pb-3 px-9 border-b border-gray-200 font-semibold text-black text-[16px] tracking-wider ${column.className ?? ""}`}
+                    style={{ width: `${100 / columns.length}%` }}
+                  >
+                    <div className="truncate" title={column.header}>
                       {column.header}
-                    </th>
-                  ))}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="text-center py-10 px-4 text-gray-600"
+                  >
+                    {t("no_results")}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {pageRows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={columns.length}
-                      className="px-3 py-10 text-center text-[14px] text-white/45"
+              ) : (
+                pageRows.map((row, index) => {
+                  const absoluteIndex = (currentPage - 1) * pageSize + index;
+                  return (
+                    <tr
+                      key={`${absoluteIndex}-${String(row.id ?? index)}`}
+                      className={`cursor-pointer transition-colors duration-150 ${index % 2 === 1 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100`}
                     >
-                      {t("no_results")}
-                    </td>
-                  </tr>
-                ) : (
-                  pageRows.map((row, index) => {
-                    const absoluteIndex = (currentPage - 1) * pageSize + index;
-                    return (
-                      <tr
-                        key={`${absoluteIndex}-${String(row.id ?? index)}`}
-                        className="border-b border-[#3A3A3A]"
-                      >
-                        {columns.map((column) => (
-                          <td
-                            key={column.key}
-                            className={`px-3 py-3 text-[14px] text-white ${column.className ?? ""}`}
-                          >
+                      {columns.map((column) => (
+                        <td
+                          key={column.key}
+                          className={`py-2 px-9 align-middle ${column.className ?? ""}`}
+                        >
+                          <div className="truncate text-[16px]" title={String(column.render ? column.render(row, absoluteIndex) : row[column.key] ?? emptyValue)}>
                             {column.render
                               ? column.render(row, absoluteIndex)
                               : String(row[column.key] ?? emptyValue)}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
 
-          <div className="absolute bottom-0 right-3 z-10 flex translate-y-1/2 items-center bg-black pl-3 pr-1">
-            <Pagination
-              page={currentPage}
-              pageSize={pageSize}
-              total={total}
-              onPageChange={setPage}
-            />
-          </div>
+        <div className="px-4 py-3 flex justify-end">
+          <Pagination
+            page={currentPage}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+          />
         </div>
       </div>
-    </section>
+    </div>
   );
 }

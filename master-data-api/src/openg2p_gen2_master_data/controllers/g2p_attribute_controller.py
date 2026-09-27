@@ -155,11 +155,7 @@ class G2PAttributeController(BaseController):
     ) -> GetAttributesResponse:
         _logger.debug("Get Attributes Request: %s", get_attributes_request)
         try:
-            payload = get_attributes_request.request_body.request_payload
-            attributes = await self.attribute_service.get_attributes(
-                domain=payload.domain if payload else None,
-                include_domains=bool(payload.include_domains) if payload else False,
-            )
+            attributes = await self.attribute_service.get_attributes()
 
             _logger.debug("Attributes: %s", len(attributes))
 
@@ -188,8 +184,6 @@ class G2PAttributeController(BaseController):
 
             values, total = await self.attribute_service.get_attribute_values(
                 attribute_id=payload.attribute_id if payload else None,
-                domain=payload.domain if payload else None,
-                include_domains=bool(payload.include_domains) if payload else False,
                 page_size=page_size,
                 page_number=page_number,
                 data_policies=get_data_policies(http_request),
@@ -218,11 +212,6 @@ class G2PAttributeController(BaseController):
                 attribute_code=payload.attribute_code,
                 attribute_display=payload.attribute_display,
                 is_hierarchical=bool(payload.is_hierarchical),
-                display_name_i18n=payload.display_name_i18n,
-                country=payload.country,
-                version=payload.version,
-                valid_from=payload.valid_from,
-                valid_to=payload.valid_to,
             )
             return self.request_response_helper.construct_add_attribute_success_response(
                 add_attribute_request, attribute
@@ -286,13 +275,6 @@ class G2PAttributeController(BaseController):
                 value_display=payload.value_display,
                 parent_value_id=payload.parent_value_id,
                 sort_order=payload.sort_order,
-                display_name_i18n=payload.display_name_i18n,
-                roles=payload.roles,
-                domain=payload.domain,
-                country=payload.country,
-                version=payload.version,
-                valid_from=payload.valid_from,
-                valid_to=payload.valid_to,
             )
             return self.request_response_helper.construct_add_attribute_value_success_response(
                 add_attribute_value_request, value

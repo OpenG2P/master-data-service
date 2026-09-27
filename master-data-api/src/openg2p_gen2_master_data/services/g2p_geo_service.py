@@ -1,12 +1,11 @@
 import logging
 import uuid
-from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from sqlalchemy import delete, func, or_, select
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
+from sqlalchemy import delete, func, or_, select
 
-from ..engine import get_session_maker
 from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import G2PGeoLevel, G2PGeoLevelValue
 from ..repositories import GeoLevelValueRepository
@@ -43,11 +42,6 @@ class G2PGeoService(BaseService):
             level_id=level.level_id,
             level_mnemonic=level.level_mnemonic,
             parent_level_id=level.parent_level_id,
-            display_name=level.display_name,
-            display_name_i18n=level.display_name_i18n,
-            version=level.version,
-            valid_from=level.valid_from,
-            valid_to=level.valid_to,
         )
 
     @staticmethod
@@ -57,15 +51,6 @@ class G2PGeoService(BaseService):
             level_id=value.level_id,
             level_value_mnemonic=value.level_value_mnemonic,
             parent_level_value_id=value.parent_level_value_id,
-            pcode=value.pcode,
-            pcode_source=value.pcode_source,
-            boundary_uri=value.boundary_uri,
-            boundary_simplified_uri=value.boundary_simplified_uri,
-            display_name=value.display_name,
-            display_name_i18n=value.display_name_i18n,
-            version=value.version,
-            valid_from=value.valid_from,
-            valid_to=value.valid_to,
         )
 
     @staticmethod
@@ -82,7 +67,8 @@ class G2PGeoService(BaseService):
         Returns:
             List of GeoLevelData
         """
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             query = select(G2PGeoLevel)
             levels = (await session.execute(query)).scalars().all()
             return [self._to_level_data(level) for level in levels]
@@ -104,7 +90,8 @@ class G2PGeoService(BaseService):
         Returns:
             List of GeoLevelValueData
         """
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
                 # Fall back to the level's NAME. Callers hand-configure this —
@@ -180,13 +167,42 @@ class G2PGeoService(BaseService):
         self,
         session,
         level_mnemonic: str,
+        parent_level_id: Optional[str] = None,
         exclude_level_id: Optional[str] = None,
     ) -> bool:
         query = (
             select(func.count()).select_from(G2PGeoLevel).where(G2PGeoLevel.level_mnemonic == level_mnemonic)
         )
+        if parent_level_id is not None:
+            query = query.where(G2PGeoLevel.parent_level_id == parent_level_id)
+        else:
+            query = query.where(G2PGeoLevel.parent_level_id.is_(None))
         if exclude_level_id:
             query = query.where(G2PGeoLevel.level_id != exclude_level_id)
+        return (await session.execute(query)).scalar_one() > 0
+
+    async def _value_mnemonic_exists(
+        self,
+        session,
+        level_id: str,
+        level_value_mnemonic: str,
+        parent_level_value_id: Optional[str] = None,
+        exclude_level_value_id: Optional[str] = None,
+    ) -> bool:
+        query = (
+            select(func.count())
+            .select_from(G2PGeoLevelValue)
+            .where(
+                G2PGeoLevelValue.level_id == level_id,
+                G2PGeoLevelValue.level_value_mnemonic == level_value_mnemonic,
+            )
+        )
+        if parent_level_value_id is not None:
+            query = query.where(G2PGeoLevelValue.parent_level_value_id == parent_level_value_id)
+        else:
+            query = query.where(G2PGeoLevelValue.parent_level_value_id.is_(None))
+        if exclude_level_value_id:
+            query = query.where(G2PGeoLevelValue.level_value_id != exclude_level_value_id)
         return (await session.execute(query)).scalar_one() > 0
 
     async def add_geo_level(
@@ -194,11 +210,6 @@ class G2PGeoService(BaseService):
         *,
         level_mnemonic: str,
         parent_level_id: Optional[str] = None,
-        display_name: Optional[str] = None,
-        display_name_i18n: Optional[Dict[str, Any]] = None,
-        version: Optional[str] = None,
-        valid_from: Optional[date] = None,
-        valid_to: Optional[date] = None,
     ) -> GeoLevelData:
         level_mnemonic = level_mnemonic.strip()
         if not level_mnemonic:
@@ -206,11 +217,12 @@ class G2PGeoService(BaseService):
 
         parent_level_id = self._empty_to_none(parent_level_id)
 
-        async with get_session_maker()() as session:
-            if await self._mnemonic_exists(session, level_mnemonic):
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            if await self._mnemonic_exists(session, level_mnemonic, parent_level_id):
                 raise GeoServiceError(
                     "G2P-GEO-409",
-                    f"level_mnemonic already exists: {level_mnemonic}",
+                    f"level_mnemonic already exists with this parent: {level_mnemonic}",
                 )
 
             if parent_level_id:
@@ -225,11 +237,6 @@ class G2PGeoService(BaseService):
                 level_id=str(uuid.uuid4()),
                 level_mnemonic=level_mnemonic,
                 parent_level_id=parent_level_id,
-                display_name=display_name,
-                display_name_i18n=display_name_i18n,
-                version=version,
-                valid_from=valid_from,
-                valid_to=valid_to,
             )
             session.add(level)
             await session.commit()
@@ -237,7 +244,8 @@ class G2PGeoService(BaseService):
             return self._to_level_data(level)
 
     async def update_geo_level(self, payload) -> GeoLevelData:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, payload.level_id)
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {payload.level_id}")
@@ -251,10 +259,16 @@ class G2PGeoService(BaseService):
                 level_mnemonic = (payload.level_mnemonic or "").strip()
                 if not level_mnemonic:
                     raise GeoServiceError("G2P-GEO-400", "level_mnemonic cannot be empty")
-                if await self._mnemonic_exists(session, level_mnemonic, exclude_level_id=payload.level_id):
+                # Get the current parent_level_id (either from payload or existing level)
+                parent_level_id = level.parent_level_id
+                if "parent_level_id" in fields_set:
+                    parent_level_id = self._empty_to_none(payload.parent_level_id)
+                if await self._mnemonic_exists(
+                    session, level_mnemonic, parent_level_id, exclude_level_id=payload.level_id
+                ):
                     raise GeoServiceError(
                         "G2P-GEO-409",
-                        f"level_mnemonic already exists: {level_mnemonic}",
+                        f"level_mnemonic already exists with this parent: {level_mnemonic}",
                     )
                 level.level_mnemonic = level_mnemonic
 
@@ -271,23 +285,13 @@ class G2PGeoService(BaseService):
                         )
                 level.parent_level_id = parent_level_id
 
-            if "display_name" in fields_set:
-                level.display_name = payload.display_name
-            if "display_name_i18n" in fields_set:
-                level.display_name_i18n = payload.display_name_i18n
-            if "version" in fields_set:
-                level.version = payload.version
-            if "valid_from" in fields_set:
-                level.valid_from = payload.valid_from
-            if "valid_to" in fields_set:
-                level.valid_to = payload.valid_to
-
             await session.commit()
             await session.refresh(level)
             return self._to_level_data(level)
 
     async def delete_geo_level(self, level_id: str) -> str:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {level_id}")
@@ -328,15 +332,6 @@ class G2PGeoService(BaseService):
         level_id: str,
         level_value_mnemonic: str,
         parent_level_value_id: Optional[str] = None,
-        pcode: Optional[str] = None,
-        pcode_source: Optional[str] = None,
-        boundary_uri: Optional[str] = None,
-        boundary_simplified_uri: Optional[str] = None,
-        display_name: Optional[str] = None,
-        display_name_i18n: Optional[Dict[str, Any]] = None,
-        version: Optional[str] = None,
-        valid_from: Optional[date] = None,
-        valid_to: Optional[date] = None,
     ) -> GeoLevelValueData:
         level_value_mnemonic = level_value_mnemonic.strip()
         if not level_id or not level_id.strip():
@@ -346,10 +341,19 @@ class G2PGeoService(BaseService):
 
         parent_level_value_id = self._empty_to_none(parent_level_value_id)
 
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             level = await session.get(G2PGeoLevel, level_id)
             if not level:
                 raise GeoServiceError("G2P-GEO-404", f"level_id not found: {level_id}")
+
+            if await self._value_mnemonic_exists(
+                session, level_id, level_value_mnemonic, parent_level_value_id
+            ):
+                raise GeoServiceError(
+                    "G2P-GEO-409",
+                    f"level_value_mnemonic already exists with this parent and level: {level_value_mnemonic}",
+                )
 
             if parent_level_value_id:
                 parent_value = await session.get(G2PGeoLevelValue, parent_level_value_id)
@@ -364,15 +368,6 @@ class G2PGeoService(BaseService):
                 level_id=level_id,
                 level_value_mnemonic=level_value_mnemonic,
                 parent_level_value_id=parent_level_value_id,
-                pcode=pcode,
-                pcode_source=pcode_source,
-                boundary_uri=boundary_uri,
-                boundary_simplified_uri=boundary_simplified_uri,
-                display_name=display_name,
-                display_name_i18n=display_name_i18n,
-                version=version,
-                valid_from=valid_from,
-                valid_to=valid_to,
             )
             session.add(value)
             await session.commit()
@@ -380,7 +375,8 @@ class G2PGeoService(BaseService):
             return self._to_value_data(value)
 
     async def update_geo_level_value(self, payload) -> GeoLevelValueData:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             value = await session.get(G2PGeoLevelValue, payload.level_value_id)
             if not value:
                 raise GeoServiceError(
@@ -406,6 +402,21 @@ class G2PGeoService(BaseService):
                 level_value_mnemonic = (payload.level_value_mnemonic or "").strip()
                 if not level_value_mnemonic:
                     raise GeoServiceError("G2P-GEO-400", "level_value_mnemonic cannot be empty")
+                # Get the current parent_level_value_id (either from payload or existing value)
+                parent_level_value_id = value.parent_level_value_id
+                if "parent_level_value_id" in fields_set:
+                    parent_level_value_id = self._empty_to_none(payload.parent_level_value_id)
+                if await self._value_mnemonic_exists(
+                    session,
+                    value.level_id,
+                    level_value_mnemonic,
+                    parent_level_value_id,
+                    exclude_level_value_id=payload.level_value_id,
+                ):
+                    raise GeoServiceError(
+                        "G2P-GEO-409",
+                        f"level_value_mnemonic already exists with this parent and level: {level_value_mnemonic}",
+                    )
                 value.level_value_mnemonic = level_value_mnemonic
 
             if "parent_level_value_id" in fields_set:
@@ -421,25 +432,6 @@ class G2PGeoService(BaseService):
                         )
                 value.parent_level_value_id = parent_level_value_id
 
-            if "pcode" in fields_set:
-                value.pcode = payload.pcode
-            if "pcode_source" in fields_set:
-                value.pcode_source = payload.pcode_source
-            if "boundary_uri" in fields_set:
-                value.boundary_uri = payload.boundary_uri
-            if "boundary_simplified_uri" in fields_set:
-                value.boundary_simplified_uri = payload.boundary_simplified_uri
-            if "display_name" in fields_set:
-                value.display_name = payload.display_name
-            if "display_name_i18n" in fields_set:
-                value.display_name_i18n = payload.display_name_i18n
-            if "version" in fields_set:
-                value.version = payload.version
-            if "valid_from" in fields_set:
-                value.valid_from = payload.valid_from
-            if "valid_to" in fields_set:
-                value.valid_to = payload.valid_to
-
             await session.commit()
             await session.refresh(value)
             return self._to_value_data(value)
@@ -450,7 +442,8 @@ class G2PGeoService(BaseService):
         *,
         cascade: bool = False,
     ) -> str:
-        async with get_session_maker()() as session:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
             value = await session.get(G2PGeoLevelValue, level_value_id)
             if not value:
                 raise GeoServiceError(

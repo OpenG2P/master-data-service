@@ -1,12 +1,14 @@
 # Legacy code-list SQL
 
-These fixtures were moved from registry extensions when attribute storage moved
-to Master Data. They target the Master Data `g2p_attributes` and
-`g2p_attribute_values` schema created by `scripts/migrations/002_codelists.sql`.
+Country-pack JSON under `openg2p-data/packs` is the seed source for geography
+and for every list the pack defines (ETH `codelists/` and `domains/agriculture/`).
 
-Country-pack JSON under `openg2p-data/packs` remains the preferred deployment
-seed source. These SQL files preserve the earlier core, social-registry, and
-agriculture fixtures for migration and compatibility use.
+This folder keeps only lists the packs do **not** ship today, used as an optional
+gap-fill for social registry:
 
-The `social-legacy` fixture comes from the older standalone NSR extension and is
-kept separately because it differs from the current social fixture.
+- `PRIMARY_LIVELIHOOD`
+- `COPING_STRATEGY`
+- `DATA_SOURCE`
+
+Core, agriculture, programme-name, and social-legacy SQL were removed because
+those IDs already exist in the ETH pack.

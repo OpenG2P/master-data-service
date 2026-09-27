@@ -38,7 +38,7 @@ jobs:
                 "ref": "1.2"
               },
               {
-                "arg": "IAM_SERVICE_REF",
+                "arg": "IAM_CORE_REF",
                 "repo": "https://github.com/openg2p/iam",
                 "ref": "1.4"
               }

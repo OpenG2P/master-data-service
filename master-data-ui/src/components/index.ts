@@ -8,3 +8,4 @@ export { default as LoadingState } from "./LoadingState";
 export { default as Pagination } from "./Pagination";
 export { default as RequireAction } from "./RequireAction";
 export { default as Sidebar } from "./Sidebar";
+export { default as TableSkeleton } from "./TableSkeleton";

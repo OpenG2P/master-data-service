@@ -23,7 +23,6 @@ export function useAttributeValues(
             method: "POST",
             body: JSON.stringify({
                 attribute_id: attributeId,
-                include_domains: true,
             }),
         },
     });
