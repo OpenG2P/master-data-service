@@ -18,6 +18,12 @@ classifiers = [
 dependencies = [
   "openg2p-fastapi-common >=1.1.4",
   "iam-core",
+  # Declared here, not left to fastapi-common (which asks only for >=2.0.20):
+  # SQLAlchemy 2.1 made greenlet optional, so an unpinned resolve pulled 2.1
+  # without it and the API died at import ("requires the greenlet library").
+  # [asyncio] brings greenlet; <2.1 keeps us on the tested line, as
+  # registry-platform does.
+  "sqlalchemy[asyncio] >=2.0,<2.1",
   "asyncpg",
   "psycopg2",
   "fastapi-cache2",
