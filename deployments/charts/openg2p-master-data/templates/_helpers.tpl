@@ -60,3 +60,15 @@ Return the proper Docker Image Secret Names
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "gen2MasterData.baseEnvVars" (dict "envVars" $envVars "context" .) }}
 {{- end -}}
+
+{{/*
+Name prefix for the iam-register ConfigMap and Job: <release>-<chart>. The chart
+name keeps them apart from other charts' iam-register resources in the same
+release, but under an umbrella it is the dependency ALIAS — commons-services
+aliases this chart as `masterData` — and Kubernetes names must be lowercase
+RFC 1123, so the raw alias ("…-masterData-…") is rejected and the upgrade fails
+at this hook. Lowercase it and replace anything else a name cannot hold.
+*/}}
+{{- define "gen2MasterData.iamRegisterPrefix" -}}
+{{- printf "%s-%s" .Release.Name (regexReplaceAll "[^a-z0-9-]" (lower .Chart.Name) "-") | trunc 40 | trimSuffix "-" -}}
+{{- end -}}

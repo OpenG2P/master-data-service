@@ -10,7 +10,7 @@ kind: Job
 metadata:
   # Revision suffix so upgrades can create a fresh Job when this is a regular
   # resource (Rancher skips Helm hooks; Job specs are immutable).
-  name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-{{ .Release.Revision }}
+  name: {{ include "gen2MasterData.iamRegisterPrefix" . }}-iam-register-{{ .Release.Revision }}
   labels:
     app.kubernetes.io/name: iam-register
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -121,5 +121,5 @@ spec:
       volumes:
         - name: payload
           configMap:
-            name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-payload
+            name: {{ include "gen2MasterData.iamRegisterPrefix" . }}-iam-register-payload
 {{- end }}

@@ -6,7 +6,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-payload
+  name: {{ include "gen2MasterData.iamRegisterPrefix" . }}-iam-register-payload
   labels:
     app.kubernetes.io/name: iam-register
     app.kubernetes.io/instance: {{ .Release.Name }}
