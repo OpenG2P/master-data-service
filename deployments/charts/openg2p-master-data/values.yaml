@@ -9,8 +9,8 @@ global:
   masterDataDB:  '{{ if eq .Release.Name "master-data" }}master_data{{ else }}{{ printf "%s_master_data" .Release.Name | replace "-" "_" }}{{ end }}'
   masterDataDBPort: 5432
   masterDataDBUser: '{{ if eq .Release.Name "master-data" }}master_data_user{{ else }}{{ printf "%s_master_data_user" .Release.Name | replace "-" "_" }}{{ end }}'
-  masterDataDBSecret: '{{ if eq .Release.Name "master-data" }}master-data{{ else }}{{ .Release.Name }}-master-data{{ end }}'
-  masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
+  masterDataDBSecret: '{{ if eq .Release.Name "master-data" }}master-data-db-user{{ else }}{{ .Release.Name }}-master-data-db-user{{ end }}'
+  masterDataDBUserPasswordKey: '{{ if eq .Release.Name "master-data" }}master-data-db-user-password{{ else }}{{ .Release.Name }}-master-data-db-user-password{{ end }}'
   # SQLAlchemy pool per gunicorn worker process. Defaults match fastapi-common.
   dbPoolSize: 5
   dbPoolMaxOverflow: 10
