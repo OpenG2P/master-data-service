@@ -70,8 +70,11 @@ class G2PSampleController(BaseController):
             methods=["POST"],
             responses={200: {"model": IndividualsResponse}},
             tags=[TAG],
-            summary="Sample people",
+            summary="Sample people (testing and demos only)",
             description=(
+                "**For testing and demos only; not for production use.** Sample people are made-up demo "
+                "data, not reference data: they are not versioned or approved, and a production deployment "
+                "should not load them. "
                 "The sample individuals the country pack loaded, in `individual_id` order: who they are "
                 "(names, gender, birth date, national id, phone), where they live (`geo_pcode`, a unit of "
                 "the geography, plus `address_parts` below the lowest level and coordinates) and coded facts "
@@ -86,8 +89,9 @@ class G2PSampleController(BaseController):
             methods=["POST"],
             responses={200: {"model": HouseholdsResponse}},
             tags=[TAG],
-            summary="Sample households",
+            summary="Sample households (testing and demos only)",
             description=(
+                "**For testing and demos only; not for production use.** "
                 "The sample households the country pack loaded, in `household_id` order, with their head, "
                 "size, dwelling and amenities (codes of the pack's lists) and location. Optional filters: "
                 "`geo_pcode`, `country`." + _PAGING
