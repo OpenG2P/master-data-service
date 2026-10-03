@@ -1,53 +1,41 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useFetch } from "@/shared/hooks/useFetch";
 import Button from "@/components/Button";
 import { toast } from "react-toastify";
-import { getErrorMessage } from "@/shared/utils/errorHandler";
-import type { Attribute } from "../types";
+import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
+import I18nLabelsEditor from "@/features/catalogue/components/I18nLabelsEditor";
+import { ErrorBox, Field, Modal, inputClass, textareaClass } from "@/features/catalogue/components/ui";
+import type { ListAndDraftResponse, ListSummary } from "@/features/catalogue/types";
 
 type AttributeDialogProps = {
     open: boolean;
     mode: "add" | "edit";
-    attribute?: Attribute;
+    attribute?: ListSummary;
     onClose: () => void;
-    onSuccess?: () => void;
+    onSuccess?: (result: ListAndDraftResponse) => void;
 };
 
-export default function AttributeDialog({
-    open,
-    mode,
-    attribute,
-    onClose,
-    onSuccess,
-}: AttributeDialogProps) {
+/**
+ * Create a code list (`create_list`, opens its first draft) or edit a list's metadata
+ * (`update_list`): description and owner apply at once; code, label, labels and the hierarchy
+ * flag go into the list's draft. Mount while open (or change `key`) to reset the fields.
+ */
+export default function AttributeDialog({ open, mode, attribute, onClose, onSuccess }: AttributeDialogProps) {
     const t = useTranslations();
-    const titleId = useId();
-    const { execute: writeAttribute } = useFetch<Attribute>();
+    const call = useCatalogueApi();
 
-    const [code, setCode] = useState("");
-    const [isHierarchical, setIsHierarchical] = useState(false);
+    const [code, setCode] = useState(attribute?.list_code ?? "");
+    const [display, setDisplay] = useState(attribute?.display ?? "");
+    const [displayI18n, setDisplayI18n] = useState<Record<string, string>>(attribute?.display_i18n ?? {});
+    const [description, setDescription] = useState(attribute?.description ?? "");
+    const [ownerOrg, setOwnerOrg] = useState(attribute?.owner_org ?? "");
+    const [isHierarchical, setIsHierarchical] = useState(attribute?.is_hierarchical ?? false);
+    const [changeNote, setChangeNote] = useState("");
     const [error, setError] = useState("");
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        if (!open) return;
-        setCode(attribute?.attribute_code ?? "");
-        setIsHierarchical(attribute?.is_hierarchical ?? false);
-        setError("");
-    }, [open, attribute]);
-
-    useEffect(() => {
-        if (!open) return;
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, [open, onClose]);
 
     const handleSubmit = async () => {
         if (!code.trim()) {
@@ -55,132 +43,110 @@ export default function AttributeDialog({
             return;
         }
         setError("");
+        setSaveError(null);
         setSaving(true);
-
-        const url =
-            mode === "add"
-                ? "/api/attributes/add-attribute"
-                : "/api/attributes/update-attribute";
-
-        const body =
-            mode === "add"
-                ? { attribute_code: code.trim(), attribute_display: code.trim(), is_hierarchical: isHierarchical }
-                : {
-                      attribute_id: attribute!.attribute_id,
-                      attribute_code: code.trim(),
-                      attribute_display: code.trim(),
-                      is_hierarchical: isHierarchical,
-                  };
-
-        const result = await writeAttribute(url, {
-            method: "POST",
-            body: JSON.stringify(body),
-        });
-
-        setSaving(false);
-
-        if (result?.attribute_id) {
-            onSuccess?.();
+        try {
+            let result: ListAndDraftResponse;
+            if (mode === "add") {
+                ({ payload: result } = await call<ListAndDraftResponse>("create_list", {
+                    list_code: code.trim(),
+                    display: display.trim() || code.trim(),
+                    display_i18n: Object.keys(displayI18n).length ? displayI18n : undefined,
+                    description: description.trim() || undefined,
+                    owner_org: ownerOrg.trim() || undefined,
+                    is_hierarchical: isHierarchical,
+                    change_note: changeNote.trim() || undefined,
+                }));
+            } else {
+                const a = attribute!;
+                const payload: Record<string, unknown> = { list_code: a.list_id };
+                if ((a.description ?? "") !== description.trim()) payload.description = description.trim();
+                if ((a.owner_org ?? "") !== ownerOrg.trim()) payload.owner_org = ownerOrg.trim();
+                if ((a.list_code ?? "") !== code.trim()) payload.new_list_code = code.trim();
+                if ((a.display ?? "") !== display.trim()) payload.display = display.trim() || code.trim();
+                if (JSON.stringify(a.display_i18n ?? {}) !== JSON.stringify(displayI18n)) payload.display_i18n = displayI18n;
+                if (a.is_hierarchical !== isHierarchical) payload.is_hierarchical = isHierarchical;
+                if (Object.keys(payload).length === 1) {
+                    onClose();
+                    return;
+                }
+                ({ payload: result } = await call<ListAndDraftResponse>("update_list", payload));
+            }
+            toast.success(mode === "add" ? t("attribute_added_successfully") : t("attribute_updated_successfully"));
+            onSuccess?.(result);
             onClose();
-        } else {
-            const rawError = (result as any)?.error || (result as any)?.statusText;
-            const errorCode = (result as any)?.code;
-            const errorMessage = getErrorMessage(rawError, errorCode, t);
-            toast.error(errorMessage);
+        } catch (e) {
+            const message = errorMessage(e);
+            setSaveError(message);
+            toast.error(message);
+        } finally {
+            setSaving(false);
         }
     };
 
-    if (!open) return null;
-
     return (
-        <div
-            className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4"
-            role="presentation"
-            onMouseDown={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
-        >
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                className="relative w-full bg-white rounded-[10px] shadow-lg max-h-[80vh] p-8 border-4 border-[#EABB13]"
-                style={{ maxWidth: "600px" }}
-                onClick={(e) => e.stopPropagation()}
+        <Modal open={open} title={mode === "edit" ? t("edit_reference_data") : t("add_new_attribute")} onClose={onClose} maxWidth={680}>
+            <form
+                className="space-y-5"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleSubmit();
+                }}
             >
-                <div className="flex items-center justify-between mb-6">
-                    <h2 id={titleId} className="text-[22px] font-bold text-[#ED7C22]">
-                        {mode === "edit" ? t("edit_reference_data") : t("add_new_attribute")}
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-                        aria-label={t("close")}
-                    >
-                        <X size={30} />
-                    </button>
+                {mode === "edit" ? (
+                    <p className="rounded bg-blue-50 px-3 py-2 text-[13px] text-blue-800">{t("cat_list_edit_hint")}</p>
+                ) : (
+                    <p className="rounded bg-blue-50 px-3 py-2 text-[13px] text-blue-800">{t("cat_list_create_hint")}</p>
+                )}
+                <Field label={t("attribute_code")} required>
+                    <input
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        autoFocus
+                        className={inputClass}
+                        placeholder={t("attr_code_placeholder")}
+                    />
+                    {error && <p className="text-[14px] text-red-500">{error}</p>}
+                </Field>
+                <Field label={t("cat_display")}>
+                    <input type="text" value={display} onChange={(e) => setDisplay(e.target.value)} className={inputClass} />
+                </Field>
+                <Field label={t("cat_display_i18n")} group>
+                    <I18nLabelsEditor value={displayI18n} onChange={setDisplayI18n} />
+                </Field>
+                <Field label={t("cat_description")}>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={textareaClass} />
+                </Field>
+                <Field label={t("cat_owner_org")} hint={t("cat_owner_org_hint")}>
+                    <input type="text" value={ownerOrg} onChange={(e) => setOwnerOrg(e.target.value)} className={inputClass} />
+                </Field>
+                <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                        type="checkbox"
+                        checked={isHierarchical}
+                        onChange={(e) => setIsHierarchical(e.target.checked)}
+                        className="h-5 w-5 accent-[#f4bb1b]"
+                    />
+                    <span className="text-[16px] font-medium text-black">{t("is_hierarchical")}</span>
+                </label>
+                {mode === "add" ? (
+                    <Field label={t("cat_change_note")}>
+                        <input type="text" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} className={inputClass} />
+                    </Field>
+                ) : null}
+
+                <ErrorBox message={saveError} />
+
+                <div className="flex gap-4 w-full justify-end pt-2">
+                    <Button variant="secondary" onClick={onClose} disabled={saving}>
+                        {t("cancel")}
+                    </Button>
+                    <Button variant="primary" type="submit" loading={saving}>
+                        {saving ? t("saving") : t("save")}
+                    </Button>
                 </div>
-
-                <div className="modal-scroll overflow-y-auto max-h-[calc(80vh-120px)] pr-2 space-y-5">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-[16px] font-medium text-black">
-                            {t("attribute_code")}
-                            <span className="text-red-500 ml-1">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            value={code}
-                            onChange={(e) => setCode(e.target.value)}
-                            className="w-full rounded-[10px] border border-gray-300 bg-white py-2 px-4 text-[16px] text-black placeholder:text-gray-400 outline-none focus:border-(--color-yellow)"
-                            placeholder={t("attr_code_placeholder")}
-                        />
-                        {error && <p className="text-[14px] text-red-500">{error}</p>}
-                    </div>
-
-                    <label className="flex cursor-pointer items-center gap-3">
-                        <div className="relative">
-                            <input
-                                type="checkbox"
-                                checked={isHierarchical}
-                                onChange={(e) => setIsHierarchical(e.target.checked)}
-                                className="sr-only"
-                            />
-                            <div
-                                className={`flex h-5 w-5 items-center justify-center rounded border ${
-                                    isHierarchical
-                                        ? "border-(--color-yellow) bg-(--color-yellow)"
-                                        : "border-gray-300 bg-white"
-                                }`}
-                            >
-                                {isHierarchical && (
-                                    <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
-                                        <path
-                                            d="M2 6l3 3 5-5"
-                                            stroke="black"
-                                            strokeWidth="1.8"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                )}
-                            </div>
-                        </div>
-                        <span className="text-[16px] font-medium text-black">
-                            {t("is_hierarchical")}
-                        </span>
-                    </label>
-
-                    <div className="flex gap-4 w-full justify-end pt-4">
-                        <Button variant="secondary" onClick={onClose} disabled={saving}>
-                            {t("cancel")}
-                        </Button>
-                        <Button variant="primary" onClick={handleSubmit} loading={saving}>
-                            {saving ? t("saving") : t("save")}
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 }

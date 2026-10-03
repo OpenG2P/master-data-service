@@ -295,6 +295,7 @@ class RequestResponseHelper(BaseService):
         values: List[AttributeValueData],
         total: Optional[int] = None,
         page_size: Optional[int] = None,
+        list_versions: Optional[dict] = None,
     ) -> GetAttributeValuesResponse:
         """Construct a success response for get_attribute_values API.
 
@@ -317,6 +318,7 @@ class RequestResponseHelper(BaseService):
                 response_payload=GetAttributeValuesResponsePayload(
                     attribute_values=values,
                     total=total_items,
+                    list_versions=list_versions,
                 ),
             ),
         )

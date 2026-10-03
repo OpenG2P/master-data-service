@@ -29,7 +29,15 @@ _CONDITION_TYPE = "CONDITION"
 
 
 class GeoLevelValueRepository:
-    """Converts GEO-target data policies into SQL on ``G2PGeoLevelValue``."""
+    """Converts GEO-target data policies into SQL on ``G2PGeoLevelValue``.
+
+    ``name_column`` / ``level_id_column`` default to the legacy table; the
+    catalogue passes the columns of ``g2p_geo_version_units``.
+    """
+
+    def __init__(self, name_column=None, level_id_column=None) -> None:
+        self._name_column = name_column
+        self._level_id_column = level_id_column
 
     @property
     def model(self) -> type[G2PGeoLevelValue]:
@@ -163,7 +171,9 @@ class GeoLevelValueRepository:
         values: Any,
     ) -> ColumnElement | None:
         level_match = self._level_mnemonic_match(level_mnemonic)
-        value_column = G2PGeoLevelValue.level_value_mnemonic
+        value_column = (
+            self._name_column if self._name_column is not None else G2PGeoLevelValue.level_value_mnemonic
+        )
 
         match operator:
             case "eq":
@@ -201,9 +211,8 @@ class GeoLevelValueRepository:
                 return None
 
     def _level_mnemonic_match(self, level_mnemonic: str) -> ColumnElement:
-        return G2PGeoLevelValue.level_id.in_(
-            select(G2PGeoLevel.level_id).where(G2PGeoLevel.level_mnemonic == level_mnemonic)
-        )
+        column = self._level_id_column if self._level_id_column is not None else G2PGeoLevelValue.level_id
+        return column.in_(select(G2PGeoLevel.level_id).where(G2PGeoLevel.level_mnemonic == level_mnemonic))
 
     def _field_matches_context(self, level_mnemonic: str, level_context: str | None) -> bool:
         return not level_context or level_mnemonic == level_context

@@ -1,6 +1,9 @@
 # Master Data Service — db-seed image.
 #
-# Seeds the geo hierarchy at MDS install. Geography is master data, so MDS seeds
+# Seeds the catalogue (geography, code lists, sample people) from a country pack
+# at MDS install: first loads publish version 1, later loads leave drafts for
+# approval (see load_geo_pack.py). seed_awe.py registers MDS's approval policies
+# in AWE when the catalogue's approval mode is "awe". Geography is master data, so MDS seeds
 # its own: previously the only geo loader in the platform shipped with the
 # registry db-seed image, which meant master data was populated as a side effect
 # of installing a registry.
@@ -36,7 +39,11 @@ RUN mkdir -p ${OPENG2P_DATA_DIR} \
     && rm -rf ${OPENG2P_DATA_DIR}/.git
 
 COPY docker/db-seed/load_geo_pack.py /seed/load_geo_pack.py
+# The API's geography change-event rules (standard library only), so the loader
+# validates a pack's changes.json exactly as the API validates recorded events.
+COPY master-data-api/src/openg2p_gen2_master_data/catalogue_geo_rules.py /seed/catalogue_geo_rules.py
+COPY docker/db-seed/seed_awe.py /seed/seed_awe.py
 COPY scripts/seed-data/codelists /seed/codelists
-RUN chmod +x /seed/load_geo_pack.py
+RUN chmod +x /seed/load_geo_pack.py /seed/seed_awe.py
 
 WORKDIR /seed

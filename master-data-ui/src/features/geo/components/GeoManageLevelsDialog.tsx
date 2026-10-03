@@ -26,6 +26,8 @@ type GeoManageLevelsDialogProps = {
   levels: GeoLevel[];
   onClose: () => void;
   onChanged?: () => void | Promise<void>;
+  /** Levels of a published version are shown read-only; edits go into the open draft. */
+  readOnly?: boolean;
 };
 
 export default function GeoManageLevelsDialog({
@@ -33,6 +35,7 @@ export default function GeoManageLevelsDialog({
   levels,
   onClose,
   onChanged,
+  readOnly = false,
 }: GeoManageLevelsDialogProps) {
   const t = useTranslations();
   const titleId = useId();
@@ -47,6 +50,8 @@ export default function GeoManageLevelsDialog({
         parentLevelId?: string | null;
         parentLevelLabel: string | null;
         initialName?: string;
+        initialDisplay?: string | null;
+        initialDisplayI18n?: Record<string, string> | null;
       }
   >({ open: false });
   const [deleteTarget, setDeleteTarget] = useState<GeoLevel | null>(null);
@@ -98,6 +103,8 @@ export default function GeoManageLevelsDialog({
     [ordered]
   );
 
+  // There is no catalogue operation to drop a level; the /geo endpoint removes it from the
+  // open geography draft (never from a published version) and refuses while it has units.
   const proceedDelete = async (level: GeoLevel) => {
     const result = await deleteLevel("/api/geo/delete-geo-level", {
       method: "POST",
@@ -169,6 +176,10 @@ export default function GeoManageLevelsDialog({
                       style={{ paddingLeft: `${depth * 16}px` }}
                     >
                       {getLevelLabel(level)}
+                      <span className="ml-2 font-mono text-[12px] font-normal text-gray-500">{level.level_id}</span>
+                      {level.display && level.display !== level.level_mnemonic ? (
+                        <span className="ml-2 text-[13px] font-normal text-gray-600">{level.display}</span>
+                      ) : null}
                     </p>
                     <p
                       className="mt-2 text-[13px] text-gray-500"
@@ -176,6 +187,7 @@ export default function GeoManageLevelsDialog({
                     >
                       {t("geo_parent")}: {parentLabel ?? "—"}
                     </p>
+                    {!readOnly ? (
                     <div className="mt-3 flex flex-wrap justify-end gap-4 text-[14px]">
                       <button
                         type="button"
@@ -199,6 +211,8 @@ export default function GeoManageLevelsDialog({
                           parentLevelId: level.parent_level_id,
                           parentLevelLabel: parentLabel,
                           initialName: level.level_mnemonic || "",
+                          initialDisplay: level.display,
+                          initialDisplayI18n: level.display_i18n,
                         })
                       }>
                         {t("edit")}
@@ -207,10 +221,12 @@ export default function GeoManageLevelsDialog({
                         {t("delete")}
                       </DeleteButton>
                     </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             )}
+            {!readOnly ? (
             <div className="shrink-0 pt-4 px-5">
               <AddButton
                 onClick={() =>
@@ -224,25 +240,30 @@ export default function GeoManageLevelsDialog({
                 label={roots.length === 0 ? t("geo_add_level") : t("geo_add_root_level")}
               />
             </div>
+            ) : (
+              <p className="px-5 pt-4 text-[13px] text-gray-500">{t("cat_levels_readonly_hint")}</p>
+            )}
           </div>
         </div>
       </div>
       )}
 
-      <GeoLevelDialog
-        open={levelForm.open}
-        mode={levelForm.open ? levelForm.mode : "add"}
-        levelId={levelForm.open ? levelForm.levelId : undefined}
-        parentLevelId={levelForm.open ? levelForm.parentLevelId : null}
-        parentLevelLabel={
-          levelForm.open ? levelForm.parentLevelLabel : null
-        }
-        initialName={levelForm.open ? levelForm.initialName : undefined}
-        onClose={() => setLevelForm({ open: false })}
-        onSuccess={() => {
-          void onChanged?.();
-        }}
-      />
+      {levelForm.open ? (
+        <GeoLevelDialog
+          open
+          mode={levelForm.mode}
+          levelId={levelForm.levelId}
+          parentLevelId={levelForm.parentLevelId}
+          parentLevelLabel={levelForm.parentLevelLabel}
+          initialName={levelForm.initialName}
+          initialDisplay={levelForm.initialDisplay}
+          initialDisplayI18n={levelForm.initialDisplayI18n}
+          onClose={() => setLevelForm({ open: false })}
+          onSuccess={() => {
+            void onChanged?.();
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

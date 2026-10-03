@@ -2,20 +2,21 @@
 
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SearchInput from "@/components/SearchInput";
-import { useAuth } from "@/context/Authcontext";
-import { useFetch } from "@/shared/hooks/useFetch";
-import { withCsrfHeaders } from "@/shared/utils/csrf";
+import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
+import type {
+  GetGeoLevelsResponse,
+  GetGeoUnitsResponse,
+  VersionRef,
+} from "@/features/catalogue/types";
 import GeoChildrenTable from "./GeoChildrenTable";
 import GeoManageLevelsDialog from "./GeoManageLevelsDialog";
 import GeoNodeDialog, {
   type GeoNodeDialogField,
 } from "./GeoNodeDialog";
 import GeoTreePanel from "./GeoTreePanel";
-import { useGeoLevels } from "../hooks";
 import AddButton from "@/components/AddButton";
 import Button from "@/components/Button";
 import { toast } from "react-toastify";
-import { getErrorMessage } from "@/shared/utils/errorHandler";
 import {
   childrenCacheKey,
   getChildLevels,
@@ -83,11 +84,37 @@ function useViewportWidth() {
   );
 }
 
-export default function GeoHierarchyExplorer() {
+const UNITS_PAGE_SIZE = 1000;
+const UNITS_MAX_PAGES = 50;
+
+interface GeoHierarchyExplorerProps {
+  /** Geography version to browse (catalogue): a number, "latest" or "draft". */
+  version?: VersionRef;
+  /** Edits allowed: the open DRAFT is shown and the user has geo:edit. */
+  editable?: boolean;
+  /** Also list RETIRED units. */
+  includeRetired?: boolean;
+  /** Rendered inside the Geo Locations tabs: no page title, shorter height. */
+  embedded?: boolean;
+  /** Called after an edit to the draft (to refresh version metadata). */
+  onChanged?: () => void;
+}
+
+/**
+ * Tree + table browser of the geography hierarchy at a version. Reads through the catalogue
+ * (`get_geo_levels` / `get_geo_units`); when the open draft is shown, add / edit / retire and the
+ * level editor write into that draft (`upsert_draft_units`, `retire_draft_units`, `upsert_draft_levels`).
+ * Remount (change `key`) to switch version.
+ */
+export default function GeoHierarchyExplorer({
+  version = "latest",
+  editable = false,
+  includeRetired = false,
+  embedded = false,
+  onChanged,
+}: GeoHierarchyExplorerProps = {}) {
   const t = useTranslations();
-  const { handleUnauthorized } = useAuth();
-  const { refresh: refreshLevels } = useGeoLevels(false);
-  const { execute: deleteLevelValue } = useFetch<{ level_value_id: string }>();
+  const call = useCatalogueApi();
   const width = useViewportWidth();
   const isDesktop = width > 1200;
   const isTablet = width >= 768 && width <= 1200;
@@ -210,37 +237,47 @@ export default function GeoHierarchyExplorer() {
       parentLevelValueId: string,
       signal: AbortSignal
     ): Promise<GeoLevelValue[]> => {
-      const response = await fetch("/api/geo/geo-level-values", {
-        method: "POST",
-        credentials: "include",
-        headers: withCsrfHeaders("POST", {
-          "Content-Type": "application/json",
-        }),
-        signal,
-        body: JSON.stringify({
-          current_page: 1,
-          page_size: 500,
-          sort_by: "",
-          filter_by: "",
-          search_text: "",
-          level_id: levelId,
-          parent_level_value_id: parentLevelValueId,
-        }),
-      });
-
-      if (response.status === 401) {
-        handleUnauthorized();
-        return [];
+      const out: GeoLevelValue[] = [];
+      for (let page = 1; page <= UNITS_MAX_PAGES; page += 1) {
+        const { payload } = await call<GetGeoUnitsResponse>(
+          "get_geo_units",
+          {
+            version,
+            level: levelId,
+            // "" = units without a parent (top level)
+            parent_unit_id: parentLevelValueId,
+            include_retired: includeRetired,
+          },
+          { current_page: page, page_size: UNITS_PAGE_SIZE },
+          signal
+        );
+        for (const unit of payload.units) {
+          out.push({
+            level_value_id: unit.unit_id,
+            level_id: unit.level_id,
+            level_value_mnemonic: unit.name,
+            parent_level_value_id: unit.parent_unit_id ?? null,
+            status: unit.status,
+            name_i18n: unit.name_i18n ?? null,
+          });
+        }
+        if (out.length >= payload.total || payload.units.length < UNITS_PAGE_SIZE) break;
       }
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result?.statusText || t("geo_load_error"));
-      }
-      return Array.isArray(result) ? result : [];
+      return out;
     },
-    [handleUnauthorized, t]
+    [call, version, includeRetired]
   );
+
+  const refreshLevels = useCallback(async (): Promise<GeoLevel[]> => {
+    const { payload } = await call<GetGeoLevelsResponse>("get_geo_levels", { version });
+    return payload.levels.map((level) => ({
+      level_id: level.level_id,
+      level_mnemonic: level.level_mnemonic,
+      parent_level_id: level.parent_level_id ?? null,
+      display: level.display ?? null,
+      display_i18n: level.display_i18n ?? null,
+    }));
+  }, [call, version]);
 
   const ensureChildren = useCallback(
     async (
@@ -695,27 +732,27 @@ export default function GeoHierarchyExplorer() {
   const proceedDeleteValue = useCallback(
     async (value: GeoLevelValue) => {
       setIsDeletingNode(true);
-      const result = await deleteLevelValue("/api/geo/delete-geo-level-value", {
-        method: "POST",
-        body: JSON.stringify({
-          level_value_id: value.level_value_id,
-          cascade: true,
-        }),
-      });
-
-      if (result?.level_value_id) {
-        toast.success(t("geo_value_deleted_successfully"));
+      try {
+        const { payload } = await call<{ retired: string[]; removed: string[] }>(
+          "retire_draft_units",
+          { unit_ids: [value.level_value_id], cascade: true }
+        );
+        toast.success(
+          t("cat_units_retired", {
+            retired: payload.retired.length,
+            removed: payload.removed.length,
+          })
+        );
         setDeleteValueTarget(null);
+        onChanged?.();
         await refreshSelectedChildren();
-      } else {
-        const rawError = (result as any)?.error || (result as any)?.statusText;
-        const errorCode = (result as any)?.code;
-        const errorMessage = getErrorMessage(rawError, errorCode, t);
-        toast.error(errorMessage);
+      } catch (error) {
+        toast.error(errorMessage(error));
+      } finally {
+        setIsDeletingNode(false);
       }
-      setIsDeletingNode(false);
     },
-    [deleteLevelValue, refreshSelectedChildren, t, toast]
+    [call, onChanged, refreshSelectedChildren, t]
   );
 
   const treePanel = (
@@ -794,13 +831,14 @@ export default function GeoHierarchyExplorer() {
         openEditDialog(node);
       }}
       onDelete={(value) => setDeleteValueTarget(value)}
+      readOnly={!editable}
       getChildCount={getChildCount}
       getLevelLabel={(value) =>
         getLevelLabel(getLevelById(orderedLevels, value.level_id))
       }
       deletingValueId={null}
       footerActions={
-        addValueAction ? (
+        addValueAction && editable ? (
           <AddButton onClick={addValueAction.onClick} label={t("geo_add_level_value")} />
         ) : null
       }
@@ -820,9 +858,17 @@ export default function GeoHierarchyExplorer() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col">
-      <div className="mb-6 flex shrink-0 items-center justify-between gap-4">
-        <h1 className="font-semibold text-[24px] text-black">{t("geo_locations")}</h1>
+    <div
+      className={`flex min-h-0 flex-col ${
+        embedded ? "h-[max(32rem,calc(100dvh-20rem))]" : "h-[calc(100dvh-4rem)]"
+      }`}
+    >
+      <div className={`flex shrink-0 items-center justify-between gap-4 ${embedded ? "mb-3" : "mb-6"}`}>
+        {embedded ? (
+          <span />
+        ) : (
+          <h1 className="font-semibold text-[24px] text-black">{t("geo_locations")}</h1>
+        )}
         <div className="flex items-center gap-3">
           <SearchInput
             value={searchQuery}
@@ -836,7 +882,7 @@ export default function GeoHierarchyExplorer() {
             className="inline-flex h-9 shrink-0 items-center gap-2"
           >
             <Settings2 size={15} />
-            {t("geo_manage_levels")}
+            {editable ? t("geo_manage_levels") : t("cat_view_levels")}
           </Button>
         </div>
       </div>
@@ -1039,6 +1085,7 @@ export default function GeoHierarchyExplorer() {
           parentLevelValueId={nodeForm.parentLevelValueId}
           levelValueId={nodeForm.node?.kind === "value" ? nodeForm.node.value?.level_value_id : undefined}
           initialName={nodeForm.node?.kind === "value" ? nodeForm.node.label : ""}
+          initialNameI18n={nodeForm.node?.kind === "value" ? nodeForm.node.value?.name_i18n : null}
           levelChoices={
             nodeForm.mode === "add" && nodeForm.parentLevelValueId
               ? getChildLevels(orderedLevels, nodeForm.levelId).map((l) => ({
@@ -1052,6 +1099,7 @@ export default function GeoHierarchyExplorer() {
             setNodeForm({ open: false, mode: "add", levelId: "", parentLevelValueId: null, contextFields: [] });
           }}
           onSuccess={async () => {
+            onChanged?.();
             await refreshSelectedChildren();
             setNodeForm({ open: false, mode: "add", levelId: "", parentLevelValueId: null, contextFields: [] });
           }}
@@ -1060,11 +1108,12 @@ export default function GeoHierarchyExplorer() {
 
       <ConfirmDialog
         open={Boolean(deleteValueTarget)}
-        title={t("geo_delete_level_value")}
-        message={t("geo_delete_level_value_confirm", {
+        title={t("cat_retire_unit_title")}
+        message={t("cat_retire_unit_message", {
           name: deleteValueTarget ? getValueLabel(deleteValueTarget) : "",
         })}
-        confirmLabel={t("delete")}
+        confirmLabel={t("cat_retire")}
+        confirmingLabel={t("cat_retiring")}
         danger
         confirming={isDeletingNode}
         onConfirm={() => {
@@ -1077,8 +1126,10 @@ export default function GeoHierarchyExplorer() {
       <GeoManageLevelsDialog
         open={manageLevelsOpen}
         levels={orderedLevels}
+        readOnly={!editable}
         onClose={() => setManageLevelsOpen(false)}
         onChanged={async () => {
+          onChanged?.();
           await loadLevels();
         }}
       />

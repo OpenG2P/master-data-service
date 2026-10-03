@@ -82,6 +82,8 @@ keycloak-init:
             - 'https://{{ tpl .Values.global.masterDataHostname $ }}/*'
           clientRoles:
             - "MASTER_DATA_ADMIN"
+            # Publish-only role for catalogue approvals (maker != checker).
+            - "MASTER_DATA_APPROVER"
       users:
         # Assumes `admin` already exists from the commons layer.
         - username: admin
@@ -199,12 +201,107 @@ masterDataAPI:
     MASTER_DATA_API_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
     MASTER_DATA_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}-master:6379/0'
     MASTER_DATA_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
+    # Catalogue (see masterDataAPI.catalogue below).
+    MASTER_DATA_API_CATALOGUE_APPROVAL_MODE: '{{ .Values.catalogue.approvalMode }}'
+    MASTER_DATA_API_CATALOGUE_EFFECTIVE_REFRESH_SECONDS: '{{ .Values.catalogue.effectiveRefreshSeconds }}'
+    MASTER_DATA_API_CATALOGUE_COUNTRY: '{{ .Values.catalogue.country }}'
+    MASTER_DATA_API_CATALOGUE_DEFAULT_OWNER_ORG: '{{ .Values.catalogue.defaultOwnerOrg }}'
+    MASTER_DATA_API_AUDIT_MANAGER_URL: '{{ tpl .Values.catalogue.auditManagerUrl $ }}'
+    MASTER_DATA_API_WEBSUB_HUB_URL: '{{ tpl .Values.catalogue.websubHubUrl $ }}'
+    MASTER_DATA_API_AWE_BASE_URL: '{{ tpl .Values.catalogue.awe.baseUrl $ }}'
+    MASTER_DATA_API_AWE_POLICY_KEY_LIST: '{{ .Values.catalogue.awe.policyKeyList }}'
+    MASTER_DATA_API_AWE_POLICY_KEY_GEO: '{{ .Values.catalogue.awe.policyKeyGeo }}'
+    MASTER_DATA_API_AWE_CALLBACK_URL: '{{ tpl .Values.catalogue.awe.callbackUrl $ }}'
+    MASTER_DATA_API_AWE_CALLBACK_SECRET_ID: '{{ tpl .Values.catalogue.awe.callbackSecretId $ }}'
+    MASTER_DATA_API_AWE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS: '{{ .Values.catalogue.awe.timestampToleranceSeconds }}'
+    MASTER_DATA_API_BOUNDARY_S3_ENDPOINT: '{{ .Values.catalogue.boundaryStore.endpoint }}'
+    MASTER_DATA_API_BOUNDARY_S3_BUCKET: '{{ .Values.catalogue.boundaryStore.bucket }}'
+    MASTER_DATA_API_BOUNDARY_PUBLIC_BASE_URL: '{{ tpl .Values.catalogue.boundaryStore.publicBaseUrl $ }}'
 
   envVarsFrom:
     MASTER_DATA_API_DB_PASSWORD:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    # Optional: the API still starts (boundary upload / streaming disabled, AWE
+    # callbacks rejected) when these Secrets do not exist.
+    MASTER_DATA_API_BOUNDARY_S3_ACCESS_KEY:
+      secretKeyRef:
+        name: '{{ .Values.catalogue.boundaryStore.existingSecret }}'
+        key: '{{ .Values.catalogue.boundaryStore.accessKeyKey }}'
+        optional: true
+    MASTER_DATA_API_BOUNDARY_S3_SECRET_KEY:
+      secretKeyRef:
+        name: '{{ .Values.catalogue.boundaryStore.existingSecret }}'
+        key: '{{ .Values.catalogue.boundaryStore.secretKeyKey }}'
+        optional: true
+    MASTER_DATA_API_AWE_CALLBACK_HMAC_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.catalogue.awe.hmacSecretName $ }}'
+        key: '{{ .Values.catalogue.awe.hmacSecretKey }}'
+        optional: true
+
+  # ── Catalogue: versioned, approved, pinnable reference data ──────────────────
+  # Edits go into drafts; a draft is submitted and, once approved, published as
+  # an immutable version. The legacy /attributes and /geo endpoints (and the
+  # g2p_attributes / g2p_geo_* tables registries read) always show the current
+  # published version.
+  catalogue:
+    # "permission": a user holding referenceData:publish / geo:publish (role
+    # MASTER_DATA_ADMIN or MASTER_DATA_APPROVER) approves in Master Data; the
+    # approver must not be the draft's maker.
+    # "awe": submit opens an approval request in the shared AWE; AWE calls back
+    # and the version is published. Needs awe.baseUrl (else falls back to
+    # "permission") and, for the seeded policies, awe.seed.enabled.
+    approvalMode: permission
+    # How often a future-effective published version is checked for having come
+    # into effect (seconds). 0 = only on start and on publish.
+    effectiveRefreshSeconds: 300
+    # Country code for boundary object keys when a geography version has none
+    # recorded (the country-pack loader records the pack's).
+    country: ""
+    # Owner (department) given to lists / geography created without one.
+    defaultOwnerOrg: ""
+    # OpenG2P Audit Manager (CloudEvents, fire-and-forget). Empty disables; the
+    # catalogue's own change log is always written. Installed by commons-services.
+    auditManagerUrl: 'http://commons-services-auditmanager:80'
+    # WebSub hub for "version published" notifications. Empty disables.
+    websubHubUrl: ""
+    awe:
+      # In-cluster AWE base URL (host only), e.g. http://commons-services-awe-service
+      baseUrl: ""
+      policyKeyList: master_data.list_version.v1
+      policyKeyGeo: master_data.geo_version.v1
+      # Where AWE posts decisions (this service, in-cluster).
+      callbackUrl: 'http://{{ .Release.Name }}-master-data-api/catalogue/awe/callback'
+      callbackSecretId: '{{ .Release.Name }}-master-data'
+      # Minted by templates/awe-callback-hmac-secret.yaml when approvalMode is awe.
+      hmacSecretName: '{{ .Release.Name }}-master-data-awe-callback-hmac'
+      hmacSecretKey: hmac-secret
+      timestampToleranceSeconds: 300
+      # Register the two policies (approvers: client role below, self-approval
+      # forbidden) and the callback secret in the shared AWE database. Runs in
+      # the geo-seed Job. Match commons-services' AWE DB contract.
+      seed:
+        enabled: true
+        dbHost: '{{ tpl .Values.global.postgresqlHost $ }}'
+        dbPort: 5432
+        db: awe
+        dbUser: awe_user
+        dbSecret: awe-db-user
+        dbPasswordKey: awe-db-user-password
+        approverRole: MASTER_DATA_APPROVER
+        approverClient: '{{ tpl .Values.global.authClientId $ }}'
+    # Boundary GeoJSON per geography version (immutable keys
+    # geo/<country>/v<version>/<level>.geojson). Same store the geo-seed Job
+    # uploads to (geoSeed.objectStore) — keep the two in step.
+    boundaryStore:
+      endpoint: http://commons-minio:9000
+      bucket: openg2p-geo
+      publicBaseUrl: ""
+      existingSecret: commons-minio
+      accessKeyKey: root-user
+      secretKeyKey: root-password
 
 
   startupProbe:
@@ -421,6 +518,17 @@ geoSeed:
   # Farmer Registry. Empty loads the core lists only — a social registry has no
   # use for crop types.
   domains: []
+  # Catalogue behaviour of the loader:
+  #  * a list / the geography loaded for the FIRST time becomes version 1 and is
+  #    published directly when publishInitial is true (nothing to protect yet);
+  #  * on later runs a pack that differs from the published version produces a
+  #    DRAFT (missing values / units RETIRED, never deleted) for someone to
+  #    submit and approve in Master Data. autoPublish publishes those drafts at
+  #    once — development only.
+  publishInitial: true
+  autoPublish: false
+  # Owner (department) recorded on lists / geography the loader creates.
+  ownerOrg: ""
   image:
     # Same registry and tag convention as masterDataAPI above; CI rewrites the
     # tag via chart-image-paths in .github/workflows/build-publish.yml.
@@ -428,8 +536,10 @@ geoSeed:
     tag: "develop"
   waitImage: jbergknoff/postgresql-client:latest
   backoffLimit: 2
-  # Optional MinIO settings kept for pack assets; the geo loader stores only
-  # the hierarchy (level / value mnemonics), not boundary URIs.
+  # Where the loader uploads the pack's boundary GeoJSON, under immutable
+  # per-version keys geo/<country>/v<version>/<level>.geojson (recorded on the
+  # geography version). Keep in step with masterDataAPI.catalogue.boundaryStore.
+  # An empty endpoint skips the upload; the hierarchy still loads.
   objectStore:
     endpoint: http://commons-minio:9000
     bucket: openg2p-geo

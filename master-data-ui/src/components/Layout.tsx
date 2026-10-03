@@ -5,20 +5,33 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useAuth } from "@/context/Authcontext";
 import { useRbac } from "@/context/RbacContext";
-import { MapPin, Database } from "lucide-react";
+import { MapPin, Database, Package, History } from "lucide-react";
 
+// A menu item shows when the user has any of its permissions (makers edit, checkers publish).
 const NAV = [
   {
     href: "/geo-locations",
     labelKey: "geo_locations" as const,
-    action: "geo:edit",
+    anyOf: ["geo:edit", "geo:publish"],
     Icon: MapPin,
   },
   {
     href: "/reference-data",
     labelKey: "reference_data" as const,
-    action: "referenceData:edit",
+    anyOf: ["referenceData:edit", "referenceData:publish"],
     Icon: Database,
+  },
+  {
+    href: "/releases",
+    labelKey: "releases" as const,
+    anyOf: ["referenceData:edit", "referenceData:publish"],
+    Icon: Package,
+  },
+  {
+    href: "/changes",
+    labelKey: "recent_changes" as const,
+    anyOf: ["referenceData:edit", "referenceData:publish", "geo:edit", "geo:publish"],
+    Icon: History,
   },
 ];
 
@@ -26,14 +39,14 @@ export default function Layout({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { can } = useRbac();
+  const { canAny } = useRbac();
 
   const visibleNav = NAV.filter((item) => {
     // Show item if either:
     // 1. RBAC is not available or can check returns true
     // 2. The action check passes
     try {
-      return can(item.action);
+      return canAny(item.anyOf);
     } catch {
       return true; // Show if RBAC check fails
     }

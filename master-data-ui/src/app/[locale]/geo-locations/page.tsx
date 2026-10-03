@@ -1,7 +1,7 @@
 "use client";
 
-import { GeoHierarchyExplorer } from "@/features/geo";
+import { GeoCatalogueView } from "@/features/geo";
 
 export default function GeoLocationsPage() {
-  return <GeoHierarchyExplorer />;
+  return <GeoCatalogueView />;
 }

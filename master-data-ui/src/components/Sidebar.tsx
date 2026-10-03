@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Database, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { MapPin, Database, Package, History, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 
@@ -17,6 +17,18 @@ const MENU = [
     labelKey: "reference_data" as const,
     href: "/reference-data",
     Icon: Database,
+  },
+  {
+    id: "releases",
+    labelKey: "releases" as const,
+    href: "/releases",
+    Icon: Package,
+  },
+  {
+    id: "changes",
+    labelKey: "recent_changes" as const,
+    href: "/changes",
+    Icon: History,
   },
 ] as const;
 

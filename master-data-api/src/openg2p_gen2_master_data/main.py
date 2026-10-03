@@ -40,6 +40,27 @@ MASTER_DATA_CSRF_EXCLUDED_PATHS = (
     # server-to-server with a Bearer token and no cookies.
     "/geo/get_all_geo_levels",
     "/geo/get_geo_level_values",
+    # Catalogue reads: the same server-to-server consumers (registries, the
+    # composite service) read versions, values and the change feed.
+    "/catalogue/get_lists",
+    "/catalogue/get_list",
+    "/catalogue/get_list_values",
+    "/catalogue/get_list_value",
+    "/catalogue/get_list_versions",
+    "/catalogue/get_list_diff",
+    "/catalogue/get_geo_versions",
+    "/catalogue/get_geo_levels",
+    "/catalogue/get_geo_units",
+    "/catalogue/get_geo_unit",
+    "/catalogue/get_geo_changes",
+    "/catalogue/get_geo_crosswalk",
+    "/catalogue/get_geo_boundary",
+    "/catalogue/get_releases",
+    "/catalogue/get_release",
+    "/catalogue/get_changes",
+    "/catalogue/get_catalogue_config",
+    # AWE posts decisions server-to-server; authenticated by its HMAC signature.
+    "/catalogue/awe/callback",
 )
 
 # IAMInitializer after Settings.get_config() so iam-core middleware

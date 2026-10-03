@@ -2,6 +2,8 @@ export type GeoLevel = {
   level_id: string;
   level_mnemonic: string;
   parent_level_id: string | null;
+  display?: string | null;
+  display_i18n?: Record<string, string> | null;
 };
 
 export type GeoLevelValue = {
@@ -9,6 +11,9 @@ export type GeoLevelValue = {
   level_id: string;
   level_value_mnemonic: string;
   parent_level_value_id?: string | null;
+  /** Catalogue fields (geography versions): status and labels per locale. */
+  status?: string;
+  name_i18n?: Record<string, string> | null;
 };
 
 export type GeoBreadcrumbItem = {

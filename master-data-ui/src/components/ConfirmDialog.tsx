@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
@@ -15,6 +15,10 @@ type ConfirmDialogProps = {
   confirming?: boolean;
   onConfirm: () => void;
   onClose: () => void;
+  /** Button text while confirming (default: "Deleting..."). */
+  confirmingLabel?: string;
+  /** Extra content under the message (e.g. an option checkbox). */
+  children?: ReactNode;
 };
 
 export default function ConfirmDialog({
@@ -27,6 +31,8 @@ export default function ConfirmDialog({
   confirming = false,
   onConfirm,
   onClose,
+  confirmingLabel,
+  children,
 }: ConfirmDialogProps) {
   const t = useTranslations();
   const titleId = useId();
@@ -78,6 +84,8 @@ export default function ConfirmDialog({
           {message}
         </p>
 
+        {children ? <div className="mb-6 -mt-4 px-4">{children}</div> : null}
+
         <div className="flex gap-4 w-full justify-center">
           <Button
             variant="primary"
@@ -113,7 +121,7 @@ export default function ConfirmDialog({
                 ></path>
               </svg>
             )}
-            {confirming ? t("deleting") : (confirmLabel ?? t("delete"))}
+            {confirming ? (confirmingLabel ?? t("deleting")) : (confirmLabel ?? t("delete"))}
           </Button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from openg2p_fastapi_common.schemas import (
     G2PRequest,
@@ -22,6 +22,9 @@ class AttributeData(BaseModel):
     attribute_code: Optional[str] = None
     attribute_display: Optional[str] = None
     is_hierarchical: Optional[bool] = False
+    # Catalogue: the published version these rows currently show (additive;
+    # null for a list that has never been published).
+    current_version_no: Optional[int] = None
 
 
 class AttributeValueData(BaseModel):
@@ -96,6 +99,8 @@ class GetAttributeValuesRequest(G2PRequest):
 class GetAttributeValuesResponsePayload(BaseModel):
     attribute_values: List[AttributeValueData] = []
     total: Optional[int] = None
+    # Catalogue (additive): {attribute_id: published version the values come from}.
+    list_versions: Optional[Dict[str, Optional[int]]] = None
 
 
 class GetAttributeValuesResponseBody(G2PResponseBody):

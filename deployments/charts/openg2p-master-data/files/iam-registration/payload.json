@@ -36,6 +36,16 @@
       "permission_mnemonic": "geo:delete",
       "permission_description": "geo:delete",
       "active": true
+    },
+    {
+      "permission_mnemonic": "referenceData:publish",
+      "permission_description": "referenceData:publish",
+      "active": true
+    },
+    {
+      "permission_mnemonic": "geo:publish",
+      "permission_description": "geo:publish",
+      "active": true
     }
   ],
   "roles": [
@@ -49,7 +59,18 @@
         "referenceData:delete",
         "geo:create",
         "geo:edit",
-        "geo:delete"
+        "geo:delete",
+        "referenceData:publish",
+        "geo:publish"
+      ]
+    },
+    {
+      "role_mnemonic": "MASTER_DATA_APPROVER",
+      "role_description": "Master data approver - approves and publishes catalogue drafts (code lists, geography, releases); cannot approve own drafts.",
+      "active": true,
+      "permissions": [
+        "referenceData:publish",
+        "geo:publish"
       ]
     }
   ]

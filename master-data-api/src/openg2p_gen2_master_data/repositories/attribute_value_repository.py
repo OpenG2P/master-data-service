@@ -29,7 +29,16 @@ _CONDITION_TYPE = "CONDITION"
 
 
 class AttributeValueRepository:
-    """Converts ATTRIBUTE-target data policies into SQL on ``G2PAttributeValue``."""
+    """Converts ATTRIBUTE-target data policies into SQL on ``G2PAttributeValue``.
+
+    ``value_code_column`` / ``attribute_id_column`` default to the legacy table;
+    the catalogue passes the columns of ``g2p_list_version_values`` so the same
+    policy applies to versioned reads.
+    """
+
+    def __init__(self, value_code_column=None, attribute_id_column=None) -> None:
+        self._value_code_column = value_code_column
+        self._attribute_id_column = attribute_id_column
 
     @property
     def model(self) -> type[G2PAttributeValue]:
@@ -163,7 +172,9 @@ class AttributeValueRepository:
         values: Any,
     ) -> ColumnElement | None:
         attribute_match = self._attribute_code_match(attribute_code)
-        value_column = G2PAttributeValue.value_code
+        value_column = (
+            self._value_code_column if self._value_code_column is not None else G2PAttributeValue.value_code
+        )
 
         match operator:
             case "eq":
@@ -201,7 +212,12 @@ class AttributeValueRepository:
                 return None
 
     def _attribute_code_match(self, attribute_code: str) -> ColumnElement:
-        return G2PAttributeValue.attribute_id.in_(
+        column = (
+            self._attribute_id_column
+            if self._attribute_id_column is not None
+            else G2PAttributeValue.attribute_id
+        )
+        return column.in_(
             select(G2PAttribute.attribute_id).where(G2PAttribute.attribute_code == attribute_code)
         )
 

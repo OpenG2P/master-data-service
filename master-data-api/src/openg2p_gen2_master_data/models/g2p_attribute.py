@@ -1,5 +1,8 @@
+from typing import Optional
+
 from openg2p_fastapi_common.models import BaseORMModel
-from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Boolean, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 # ---------------------------------------------------------------------------
@@ -21,6 +24,21 @@ class G2PAttribute(BaseORMModel):
     attribute_code: Mapped[str] = mapped_column(String, nullable=True, index=True)
     attribute_display: Mapped[str] = mapped_column(String, nullable=True)
     is_hierarchical: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
+
+    # Catalogue columns. This table is the list registry AND the materialised
+    # current published state of each list: code, display, display_i18n,
+    # is_hierarchical and attribute_schema are refreshed from the current
+    # published version on every publish (see g2p_list_versions). description
+    # and owner_org are administrative, not versioned. Added to an existing
+    # table by ALTER ... ADD COLUMN IF NOT EXISTS in migrate_database.
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    display_i18n: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    attribute_schema: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Department that owns the list; used for approval routing and shown in the UI.
+    owner_org: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # The published version the legacy rows currently show (latest published
+    # version whose effective_from has passed). NULL until first published.
+    current_version_no: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
 
 class G2PAttributeValue(BaseORMModel):

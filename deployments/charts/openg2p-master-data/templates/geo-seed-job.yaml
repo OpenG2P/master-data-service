@@ -17,8 +17,11 @@ configured does not put invented figures against a real place's name. Real
 country packs are a value change away, and carry the licence obligations their
 manifest records.
 
-Idempotent — the loader upserts on level_value_id, so re-running on upgrade
-refreshes the pack in place rather than duplicating it.
+Catalogue-aware and idempotent: the first load of a list / the geography is
+published as version 1; a later run whose pack differs from the published
+version leaves a DRAFT for approval in Master Data (geoSeed.autoPublish
+publishes it at once, development only); an unchanged pack creates nothing.
+Boundaries go to the object store under immutable per-version keys.
 */}}
 apiVersion: batch/v1
 kind: Job
@@ -95,8 +98,24 @@ spec:
                 fi
                 echo "waiting for the master-data migration to finish (g2p_sample_households)..."; sleep 3
               done
+              # On an UPGRADE the sample tables already exist, so they prove
+              # nothing about THIS release's migration. The catalogue migration
+              # records its schema version last; the loader needs at least
+              # CATALOGUE_SCHEMA_VERSION (catalogue_sql.py) to find its tables
+              # and functions.
+              i=0
+              until [ "$(psql -tAc "SELECT coalesce((SELECT int_value FROM g2p_catalogue_state WHERE key = 'schema_version'), 0) >= ${CATALOGUE_SCHEMA_VERSION}" 2>/dev/null)" = "t" ]; do
+                i=$((i+1))
+                if [ "$i" -gt "${SCHEMA_WAIT_TRIES:-100}" ]; then
+                  echo "catalogue schema ${CATALOGUE_SCHEMA_VERSION} not present after $((i*3))s — giving up"; exit 1
+                fi
+                echo "waiting for the master-data catalogue migration (schema ${CATALOGUE_SCHEMA_VERSION})..."; sleep 3
+              done
               echo "master-data schema is ready."
           env:
+            # Must match CATALOGUE_SCHEMA_VERSION in master-data-api catalogue_sql.py.
+            - name: CATALOGUE_SCHEMA_VERSION
+              value: "3"
             - name: PGHOST
               value: {{ tpl .Values.global.postgresqlHost $ | quote }}
             - name: PGPORT
@@ -127,6 +146,16 @@ spec:
             - {{ join "," . | quote }}
             {{- end }}
           env:
+            # Catalogue: first load of a subject publishes version 1; later
+            # loads leave drafts for approval unless autoPublish (dev only).
+            - name: PACK_PUBLISH_INITIAL
+              value: {{ .Values.geoSeed.publishInitial | default false | quote }}
+            - name: PACK_AUTO_PUBLISH
+              value: {{ .Values.geoSeed.autoPublish | default false | quote }}
+            - name: PACK_OWNER_ORG
+              value: {{ .Values.geoSeed.ownerOrg | default "" | quote }}
+            - name: AUDIT_MANAGER_URL
+              value: {{ tpl (.Values.masterDataAPI.catalogue.auditManagerUrl | default "") $ | quote }}
             - name: PGHOST
               value: {{ tpl .Values.global.postgresqlHost $ | quote }}
             - name: PGPORT
@@ -163,4 +192,44 @@ spec:
                   key: {{ .Values.geoSeed.objectStore.secretKeyKey | quote }}
             {{- end }}
           resources: {{- toYaml .Values.geoSeed.resources | nindent 12 }}
+        {{- $awe := .Values.masterDataAPI.catalogue.awe }}
+        {{- if and (eq .Values.masterDataAPI.catalogue.approvalMode "awe") $awe.seed.enabled }}
+        {{/* Approval mode awe: register Master Data's AWE policies (approvers =
+             the client role below, self-approval forbidden) and the callback
+             secret in the shared AWE database. Idempotent. */}}
+        - name: awe-seed
+          image: {{ .Values.geoSeed.image.repository }}:{{ .Values.geoSeed.image.tag }}
+          command: ["python", "/seed/seed_awe.py"]
+          env:
+            - name: AWE_PGHOST
+              value: {{ tpl $awe.seed.dbHost $ | quote }}
+            - name: AWE_PGPORT
+              value: {{ $awe.seed.dbPort | quote }}
+            - name: AWE_PGDATABASE
+              value: {{ $awe.seed.db | quote }}
+            - name: AWE_PGUSER
+              value: {{ $awe.seed.dbUser | quote }}
+            - name: AWE_PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $awe.seed.dbSecret | quote }}
+                  key: {{ $awe.seed.dbPasswordKey | quote }}
+            - name: AWE_POLICY_KEY_LIST
+              value: {{ $awe.policyKeyList | quote }}
+            - name: AWE_POLICY_KEY_GEO
+              value: {{ $awe.policyKeyGeo | quote }}
+            - name: AWE_APPROVER_ROLE
+              value: {{ $awe.seed.approverRole | quote }}
+            - name: AWE_APPROVER_CLIENT
+              value: {{ tpl $awe.seed.approverClient $ | quote }}
+            - name: AWE_CALLBACK_SECRET_ID
+              value: {{ tpl $awe.callbackSecretId $ | quote }}
+            - name: AWE_CALLBACK_CALLER_SERVICE
+              value: {{ tpl $awe.callbackUrl $ | quote }}
+            - name: AWE_CALLBACK_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl $awe.hmacSecretName $ | quote }}
+                  key: {{ $awe.hmacSecretKey | quote }}
+        {{- end }}
 {{- end }}

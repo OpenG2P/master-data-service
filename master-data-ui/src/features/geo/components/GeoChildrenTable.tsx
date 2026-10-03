@@ -24,6 +24,8 @@ type GeoChildrenTableProps = {
   getLevelLabel?: (value: GeoLevelValue) => string | null;
   footerActions?: ReactNode;
   deletingValueId?: string | null;
+  /** Hide edit / retire actions (a published geography version is shown). */
+  readOnly?: boolean;
 };
 
 export default function GeoChildrenTable({
@@ -38,6 +40,7 @@ export default function GeoChildrenTable({
   getLevelLabel: getRowLevelLabel,
   footerActions,
   deletingValueId,
+  readOnly = false,
 }: GeoChildrenTableProps) {
   const t = useTranslations();
   const [page, setPage] = useState(1);
@@ -207,7 +210,7 @@ export default function GeoChildrenTable({
                   </button>
                 </th>
                 <th className="text-left py-3 px-9 border-b border-gray-200 font-semibold text-[#ed7c22] text-[16px] tracking-wider" style={{ width: "30%" }}>
-                  {t("col_actions")}
+                  {readOnly ? t("col_status") : t("col_actions")}
                 </th>
               </tr>
             </thead>
@@ -276,6 +279,13 @@ export default function GeoChildrenTable({
                           </div>
                         </td>
                         <td className="py-2 px-9 align-middle">
+                          {readOnly || row.status === "RETIRED" ? (
+                            <span
+                              className={`text-[14px] font-medium ${row.status === "RETIRED" ? "text-gray-400" : "text-green-700"}`}
+                            >
+                              {t(`cat_status_${row.status ?? "ACTIVE"}`)}
+                            </span>
+                          ) : (
                           <div className="flex flex-wrap gap-3">
                             <EditButton
                               onClick={(event) => {
@@ -292,9 +302,10 @@ export default function GeoChildrenTable({
                               }}
                               loading={deletingValueId === row.level_value_id}
                             >
-                              {t("delete")}
+                              {t("cat_retire")}
                             </DeleteButton>
                           </div>
+                          )}
                         </td>
                       </tr>
                     );

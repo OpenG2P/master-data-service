@@ -3,11 +3,11 @@
 import { useEffect, useId, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useFetch } from "@/shared/hooks/useFetch";
 import Button from "@/components/Button";
 import { toast } from "react-toastify";
-import { getErrorMessage } from "@/shared/utils/errorHandler";
-import type { GeoLevelValue } from "../types";
+import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
+import I18nLabelsEditor from "@/features/catalogue/components/I18nLabelsEditor";
+import { ErrorBox } from "@/features/catalogue/components/ui";
 
 export type GeoNodeDialogMode = "add" | "edit";
 
@@ -27,10 +27,17 @@ interface GeoNodeDialogProps {
   parentLevelValueId?: string | null;
   levelValueId?: string;
   initialName?: string;
+  initialNameI18n?: Record<string, string> | null;
   levelChoices?: { levelId: string; label: string }[];
   onClose: () => void;
   onSuccess?: () => void;
 };
+
+/**
+ * Add or change a unit in the open geography draft (`/catalogue/upsert_draft_units`).
+ * A new unit needs its P-code (unit_id); an existing unit can be renamed, relabelled per locale
+ * and moved under another parent (REPARENT). Published versions are never edited.
+ */
 
 export default function GeoNodeDialog({
   open,
@@ -42,25 +49,25 @@ export default function GeoNodeDialog({
   parentLevelValueId = null,
   levelValueId,
   initialName = "",
+  initialNameI18n = null,
   levelChoices = [],
   onClose,
   onSuccess,
 }: GeoNodeDialogProps) {
   const t = useTranslations();
   const titleId = useId();
-  const { execute: writeLevelValue } = useFetch<GeoLevelValue>();
+  const call = useCatalogueApi();
   const [name, setName] = useState(initialName);
+  const [unitId, setUnitId] = useState("");
+  const [nameI18n, setNameI18n] = useState<Record<string, string>>(initialNameI18n ?? {});
+  const [parentId, setParentId] = useState(parentLevelValueId ?? "");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedLevelId, setSelectedLevelId] = useState(
     levelChoices[0]?.levelId || levelId
   );
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    setName(initialName);
-    setSelectedLevelId(levelChoices[0]?.levelId || levelId);
-    setSaving(false);
-  }, [open, initialName, levelChoices, levelId]);
+  // Mounted only while open (see GeoHierarchyExplorer), so the fields start from the props.
 
   useEffect(() => {
     if (!open) return;
@@ -73,38 +80,34 @@ export default function GeoNodeDialog({
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
+    if (mode === "add" && !unitId.trim()) {
+      setSaveError(t("cat_unit_id_required"));
+      return;
+    }
 
     setSaving(true);
-
-    const result =
-      mode === "add"
-        ? await writeLevelValue("/api/geo/add-geo-level-value", {
-            method: "POST",
-            body: JSON.stringify({
-              level_id: selectedLevelId,
-              level_value_mnemonic: name.trim(),
-              parent_level_value_id: parentLevelValueId ?? "",
-            }),
-          })
-        : await writeLevelValue("/api/geo/update-geo-level-value", {
-            method: "POST",
-            body: JSON.stringify({
-              level_value_id: levelValueId,
-              level_value_mnemonic: name.trim(),
-            }),
-          });
-
-    setSaving(false);
-
-    if (result?.level_value_id) {
+    setSaveError(null);
+    try {
+      await call("upsert_draft_units", {
+        units: [
+          {
+            unit_id: mode === "add" ? unitId.trim() : levelValueId,
+            level_id: mode === "add" ? selectedLevelId : levelId,
+            name: name.trim(),
+            name_i18n: nameI18n,
+            parent_unit_id: (mode === "add" ? parentLevelValueId ?? "" : parentId.trim()) || null,
+          },
+        ],
+      });
       toast.success(mode === "add" ? t("geo_value_added_successfully") : t("geo_value_updated_successfully"));
       onSuccess?.();
       onClose();
-    } else {
-      const rawError = (result as any)?.error || (result as any)?.statusText;
-      const errorCode = (result as any)?.code;
-      const errorMessage = getErrorMessage(rawError, errorCode, t);
-      toast.error(errorMessage);
+    } catch (e) {
+      const message = errorMessage(e);
+      setSaveError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -222,6 +225,48 @@ export default function GeoNodeDialog({
                 className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-(--color-yellow)"
               />
             </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+                {t("cat_unit_id")}
+                {mode === "add" ? <span className="ml-1 text-red-500">*</span> : null}
+              </span>
+              <input
+                type="text"
+                value={mode === "add" ? unitId : levelValueId ?? ""}
+                onChange={(event) => setUnitId(event.target.value)}
+                readOnly={mode !== "add"}
+                placeholder={t("cat_unit_id_placeholder")}
+                className={`h-10 w-full rounded border border-gray-300 px-3 font-mono text-[14px] text-black outline-none focus:border-(--color-yellow) ${mode === "add" ? "bg-white" : "bg-gray-50"}`}
+              />
+              {mode !== "add" ? (
+                <span className="block text-[12px] text-gray-500">{t("cat_unit_id_recode_hint")}</span>
+              ) : null}
+            </label>
+
+            {mode === "edit" ? (
+              <label className="block space-y-1.5">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+                  {t("cat_parent_unit")}
+                </span>
+                <input
+                  type="text"
+                  value={parentId}
+                  onChange={(event) => setParentId(event.target.value)}
+                  className="h-10 w-full rounded border border-gray-300 bg-white px-3 font-mono text-[14px] text-black outline-none focus:border-(--color-yellow)"
+                />
+                <span className="block text-[12px] text-gray-500">{t("cat_parent_unit_hint")}</span>
+              </label>
+            ) : null}
+
+            <div className="space-y-1.5">
+              <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+                {t("cat_name_i18n")}
+              </span>
+              <I18nLabelsEditor value={nameI18n} onChange={setNameI18n} />
+            </div>
+
+            <ErrorBox message={saveError} />
           </div>
 
           <div className="flex gap-4 w-full justify-end pt-4">

@@ -5,3 +5,8 @@ export { default as GeoManageLevelsDialog } from "./GeoManageLevelsDialog";
 export { default as GeoLevelDialog } from "./GeoLevelDialog";
 export { default as GeoNodeDialog } from "./GeoNodeDialog";
 export type { GeoNodeDialogField } from "./GeoNodeDialog";
+export { default as GeoCatalogueView } from "./GeoCatalogueView";
+export { default as GeoUnitsBrowser } from "./GeoUnitsBrowser";
+export { default as GeoChangeEvents } from "./GeoChangeEvents";
+export { default as GeoBoundaries } from "./GeoBoundaries";
+export { default as GeoCrosswalk } from "./GeoCrosswalk";

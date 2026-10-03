@@ -3,11 +3,11 @@
 import { useEffect, useId, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useFetch } from "@/shared/hooks/useFetch";
 import Button from "@/components/Button";
 import { toast } from "react-toastify";
-import { getErrorMessage } from "@/shared/utils/errorHandler";
-import type { GeoLevel } from "../types";
+import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
+import I18nLabelsEditor from "@/features/catalogue/components/I18nLabelsEditor";
+import { ErrorBox } from "@/features/catalogue/components/ui";
 
 type GeoLevelDialogProps = {
   open: boolean;
@@ -16,9 +16,16 @@ type GeoLevelDialogProps = {
   parentLevelId?: string | null;
   parentLevelLabel: string | null;
   initialName?: string;
+  initialDisplay?: string | null;
+  initialDisplayI18n?: Record<string, string> | null;
   onClose: () => void;
   onSuccess?: () => void;
 };
+
+/**
+ * Add or change a level in the open geography draft (`/catalogue/upsert_draft_levels`).
+ * Mounted only while open, so the fields start from the props.
+ */
 
 export default function GeoLevelDialog({
   open,
@@ -27,20 +34,20 @@ export default function GeoLevelDialog({
   parentLevelId = null,
   parentLevelLabel,
   initialName = "",
+  initialDisplay = null,
+  initialDisplayI18n = null,
   onClose,
   onSuccess,
 }: GeoLevelDialogProps) {
   const t = useTranslations();
   const titleId = useId();
-  const { execute: writeLevel } = useFetch<GeoLevel>();
-  const [name, setName] = useState("");
+  const call = useCatalogueApi();
+  const [name, setName] = useState(initialName);
+  const [newLevelId, setNewLevelId] = useState("");
+  const [display, setDisplay] = useState(initialDisplay ?? "");
+  const [displayI18n, setDisplayI18n] = useState<Record<string, string>>(initialDisplayI18n ?? {});
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setName(initialName);
-    setSaving(false);
-  }, [initialName, open]);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -53,37 +60,34 @@ export default function GeoLevelDialog({
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
+    if (mode === "add" && !newLevelId.trim()) {
+      setSaveError(t("cat_level_id_required"));
+      return;
+    }
 
     setSaving(true);
-
-    const result =
-      mode === "add"
-        ? await writeLevel("/api/geo/add-geo-level", {
-            method: "POST",
-            body: JSON.stringify({
-              level_mnemonic: name.trim(),
-              parent_level_id: parentLevelId ?? "",
-            }),
-          })
-        : await writeLevel("/api/geo/update-geo-level", {
-            method: "POST",
-            body: JSON.stringify({
-              level_id: levelId,
-              level_mnemonic: name.trim(),
-            }),
-          });
-
-    setSaving(false);
-
-    if (result?.level_id) {
+    setSaveError(null);
+    try {
+      await call("upsert_draft_levels", {
+        levels: [
+          {
+            level_id: mode === "add" ? newLevelId.trim() : levelId,
+            level_mnemonic: name.trim(),
+            parent_level_id: parentLevelId || null,
+            display: display.trim() || null,
+            display_i18n: displayI18n,
+          },
+        ],
+      });
       toast.success(mode === "add" ? t("geo_level_added_successfully") : t("geo_level_updated_successfully"));
       onSuccess?.();
       onClose();
-    } else {
-      const rawError = (result as any)?.error || (result as any)?.statusText;
-      const errorCode = (result as any)?.code;
-      const errorMessage = getErrorMessage(rawError, errorCode, t);
-      toast.error(errorMessage);
+    } catch (e) {
+      const message = errorMessage(e);
+      setSaveError(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -151,6 +155,42 @@ export default function GeoLevelDialog({
               className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none placeholder:text-gray-400 focus:border-(--color-yellow)"
             />
           </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+              {t("cat_level_id")}
+              {mode === "add" ? <span className="ml-1 text-red-500">*</span> : null}
+            </span>
+            <input
+              type="text"
+              value={mode === "add" ? newLevelId : levelId ?? ""}
+              onChange={(event) => setNewLevelId(event.target.value)}
+              readOnly={mode !== "add"}
+              placeholder={t("cat_level_id_placeholder")}
+              className={`h-10 w-full rounded border border-gray-300 px-3 font-mono text-[14px] text-black outline-none focus:border-(--color-yellow) ${mode === "add" ? "bg-white" : "bg-gray-50"}`}
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+              {t("cat_display")}
+            </span>
+            <input
+              type="text"
+              value={display}
+              onChange={(event) => setDisplay(event.target.value)}
+              className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-(--color-yellow)"
+            />
+          </label>
+
+          <div className="space-y-1.5">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
+              {t("cat_display_i18n")}
+            </span>
+            <I18nLabelsEditor value={displayI18n} onChange={setDisplayI18n} />
+          </div>
+
+          <ErrorBox message={saveError} />
 
           <div className="flex gap-4 w-full justify-end pt-4">
             <Button

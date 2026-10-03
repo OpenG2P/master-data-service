@@ -1,57 +1,77 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { X } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useFetch } from "@/shared/hooks/useFetch";
+import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import { toast } from "react-toastify";
-import { getErrorMessage } from "@/shared/utils/errorHandler";
-import type { AttributeValue } from "../types";
+import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
+import I18nLabelsEditor from "@/features/catalogue/components/I18nLabelsEditor";
+import TypedAttributeFields from "@/features/catalogue/components/TypedAttributeFields";
+import { ErrorBox, Field, Modal, inputClass, localizedLabel } from "@/features/catalogue/components/ui";
+import type { DraftValueInput, ListSummary, ListValue, UpsertDraftValuesResponse } from "@/features/catalogue/types";
 
 type AttributeValueDialogProps = {
     open: boolean;
     mode: "add" | "edit";
-    attributeId: string;
-    parentValueId?: string | null;
-    value?: AttributeValue;
+    list: ListSummary;
+    /** All values of the draft (for the parent picker). */
+    allValues: ListValue[];
+    parentCode?: string | null;
+    value?: ListValue;
     onClose: () => void;
     onSuccess?: () => void;
 };
 
+/** Codes of `code` and all its descendants (a value cannot move under itself). */
+function subtree(code: string, values: ListValue[]): Set<string> {
+    const out = new Set([code]);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const v of values) {
+            if (v.parent_code && out.has(v.parent_code) && !out.has(v.value_code)) {
+                out.add(v.value_code);
+                grew = true;
+            }
+        }
+    }
+    return out;
+}
+
+/**
+ * Add or change a value in the list's draft (`upsert_draft_values`): code (a changed code keeps the
+ * value id, i.e. a RECODE), label, labels per locale, parent (hierarchical lists), sort order and
+ * the typed attributes described by the list's attribute schema. Mount while open to reset.
+ */
 export default function AttributeValueDialog({
     open,
     mode,
-    attributeId,
-    parentValueId,
+    list,
+    allValues,
+    parentCode,
     value,
     onClose,
     onSuccess,
 }: AttributeValueDialogProps) {
     const t = useTranslations();
-    const titleId = useId();
-    const { execute: writeValue } = useFetch<AttributeValue>();
+    const locale = useLocale();
+    const call = useCatalogueApi();
 
-    const [code, setCode] = useState("");
-    const [sortOrder, setSortOrder] = useState("0");
+    const [code, setCode] = useState(value?.value_code ?? "");
+    const [display, setDisplay] = useState(value?.display ?? "");
+    const [displayI18n, setDisplayI18n] = useState<Record<string, string>>(value?.display_i18n ?? {});
+    const [parent, setParent] = useState<string>((mode === "edit" ? value?.parent_code : parentCode) ?? "");
+    const [sortOrder, setSortOrder] = useState(String(value?.sort_order ?? 0));
+    const [attributes, setAttributes] = useState<Record<string, unknown>>(value?.attributes ?? {});
     const [error, setError] = useState("");
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        if (!open) return;
-        setCode(value?.value_code ?? "");
-        setSortOrder(String(value?.sort_order ?? 0));
-        setError("");
-    }, [open, value]);
-
-    useEffect(() => {
-        if (!open) return;
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, [open, onClose]);
+    const parentChoices = useMemo(() => {
+        if (!list.is_hierarchical) return [];
+        const excluded = value ? subtree(value.value_code, allValues) : new Set<string>();
+        return allValues.filter((v) => v.status !== "RETIRED" && !excluded.has(v.value_code));
+    }, [list.is_hierarchical, allValues, value]);
 
     const handleSubmit = async () => {
         if (!code.trim()) {
@@ -59,137 +79,102 @@ export default function AttributeValueDialog({
             return;
         }
         setError("");
+        setSaveError(null);
         setSaving(true);
-
-        const url =
-            mode === "add"
-                ? "/api/attributes/add-attribute-value"
-                : "/api/attributes/update-attribute-value";
-
-        const body =
-            mode === "add"
-                ? {
-                      attribute_id: attributeId,
-                      value_code: code.trim(),
-                      value_display: code.trim(),
-                      parent_value_id: parentValueId ?? null,
-                      sort_order: Number(sortOrder) || 0,
-                  }
-                : {
-                      value_id: value!.value_id,
-                      attribute_id: value!.attribute_id,
-                      value_code: code.trim(),
-                      value_display: code.trim(),
-                      parent_value_id: value!.parent_value_id ?? null,
-                      sort_order: Number(sortOrder) || 0,
-                  };
-
-        const result = await writeValue(url, {
-            method: "POST",
-            body: JSON.stringify(body),
-        });
-
-        setSaving(false);
-
-        if (result?.value_id) {
+        const item: DraftValueInput = {
+            value_code: code.trim(),
+            display: display.trim() || code.trim(),
+            display_i18n: displayI18n,
+            sort_order: Number(sortOrder) || 0,
+            attributes: Object.keys(attributes).length ? attributes : null,
+        };
+        if (value) item.value_id = value.value_id;
+        if (list.is_hierarchical) item.parent_code = parent || null;
+        try {
+            await call<UpsertDraftValuesResponse>("upsert_draft_values", {
+                list_code: list.list_id,
+                values: [item],
+            });
             toast.success(mode === "add" ? t("attr_value_added_successfully") : t("attr_value_updated_successfully"));
             onSuccess?.();
             onClose();
-        } else {
-            const rawError = (result as any)?.error || (result as any)?.statusText;
-            const errorCode = (result as any)?.code;
-            const errorMessage = getErrorMessage(rawError, errorCode, t);
-            toast.error(errorMessage);
+        } catch (e) {
+            const message = errorMessage(e);
+            setSaveError(message);
+            toast.error(message);
+        } finally {
+            setSaving(false);
         }
     };
 
-    if (!open) return null;
-
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            role="presentation"
-            onMouseDown={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
+        <Modal
+            open={open}
+            title={mode === "edit" ? t("edit_reference_data_value") : t("add_attribute_value")}
+            onClose={onClose}
+            maxWidth={720}
+            zIndex="z-50"
         >
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                className="relative w-full bg-white rounded-[10px] shadow-lg max-h-[80vh] p-8 border-4 border-[#EABB13]"
-                style={{ maxWidth: "600px" }}
-                onClick={(e) => e.stopPropagation()}
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleSubmit();
+                }}
+                className="space-y-4"
             >
-                <div className="flex items-center justify-between mb-6">
-                    <h2 id={titleId} className="text-[22px] font-bold text-[#ED7C22]">
-                        {mode === "edit" ? t("edit_reference_data_value") : t("add_attribute_value")}
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-                        aria-label={t("close")}
-                    >
-                        <X size={30} />
-                    </button>
+                <Field label={t("value_code")} required hint={mode === "edit" ? t("cat_recode_hint") : undefined}>
+                    <input
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        autoFocus
+                        className={inputClass}
+                        placeholder={t("value_code_placeholder")}
+                    />
+                    {error && <p className="text-[14px] text-red-500">{error}</p>}
+                </Field>
+
+                <Field label={t("cat_display")} required={mode === "add"}>
+                    <input type="text" value={display} onChange={(e) => setDisplay(e.target.value)} className={inputClass} />
+                </Field>
+
+                <Field label={t("cat_display_i18n")} group>
+                    <I18nLabelsEditor value={displayI18n} onChange={setDisplayI18n} />
+                </Field>
+
+                {list.is_hierarchical ? (
+                    <Field label={t("cat_parent_value")}>
+                        <select value={parent} onChange={(e) => setParent(e.target.value)} className={inputClass}>
+                            <option value="">{t("cat_top_level")}</option>
+                            {parentChoices.map((v) => (
+                                <option key={v.value_id} value={v.value_code}>
+                                    {localizedLabel(v.display, v.display_i18n, locale) || v.value_code} ({v.value_code})
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                ) : null}
+
+                <Field label={t("sort_order")}>
+                    <input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className={inputClass} />
+                </Field>
+
+                <div className="space-y-3 border-t border-gray-200 pt-4">
+                    <h3 className="text-[14px] font-semibold text-black">{t("cat_attributes")}</h3>
+                    <TypedAttributeFields schema={list.attribute_schema} value={attributes} onChange={setAttributes} />
                 </div>
 
-                <form
-                    className="modal-scroll overflow-y-auto max-h-[calc(80vh-120px)] pr-2"
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        void handleSubmit();
-                    }}
-                >
-                    <div className="space-y-4">
-                        <label className="block space-y-1.5">
-                            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
-                                {t("value_code")}
-                                <span className="text-red-500 ml-1">*</span>
-                            </span>
-                            <input
-                                type="text"
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                autoFocus
-                                className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-[#EABB13]"
-                                placeholder={t("value_code_placeholder")}
-                            />
-                            {error && <p className="text-[14px] text-red-500">{error}</p>}
-                        </label>
+                <ErrorBox message={saveError} />
 
-                        <label className="block space-y-1.5">
-                            <span className="text-[12px] font-semibold uppercase tracking-wide text-black">
-                                {t("sort_order")}
-                            </span>
-                            <input
-                                type="number"
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value)}
-                                className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-[14px] text-black outline-none focus:border-[#EABB13]"
-                            />
-                        </label>
-                    </div>
-
-                    <div className="flex gap-4 w-full justify-end pt-4">
-                        <Button
-                            variant="secondary"
-                            onClick={onClose}
-                            disabled={saving}
-                        >
-                            {t("cancel")}
-                        </Button>
-                        <Button
-                            variant="primary"
-                            type="submit"
-                            loading={saving}
-                        >
-                            {saving ? t("saving") : t("save")}
-                        </Button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <div className="flex gap-4 w-full justify-end pt-2">
+                    <Button variant="secondary" onClick={onClose} disabled={saving}>
+                        {t("cancel")}
+                    </Button>
+                    <Button variant="primary" type="submit" loading={saving}>
+                        {saving ? t("saving") : t("save")}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
     );
 }
