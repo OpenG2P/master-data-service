@@ -13,7 +13,7 @@ from openg2p_fastapi_common.context import dbengine
 from sqlalchemy import text
 
 from .catalogue_sql import catalogue_statements, legacy_alter_statements, schema_marker_statements
-from .controllers import G2PAttributeController, G2PCatalogueController, G2PGeoController
+from .controllers import G2PAttributeController, G2PCatalogueController, G2PGeoController, G2PSampleController
 from .helpers import RequestResponseHelper
 from .helpers.catalogue_integrations import (
     BoundaryStore,
@@ -50,6 +50,7 @@ from .services import (
     G2PCatalogueListService,
     G2PCatalogueReleaseService,
     G2PGeoService,
+    G2PSampleService,
 )
 
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -116,10 +117,12 @@ class Initializer(BaseInitializer):
         G2PCatalogueReleaseService()
         G2PCatalogueFeedService()
         G2PCatalogueAweCallbackService()
+        G2PSampleService()
 
         G2PGeoController().post_init()
         G2PAttributeController().post_init()
         G2PCatalogueController().post_init()
+        G2PSampleController().post_init()
 
         # Initialize cache
         FastAPICache.init(InMemoryBackend(), prefix="master-data-cache")

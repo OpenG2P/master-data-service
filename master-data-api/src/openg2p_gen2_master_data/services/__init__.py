@@ -7,3 +7,4 @@ from .g2p_catalogue_release_service import (
     G2PCatalogueReleaseService,
 )
 from .g2p_geo_service import G2PGeoService
+from .g2p_sample_service import G2PSampleService

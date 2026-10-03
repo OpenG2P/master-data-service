@@ -59,6 +59,10 @@ MASTER_DATA_CSRF_EXCLUDED_PATHS = (
     "/catalogue/get_release",
     "/catalogue/get_changes",
     "/catalogue/get_catalogue_config",
+    # Sample people / households from the country pack, read by registries
+    # (their sample-data hooks) server-to-server.
+    "/samples/get_individuals",
+    "/samples/get_households",
     # AWE posts decisions server-to-server; authenticated by its HMAC signature.
     "/catalogue/awe/callback",
 )
