@@ -584,7 +584,9 @@ def read_codelists(pack_dir, domains):
     """Every code list in the pack: the core set, plus the domains asked for.
 
     Domain lists are tagged with their domain so a registry can seed only what it
-    serves — a social registry has no use for crop types.
+    serves — a social registry has no use for crop types. A requested domain the
+    pack does not carry is skipped with a warning, not a failure: the chart asks
+    for agriculture by default, and a pack without it should still load.
     """
     out = []
     core = os.path.join(pack_dir, "codelists")
@@ -595,7 +597,9 @@ def read_codelists(pack_dir, domains):
     for domain in domains:
         d = os.path.join(pack_dir, "domains", domain)
         if not os.path.isdir(d):
-            raise SystemExit(f"--domains names '{domain}', which is not in this pack")
+            pack = os.path.basename(os.path.normpath(pack_dir))
+            print(f"[geo-pack] WARNING: domain '{domain}' not in pack {pack} — skipped")
+            continue
         for fn in sorted(f for f in os.listdir(d) if f.endswith(".json")):
             with open(os.path.join(d, fn)) as fh:
                 out.append((domain, json.load(fh)))
@@ -842,6 +846,7 @@ def seed_sql_codelists(conn, domains):
         for domain in wanted:
             d = os.path.join(root, domain)
             if not os.path.isdir(d):
+                print(f"[geo-pack] no SQL codelist fixtures for domain '{domain}' — skipped")
                 continue
             for fn in ("g2p_attributes.sql", "g2p_attribute_values.sql"):
                 path = os.path.join(d, fn)
@@ -1013,7 +1018,8 @@ def main():
                    help="comma-separated: geo,codelists,samples (default: geo)")
     p.add_argument("--domains", default=os.environ.get("PACK_DOMAINS", ""),
                    help="comma-separated domain subtrees to load with codelists, "
-                        "e.g. agriculture. Empty loads the core lists only.")
+                        "e.g. agriculture. Empty loads the core lists only; a "
+                        "domain the pack lacks is skipped with a warning.")
     p.add_argument("--publish-initial", dest="publish_initial", action="store_true",
                    default=_env_flag("PACK_PUBLISH_INITIAL", True),
                    help="publish version 1 of a list / the geography directly on its first "

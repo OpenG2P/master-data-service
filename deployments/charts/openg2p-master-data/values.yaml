@@ -514,10 +514,11 @@ geoSeed:
     # read these and add their own fields. Not bulk analytics data, which needs
     # no country-coherent names and is generated per registry.
     samples: true
-  # Domain subtrees to load alongside the code lists, e.g. [agriculture] for a
-  # Farmer Registry. Empty loads the core lists only — a social registry has no
-  # use for crop types.
-  domains: []
+  # Domain subtrees to load alongside the code lists. Agriculture is loaded by
+  # default (Farmer Registry and Crop Sown Registry need its lists); a pack
+  # without a requested domain skips it with a warning in the Job log. Set []
+  # to load only the core lists. A comma-separated string also works.
+  domains: ["agriculture"]
   # Catalogue behaviour of the loader:
   #  * a list / the geography loaded for the FIRST time becomes version 1 and is
   #    published directly when publishInitial is true (nothing to protect yet);

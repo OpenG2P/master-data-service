@@ -141,9 +141,13 @@ spec:
                  "geo" — byte-for-byte the behaviour before code lists existed. */}}
             - --load
             - {{ without (list (ternary "geo" "" .Values.geoSeed.load.geo) (ternary "codelists" "" .Values.geoSeed.load.codelists) (ternary "samples" "" (.Values.geoSeed.load.samples | default false))) "" | join "," | quote }}
-            {{- with .Values.geoSeed.domains }}
+            {{- /* domains: a list, or a comma-separated string (Rancher questions). */}}
+            {{- $domains := .Values.geoSeed.domains }}
+            {{- if kindIs "string" $domains }}{{ $domains = splitList "," $domains }}{{ end }}
+            {{- $domains = without (compact (default list $domains)) "" }}
+            {{- with $domains }}
             - --domains
-            - {{ join "," . | quote }}
+            - {{ join "," . | nospace | quote }}
             {{- end }}
           env:
             # Catalogue: first load of a subject publishes version 1; later

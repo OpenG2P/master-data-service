@@ -436,6 +436,16 @@ def test_loader_later_load_creates_drafts_and_never_overwrites(tmp_path, moto_s3
     ]
 
 
+def test_loader_skips_a_requested_domain_the_pack_does_not_carry(tmp_path):
+    """The chart asks for agriculture by default; a pack without it still loads
+    its core lists, with a warning, instead of failing the seed Job."""
+    pack, _ = _mini_pack(tmp_path)
+    out = run_loader(pack, "--load", "codelists", "--domains", "agriculture")
+    assert "domain 'agriculture' not in pack TST — skipped" in out
+    assert q("SELECT count(*) FROM g2p_list_version_values WHERE value_id IN ('F', 'M', 'X')") == [(3,)]
+    shutil.rmtree(pack)
+
+
 def test_loader_needs_the_catalogue_schema(tmp_path):
     pack, _ = _mini_pack(tmp_path)
     admin = pg_connect("postgres")
