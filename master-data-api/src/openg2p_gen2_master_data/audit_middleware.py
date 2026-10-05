@@ -162,8 +162,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         if self._enabled:
             _logger.info(
-                "AuditMiddleware enabled — emitting to %s "
-                "(audit_anonymous_failures=%s)",
+                "AuditMiddleware enabled — emitting to %s " "(audit_anonymous_failures=%s)",
                 self._url + "/v1/auditmanager/events",
                 self._audit_anonymous_failures,
             )
@@ -219,9 +218,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             raised = exc
 
         # Skip-list checks apply to both success and failure paths.
-        if self._enabled \
-                and request.method != "OPTIONS" \
-                and request.url.path not in _SKIP_PATHS:
+        if self._enabled and request.method != "OPTIONS" and request.url.path not in _SKIP_PATHS:
             self._maybe_emit(request, response, raised)
 
         if raised is not None:
@@ -261,9 +258,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 if principal is not None or service_actor is None
                 else {**service_actor, "ip": service_actor.get("ip") or _client_ip(request)}
             )
-            event = self._build_event(
-                request, response, status_code, actor, route, raised
-            )
+            event = self._build_event(request, response, status_code, actor, route, raised)
             task = asyncio.create_task(self._emit(event))
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
@@ -272,9 +267,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
     # ---------- actor construction ----------
 
-    def _build_actor(
-        self, request: Request, principal, response, status_code: int
-    ) -> dict:
+    def _build_actor(self, request: Request, principal, response, status_code: int) -> dict:
         """Produce the `data.actor` payload from the best available identity source.
 
         Three paths, in order of preference:
@@ -323,11 +316,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             if claims:
                 roles = []
                 if self._client_id:
-                    roles = list(
-                        claims.get("resource_access", {})
-                        .get(self._client_id, {})
-                        .get("roles", [])
-                    )
+                    roles = list(claims.get("resource_access", {}).get(self._client_id, {}).get("roles", []))
                 return {
                     "type": "user",
                     "id": claims.get("sub") or "unknown",
@@ -382,9 +371,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             # Capture exception class + truncated message into reason so
             # ops can grep for "JWKS" / "Connection refused" / etc. without
             # leaking full stack traces into the audit store.
-            data["reason"] = (
-                f"{type(raised).__name__}: {str(raised)[:200]}"
-            )
+            data["reason"] = f"{type(raised).__name__}: {str(raised)[:200]}"
 
         return {
             "specversion": "1.0",
@@ -412,9 +399,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                     resp.text[:200],
                 )
         except httpx.HTTPError as exc:
-            _logger.warning(
-                "Audit emission failed for event %s: %s", event["id"], exc
-            )
+            _logger.warning("Audit emission failed for event %s: %s", event["id"], exc)
         except Exception:
             _logger.exception(
                 "Audit emission failed unexpectedly for event %s",

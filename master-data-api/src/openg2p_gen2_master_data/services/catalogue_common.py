@@ -64,7 +64,7 @@ class Actor:
         return None if self.is_system else (self.name or self.id)
 
     @classmethod
-    def system(cls, name: str = "system") -> "Actor":
+    def system(cls, name: str = "system") -> Actor:
         return cls(id=name, is_system=True)
 
 
@@ -143,7 +143,7 @@ class CatalogueUnitOfWork:
         self._changes: List[Dict[str, Any]] = []
         self._after_commit: List[Callable[[], Any]] = []
 
-    async def __aenter__(self) -> "CatalogueUnitOfWork":
+    async def __aenter__(self) -> CatalogueUnitOfWork:
         self.session = get_async_session_maker()()
         return self
 
