@@ -276,7 +276,8 @@ class G2PCatalogueController(BaseController):
             tag=TAG_LISTS,
             summary="All code lists",
             description=(
-                "Every code list with its owner, current published version (in effect now), highest published "
+                "Every code list with its owner, domain (`core`, `agriculture`, ...; null when unknown), current "
+                "published version (in effect now), highest published "
                 "version (may be future-effective), open draft (number and status) and a summary of its "
                 "attribute schema (properties, required, list references)."
             ),
@@ -405,7 +406,7 @@ class G2PCatalogueController(BaseController):
             permissions={"referenceData:create"},
             tag=TAG_LISTS,
             summary="Create a code list",
-            description="Registers a new list (code, label, labels per locale, description, owner_org, "
+            description="Registers a new list (code, label, labels per locale, description, owner_org, domain, "
             "hierarchy flag, attribute_schema) and opens its first draft (version 1). Nothing is published "
             "until that draft is submitted and approved. `attribute_schema` is a JSON Schema (2020-12) for "
             'each value\'s `attributes`; a property may carry `"x-list-ref": "<LIST_CODE>"`.',
@@ -423,7 +424,7 @@ class G2PCatalogueController(BaseController):
             permissions={"referenceData:edit"},
             tag=TAG_LISTS,
             summary="Update a list's metadata",
-            description="`description` and `owner_org` are administrative and apply at once. `new_list_code`, "
+            description="`description`, `owner_org` and `domain` are administrative and apply at once. `new_list_code`, "
             "`display`, `display_i18n`, `is_hierarchical` and `attribute_schema` are part of what consumers "
             "see, so they go into the open draft." + _DRAFT,
         )
@@ -1033,7 +1034,7 @@ class G2PCatalogueController(BaseController):
 
         async def get_changes(req, body, p):
             events, cursor, more = await F.get_changes(
-                p.cursor, p.limit, p.subject_type, p.subject_id, p.event_types
+                p.cursor, p.limit, p.subject_type, p.subject_id, p.event_types, p.newest
             )
             return GetChangesResponsePayload(events=events, next_cursor=cursor, has_more=more)
 
@@ -1052,7 +1053,8 @@ class G2PCatalogueController(BaseController):
                 "list.version.published, list.version.effective, list.version.migrated, list.draft.discarded "
                 "(and the geo.* equivalents, release.created / members_set / published / deleted). Pass the "
                 "returned `next_cursor` as `cursor` to continue; `has_more` says whether to call again. Filter "
-                "by `subject_type`, `subject_id`, `event_types`. `actor` is the stable user id (token sub) or a "
+                "by `subject_type`, `subject_id`, `event_types`; `newest: true` returns the newest `limit` events "
+                "instead (a recent-activity view). `actor` is the stable user id (token sub) or a "
                 "system name, `actor_name` a user's display name. Every event — including those written by the "
                 "database (`*.version.effective`, `*.version.migrated`) and the country-pack loader — is "
                 "relayed to the Audit Manager when configured, and `*.version.published`, "

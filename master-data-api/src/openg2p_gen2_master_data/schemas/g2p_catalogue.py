@@ -111,6 +111,12 @@ class ListSummary(BaseModel):
     display_i18n: Optional[Dict[str, str]] = None
     description: Optional[str] = None
     owner_org: Optional[str] = None
+    domain: Optional[str] = Field(
+        default=None,
+        description='Pack domain of the list ("core", "agriculture", ...). Set by the country-pack loader '
+        "or on create/update; for a pack list loaded before the column existed it is derived from its "
+        "first version's change note. NULL when unknown.",
+    )
     is_hierarchical: bool = False
     attribute_schema: Optional[Dict[str, Any]] = None
     attribute_schema_summary: Optional[Dict[str, Any]] = Field(
@@ -226,6 +232,9 @@ class CreateListPayload(BaseModel):
     display_i18n: Optional[Dict[str, str]] = None
     description: Optional[str] = None
     owner_org: Optional[str] = None
+    domain: Optional[str] = Field(
+        default=None, description='Pack domain ("core", "agriculture", ...); stored lower-case.'
+    )
     is_hierarchical: bool = False
     attribute_schema: Optional[Dict[str, Any]] = None
     list_id: Optional[str] = Field(default=None, description="Defaults to list_code.")
@@ -240,6 +249,9 @@ class ListAndDraftResponsePayload(BaseModel):
 class UpdateListPayload(ListRef):
     description: Optional[str] = Field(default=None, description="Applied directly (not versioned).")
     owner_org: Optional[str] = Field(default=None, description="Applied directly (not versioned).")
+    domain: Optional[str] = Field(
+        default=None, description="Applied directly (not versioned); lower-case, empty clears it."
+    )
     new_list_code: Optional[str] = Field(default=None, description="Goes into the open draft.")
     display: Optional[str] = Field(default=None, description="Goes into the open draft.")
     display_i18n: Optional[Dict[str, str]] = Field(default=None, description="Goes into the open draft.")
@@ -660,6 +672,11 @@ class GetChangesPayload(BaseModel):
     subject_type: Optional[Literal["list", "geo", "release"]] = None
     subject_id: Optional[str] = Field(default=None, description="List id, 'geography' or a release code.")
     event_types: Optional[List[str]] = None
+    newest: bool = Field(
+        default=False,
+        description="Return the newest `limit` matching events (after `cursor`), still oldest first, "
+        "instead of the first `limit`; `next_cursor` is the last event's id. For a recent-activity view.",
+    )
 
 
 class ChangeEvent(BaseModel):

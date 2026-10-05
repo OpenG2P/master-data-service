@@ -518,3 +518,38 @@ def test_loader_validates_pack_change_events_before_publishing(tmp_path):
         "SELECT count(*) FROM g2p_catalogue_change_log WHERE event_type = 'geo.version.published' "
         "AND forwarded_at IS NULL"
     ) == [(2,)]
+
+
+def test_loader_sets_list_domain_and_fills_it_when_empty(tmp_path):
+    """Core lists get domain 'core', domain lists their domain; a re-run fills an
+    empty domain (lists loaded before the column existed) and keeps one already set.
+    No new version is created for it: the domain is administrative."""
+    pack, _ = _mini_pack(tmp_path)
+    agri = pack / "domains" / "agriculture"
+    agri.mkdir(parents=True)
+    crop = {
+        "attribute_id": "CROP",
+        "attribute_code": "CROP",
+        "attribute_display": "Crop",
+        "values": [{"value_id": "MAIZE", "value_code": "MAIZE", "value_display": "Maize", "sort_order": 1}],
+    }
+    (agri / "crop.json").write_text(json.dumps(crop))
+    run_loader(pack, "--load", "codelists", "--domains", "agriculture")
+    assert q("SELECT attribute_id, domain FROM g2p_attributes ORDER BY 1") == [
+        ("CROP", "agriculture"),
+        ("GENDER", "core"),
+    ]
+    conn = pg_connect()
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute("UPDATE g2p_attributes SET domain = NULL WHERE attribute_id = 'CROP'")
+        cur.execute("UPDATE g2p_attributes SET domain = 'social' WHERE attribute_id = 'GENDER'")
+    conn.close()
+    out = run_loader(pack, "--load", "codelists", "--domains", "agriculture")
+    assert "codelists unchanged: 2" in out
+    assert q("SELECT attribute_id, domain FROM g2p_attributes ORDER BY 1") == [
+        ("CROP", "agriculture"),
+        ("GENDER", "social"),
+    ]
+    assert q("SELECT count(*) FROM g2p_list_versions") == [(2,)]
+    shutil.rmtree(pack)

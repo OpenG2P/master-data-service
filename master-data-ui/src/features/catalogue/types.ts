@@ -71,6 +71,8 @@ export interface ListSummary {
     display_i18n?: I18nLabels | null;
     description?: string | null;
     owner_org?: string | null;
+    /** Pack domain ("core", "agriculture", ...), shown as the dataset's Theme; null when unknown. */
+    domain?: string | null;
     is_hierarchical: boolean;
     attribute_schema?: JsonSchema | null;
     attribute_schema_summary?: AttributeSchemaSummary | null;

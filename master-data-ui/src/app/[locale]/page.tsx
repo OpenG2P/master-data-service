@@ -1,7 +1,7 @@
-import { getLocale } from "next-intl/server";
-import { redirect } from "@/i18n/navigation";
+"use client";
 
-export default async function Home() {
-  const locale = await getLocale();
-  redirect({ href: "/geo-locations", locale });
+import { CatalogueOverview } from "@/features/home";
+
+export default function HomePage() {
+    return <CatalogueOverview />;
 }

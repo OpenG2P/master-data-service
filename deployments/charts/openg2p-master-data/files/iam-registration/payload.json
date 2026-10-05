@@ -51,7 +51,7 @@
   "roles": [
     {
       "role_mnemonic": "MASTER_DATA_ADMIN",
-      "role_description": "Master data administrator - manages attribute code lists and geography.",
+      "role_description": "Master data administrator - manages catalogue datasets and geography.",
       "active": true,
       "permissions": [
         "referenceData:create",
@@ -66,7 +66,7 @@
     },
     {
       "role_mnemonic": "MASTER_DATA_APPROVER",
-      "role_description": "Master data approver - approves and publishes catalogue drafts (code lists, geography, releases); cannot approve own drafts.",
+      "role_description": "Master data approver - approves and publishes catalogue drafts (datasets, geography, releases); cannot approve own drafts.",
       "active": true,
       "permissions": [
         "referenceData:publish",

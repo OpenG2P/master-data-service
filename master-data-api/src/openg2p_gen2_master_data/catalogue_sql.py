@@ -55,10 +55,11 @@ The one exception is the migration itself, once: when the ``*_by_name``
 columns are added it fills them for existing rows (see ``_add_name_columns``).
 """
 
-# Bumped whenever the catalogue schema changes (3: *_by_name columns). The
+# Bumped whenever the catalogue schema changes (3: *_by_name columns;
+# 4: g2p_attributes.domain). The
 # geo-seed Job waits for g2p_catalogue_state['schema_version'] >= this (its
 # CATALOGUE_SCHEMA_VERSION value in the Helm chart must match).
-CATALOGUE_SCHEMA_VERSION = 3
+CATALOGUE_SCHEMA_VERSION = 4
 
 _ALTER_LEGACY = [
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS description text",
@@ -66,6 +67,7 @@ _ALTER_LEGACY = [
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS attribute_schema jsonb",
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS owner_org varchar",
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS current_version_no integer",
+    "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS domain varchar",
 ]
 
 

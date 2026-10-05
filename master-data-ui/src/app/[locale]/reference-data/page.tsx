@@ -1,7 +1,8 @@
-"use client";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 
-import { AttributeListExplorer } from "@/features/attributes";
-
-export default function ReferenceDataPage() {
-    return <AttributeListExplorer />;
+/** Old route of the Datasets page. */
+export default async function ReferenceDataRedirect() {
+    const locale = await getLocale();
+    redirect({ href: "/datasets", locale });
 }

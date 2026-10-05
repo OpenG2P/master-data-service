@@ -115,7 +115,7 @@ spec:
           env:
             # Must match CATALOGUE_SCHEMA_VERSION in master-data-api catalogue_sql.py.
             - name: CATALOGUE_SCHEMA_VERSION
-              value: "3"
+              value: "4"
             - name: PGHOST
               value: {{ tpl .Values.global.postgresqlHost $ | quote }}
             - name: PGPORT

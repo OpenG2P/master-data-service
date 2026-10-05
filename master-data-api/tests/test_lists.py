@@ -422,3 +422,34 @@ async def test_version_numbers_are_never_reused(db):
         assert cur.fetchall() == [(1, 1), (2, 1), (3, 1), (4, 1), (5, 1)]
         cur.execute("SELECT g2p_catalogue_next_list_version('NUM')")
         assert cur.fetchone()[0] == 6
+
+
+async def test_list_domain_create_update_and_fallback(db):
+    """get_lists / get_list return the domain: stored (lower-case), set on create or update,
+    or — for a pack list loaded before the column existed — derived from its first
+    version's change note ("core" without a domain suffix); unknown stays None."""
+    s = svc()
+    await s.create_list(CreateListPayload(list_code="CROP_X", display="Crop", domain=" Agriculture "), MAKER)
+    await publish_list("PLAIN")
+    await publish_list("PACK_CORE")
+    await publish_list("PACK_AGRI")
+    with db.cursor() as cur:
+        # As the loader wrote them before the domain column: only the change note tells.
+        cur.execute("ALTER TABLE g2p_list_versions DISABLE TRIGGER trg_g2p_list_versions_guard")
+        cur.execute(
+            "UPDATE g2p_list_versions SET change_note = 'Initial load from country pack ETH (1.0)' "
+            "WHERE list_id = 'PACK_CORE'"
+        )
+        cur.execute(
+            "UPDATE g2p_list_versions SET change_note = 'Initial load from country pack ETH (1.0) (agriculture)' "
+            "WHERE list_id = 'PACK_AGRI'"
+        )
+        cur.execute("ALTER TABLE g2p_list_versions ENABLE TRIGGER trg_g2p_list_versions_guard")
+    lists = {x.list_id: x.domain for x in await s.get_lists()}
+    assert lists == {"CROP_X": "agriculture", "PLAIN": None, "PACK_CORE": "core", "PACK_AGRI": "agriculture"}
+    summary, _ = await s.update_list(UpdateListPayload(list_code="PLAIN", domain="Livestock"), MAKER)
+    assert summary.domain == "livestock"
+    summary, _ = await s.get_list("PACK_AGRI", None)
+    assert summary.domain == "agriculture"
+    summary, _ = await s.update_list(UpdateListPayload(list_code="PLAIN", domain=""), MAKER)
+    assert summary.domain is None

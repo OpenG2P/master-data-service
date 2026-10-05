@@ -1,11 +1,9 @@
-"use client";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 
-import { useParams } from "next/navigation";
-import { AttributeDetail } from "@/features/attributes";
-
-export default function AttributeDetailPage() {
-    const { attributeId: rawId } = useParams<{ attributeId: string }>();
-    const attributeId = decodeURIComponent(rawId ?? "");
-
-    return <AttributeDetail attributeId={attributeId} />;
+/** Old route of a dataset's page. */
+export default async function ReferenceDataItemRedirect({ params }: { params: Promise<{ attributeId: string }> }) {
+    const { attributeId } = await params;
+    const locale = await getLocale();
+    redirect({ href: `/datasets/${attributeId}`, locale });
 }

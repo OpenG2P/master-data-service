@@ -118,6 +118,12 @@ export function describeChange(e: ChangeEvent, t: ReturnType<typeof useTranslati
     return entries.map(([k, v]) => `${k}: ${formatValue(v)}`).join(" · ");
 }
 
+/** Display name of an event's subject type ("list" → "Dataset"); the raw type when unknown. */
+export function subjectTypeLabel(type: string, t: ReturnType<typeof useTranslations>): string {
+    const key = `cat_subject_type_${type}`;
+    return t.has(key) ? t(key) : type;
+}
+
 /** A compact, newest-first timeline of events (used inside an expanded version row). */
 export function ChangeTimeline({ events }: { events: ChangeEvent[] }) {
     const t = useTranslations();
@@ -243,7 +249,7 @@ export default function ChangeFeed({
                                     <td className={`${tdClass} whitespace-nowrap text-[13px]`}>{formatDateTime(e.at)}</td>
                                     <td className={`${tdClass} font-mono text-[13px]`}>{e.event_type}</td>
                                     <td className={`${tdClass} text-[13px]`}>
-                                        {e.subject_type}
+                                        {subjectTypeLabel(e.subject_type, t)}
                                         {e.subject_id ? `: ${e.subject_id}` : ""}
                                     </td>
                                     <td className={`${tdClass} text-[13px]`}>{e.version_no != null ? `v${e.version_no}` : "—"}</td>

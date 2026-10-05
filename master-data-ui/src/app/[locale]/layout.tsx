@@ -17,8 +17,8 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Master Data UI",
-  description: "OpenG2P Master Data UI",
+  title: "Catalogue",
+  description: "OpenG2P Master Data Service catalogue",
   icons: {
     icon: "/openg2p-icon.svg",
   },

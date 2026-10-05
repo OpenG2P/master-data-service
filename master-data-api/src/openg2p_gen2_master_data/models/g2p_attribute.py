@@ -36,6 +36,10 @@ class G2PAttribute(BaseORMModel):
     attribute_schema: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     # Department that owns the list; used for approval routing and shown in the UI.
     owner_org: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Pack domain the list belongs to ("core", "agriculture", ...), set by the
+    # country-pack loader or by the maker; NULL for lists of unknown origin.
+    # Administrative, like owner_org: a filter in the UI, not versioned.
+    domain: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # The published version the legacy rows currently show (latest published
     # version whose effective_from has passed). NULL until first published.
     current_version_no: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

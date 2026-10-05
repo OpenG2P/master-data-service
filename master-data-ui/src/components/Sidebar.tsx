@@ -1,22 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Database, Package, History, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Home, MapPin, Database, Package, History, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 
 const MENU = [
   {
+    id: "home",
+    labelKey: "home" as const,
+    href: "/",
+    Icon: Home,
+  },
+  {
+    id: "datasets",
+    labelKey: "reference_data" as const,
+    href: "/datasets",
+    Icon: Database,
+  },
+  {
     id: "geo-locations",
     labelKey: "geo_locations" as const,
     href: "/geo-locations",
     Icon: MapPin,
-  },
-  {
-    id: "reference-data",
-    labelKey: "reference_data" as const,
-    href: "/reference-data",
-    Icon: Database,
   },
   {
     id: "releases",
@@ -80,7 +86,7 @@ export default function Sidebar() {
       <nav className={`space-y-2 p-4 pt-4 ${collapsed ? "px-2" : ""}`}>
         {MENU.map(({ id, labelKey, href, Icon }) => {
           const isActive =
-            pathname === href || pathname.startsWith(`${href}/`);
+            href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
           return (
             <div key={id} className="relative">

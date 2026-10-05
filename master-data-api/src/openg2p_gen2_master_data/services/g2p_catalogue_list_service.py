@@ -20,6 +20,7 @@ database function g2p_catalogue_publish_list.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -78,6 +79,49 @@ _VALUE_FIELDS = (
     "roles",
 )
 _LIST_META_FIELDS = ("list_code", "display", "display_i18n", "is_hierarchical", "attribute_schema")
+
+
+# The country-pack loader's change note of a list's first version:
+# "Initial load from country pack ETH (1.2)" for a core list, with " (agriculture)"
+# appended for a domain list (docker/db-seed/load_geo_pack.py, load_list).
+_PACK_NOTE = re.compile(r"^(?:Initial load|Update) from country pack \S+ \([^)]*\)(?: \(([^)]+)\))?$")
+
+
+def normalise_domain(value: Optional[str]) -> Optional[str]:
+    """A list's domain as stored: trimmed, lower-case; empty means none."""
+    value = (value or "").strip().lower()
+    return value or None
+
+
+def domain_from_note(note: Optional[str]) -> Optional[str]:
+    """The domain a pack-loaded list was loaded under, from its first version's
+    change note ("core" when the note has no domain suffix); None otherwise."""
+    m = _PACK_NOTE.match((note or "").strip())
+    if not m:
+        return None
+    return normalise_domain(m.group(1)) or "core"
+
+
+async def _derived_domains(session, list_ids: List[str]) -> Dict[str, str]:
+    """Fallback domain of lists whose ``domain`` column is empty (pack lists loaded
+    before the column existed): read from each list's first version's change note.
+    One query for all of them."""
+    if not list_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(G2PListVersion.list_id, G2PListVersion.change_note)
+            .where(G2PListVersion.list_id.in_(list_ids))
+            .distinct(G2PListVersion.list_id)
+            .order_by(G2PListVersion.list_id, G2PListVersion.version_no)
+        )
+    ).all()
+    out = {}
+    for list_id, note in rows:
+        domain = domain_from_note(note)
+        if domain:
+            out[list_id] = domain
+    return out
 
 
 def _version_info(v: G2PListVersion, current_no: Optional[int]) -> VersionInfo:
@@ -222,6 +266,9 @@ class G2PCatalogueListService(BaseService):
 
     async def _summary(self, session, attr: G2PAttribute) -> ListSummary:
         open_v = await self._open_version(session, attr.attribute_id)
+        domain = normalise_domain(attr.domain)
+        if domain is None:
+            domain = (await _derived_domains(session, [attr.attribute_id])).get(attr.attribute_id)
         return ListSummary(
             list_id=attr.attribute_id,
             list_code=attr.attribute_code,
@@ -229,6 +276,7 @@ class G2PCatalogueListService(BaseService):
             display_i18n=attr.display_i18n,
             description=attr.description,
             owner_org=attr.owner_org,
+            domain=domain,
             is_hierarchical=bool(attr.is_hierarchical),
             attribute_schema=attr.attribute_schema,
             attribute_schema_summary=schema_summary(attr.attribute_schema),
@@ -264,6 +312,9 @@ class G2PCatalogueListService(BaseService):
             if not include_unpublished:
                 stmt = stmt.where(published.c.maxv.is_not(None))
             rows = (await session.execute(stmt)).all()
+            derived = await _derived_domains(
+                session, [attr.attribute_id for attr, *_ in rows if normalise_domain(attr.domain) is None]
+            )
         out = []
         for attr, maxv, open_no, open_status in rows:
             out.append(
@@ -274,6 +325,7 @@ class G2PCatalogueListService(BaseService):
                     display_i18n=attr.display_i18n,
                     description=attr.description,
                     owner_org=attr.owner_org,
+                    domain=normalise_domain(attr.domain) or derived.get(attr.attribute_id),
                     is_hierarchical=bool(attr.is_hierarchical),
                     attribute_schema=attr.attribute_schema,
                     attribute_schema_summary=schema_summary(attr.attribute_schema),
@@ -637,12 +689,17 @@ class G2PCatalogueListService(BaseService):
                 attribute_schema=payload.attribute_schema,
                 description=payload.description,
                 owner_org=payload.owner_org or (_config.catalogue_default_owner_org or None),
+                domain=normalise_domain(payload.domain),
                 current_version_no=None,
             )
             s.add(attr)
             await s.flush()
             await uow.log(
-                "list.created", "list", list_id, None, {"list_code": code, "owner_org": attr.owner_org}
+                "list.created",
+                "list",
+                list_id,
+                None,
+                {"list_code": code, "owner_org": attr.owner_org, "domain": attr.domain},
             )
             draft = await self._create_draft(uow, attr, change_note=payload.change_note)
             summary = await self._summary(s, attr)
@@ -664,6 +721,9 @@ class G2PCatalogueListService(BaseService):
             if "owner_org" in fields:
                 attr.owner_org = payload.owner_org
                 direct["owner_org"] = payload.owner_org
+            if "domain" in fields:
+                attr.domain = normalise_domain(payload.domain)
+                direct["domain"] = attr.domain
             if direct:
                 await uow.log("list.updated", "list", attr.attribute_id, None, direct)
             draft = None

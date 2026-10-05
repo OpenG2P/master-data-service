@@ -16,6 +16,7 @@ import ListDiffView from "@/features/catalogue/components/ListDiffView";
 import VersionBar, { LIST_DRAFT_OPS, findOpenDraft } from "@/features/catalogue/components/VersionBar";
 import VersionHistoryActivity from "@/features/catalogue/components/VersionHistoryActivity";
 import { ErrorBox, Panel, Tabs, localizedLabel } from "@/features/catalogue/components/ui";
+import { themeKey, themeLabel } from "@/features/catalogue/theme";
 import type { GetListResponse, GetListVersionsResponse, JsonSchema, VersionRef } from "@/features/catalogue/types";
 import { useCatalogueLists } from "../hooks";
 import AttributeDialog from "./AttributeDialog";
@@ -81,7 +82,7 @@ export default function AttributeDetail({ attributeId }: AttributeDetailProps) {
         <div className="flex items-center gap-2 mb-4">
             <button
                 type="button"
-                onClick={() => router.push("/reference-data")}
+                onClick={() => router.push("/datasets")}
                 className="flex items-center gap-2 text-[18px] font-semibold text-black/80 hover:text-black transition-colors cursor-pointer"
             >
                 <ArrowLeft size={18} />
@@ -131,6 +132,10 @@ export default function AttributeDetail({ attributeId }: AttributeDetailProps) {
                                 {t("cat_owner_org")}: <span className="text-gray-800">{list.owner_org}</span>
                             </span>
                         ) : null}
+                        <span>
+                            {" · "}
+                            {t("cat_theme")}: <span className="text-gray-800">{themeLabel(themeKey(list), t)}</span>
+                        </span>
                         {list.is_hierarchical ? <span>{` · ${t("is_hierarchical")}`}</span> : null}
                     </div>
                     {list.description ? <p className="max-w-3xl">{list.description}</p> : null}

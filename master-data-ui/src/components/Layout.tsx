@@ -4,53 +4,26 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useAuth } from "@/context/Authcontext";
-import { useRbac } from "@/context/RbacContext";
-import { MapPin, Database, Package, History } from "lucide-react";
+import { Home, MapPin, Database, Package, History } from "lucide-react";
 
-// A menu item shows when the user has any of its permissions (makers edit, checkers publish).
+// Every signed-in user can read the whole catalogue (the API's read operations need no
+// permission), so every main page is in the menu; create / edit / publish controls inside the
+// pages are shown only to users holding referenceData:* / geo:* permissions.
 const NAV = [
-  {
-    href: "/geo-locations",
-    labelKey: "geo_locations" as const,
-    anyOf: ["geo:edit", "geo:publish"],
-    Icon: MapPin,
-  },
-  {
-    href: "/reference-data",
-    labelKey: "reference_data" as const,
-    anyOf: ["referenceData:edit", "referenceData:publish"],
-    Icon: Database,
-  },
-  {
-    href: "/releases",
-    labelKey: "releases" as const,
-    anyOf: ["referenceData:edit", "referenceData:publish"],
-    Icon: Package,
-  },
-  {
-    href: "/changes",
-    labelKey: "recent_changes" as const,
-    anyOf: ["referenceData:edit", "referenceData:publish", "geo:edit", "geo:publish"],
-    Icon: History,
-  },
+  { href: "/", labelKey: "home" as const, Icon: Home },
+  { href: "/datasets", labelKey: "reference_data" as const, Icon: Database },
+  { href: "/geo-locations", labelKey: "geo_locations" as const, Icon: MapPin },
+  { href: "/releases", labelKey: "releases" as const, Icon: Package },
+  { href: "/changes", labelKey: "recent_changes" as const, Icon: History },
 ];
+
+const isActive = (pathname: string, href: string) =>
+  href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
 export default function Layout({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { canAny } = useRbac();
-
-  const visibleNav = NAV.filter((item) => {
-    // Show item if either:
-    // 1. RBAC is not available or can check returns true
-    // 2. The action check passes
-    try {
-      return canAny(item.anyOf);
-    } catch {
-      return true; // Show if RBAC check fails
-    }
-  });
 
   const displayName =
     user?.name ||
@@ -62,18 +35,21 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="bg-black text-white flex flex-col shrink-0 sticky top-0 h-screen w-(--sidebar-width) py-7">
-        <div className="px-6 pb-7 flex flex-col items-start border-b border-[rgba(255,255,255,0.08)] mb-5">
+        <Link
+          href="/"
+          title={t("home")}
+          className="px-6 pb-7 flex flex-col items-start border-b border-[rgba(255,255,255,0.08)] mb-5"
+        >
           <img
             src="/openg2p-logo-horizontal.svg"
             alt="OpenG2P"
             className="w-41.75 h-auto block"
           />
           <span className="text-[20px] font-medium text-white mt-6 leading-[1.2]">{t("master_data")}</span>
-        </div>
+        </Link>
         <nav className="flex-1">
-          {visibleNav.map((item) => {
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+          {NAV.map((item) => {
+            const active = isActive(pathname, item.href);
             return (
               <Link
                 key={item.href}

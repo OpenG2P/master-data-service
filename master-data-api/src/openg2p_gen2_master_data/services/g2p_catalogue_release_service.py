@@ -278,6 +278,7 @@ class G2PCatalogueFeedService(BaseService):
         subject_type: Optional[str] = None,
         subject_id: Optional[str] = None,
         event_types: Optional[List[str]] = None,
+        newest: bool = False,
     ) -> Tuple[List[ChangeEvent], int, bool]:
         C = G2PCatalogueChangeLog
         async with get_async_session_maker()() as s:
@@ -288,9 +289,15 @@ class G2PCatalogueFeedService(BaseService):
                 stmt = stmt.where(C.subject_id == subject_id)
             if event_types:
                 stmt = stmt.where(C.event_type.in_(event_types))
-            rows = (await s.execute(stmt.order_by(C.event_id).limit(limit + 1))).scalars().all()
-        has_more = len(rows) > limit
-        rows = rows[:limit]
+            if newest:
+                # The newest events: nothing newer is left, so has_more is False.
+                rows = (await s.execute(stmt.order_by(C.event_id.desc()).limit(limit))).scalars().all()
+                rows = list(reversed(rows))
+                has_more = False
+            else:
+                rows = (await s.execute(stmt.order_by(C.event_id).limit(limit + 1))).scalars().all()
+                has_more = len(rows) > limit
+                rows = rows[:limit]
         events = [
             ChangeEvent(
                 event_id=r.event_id,

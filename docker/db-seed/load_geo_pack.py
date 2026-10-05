@@ -71,7 +71,7 @@ import psycopg2.extras
 ACTOR_DEFAULT = "country-pack-loader"
 # The API's migration writes this; the loader needs the functions it creates
 # (2: version allocation that never reuses numbers, outbox change log).
-REQUIRED_SCHEMA_VERSION = 2
+REQUIRED_SCHEMA_VERSION = 4  # 4: g2p_attributes.domain
 
 
 def _geo_rules():
@@ -662,19 +662,24 @@ def load_list(cur, doc, domain, args, log, pack_label):
     """Returns one of: created, published, draft, unchanged, skipped."""
     list_id = doc["attribute_id"]
     meta, values = desired_list(doc)
-    cur.execute("SELECT attribute_id, description, owner_org FROM g2p_attributes WHERE attribute_id = %s FOR UPDATE",
-                (list_id,))
+    cur.execute("SELECT attribute_id, description, owner_org, domain FROM g2p_attributes "
+                "WHERE attribute_id = %s FOR UPDATE", (list_id,))
     row = cur.fetchone()
     note_suffix = f" ({domain})" if domain else ""
+    # The list's domain for filtering in the UI: "core" for the pack's codelists/,
+    # else the domains/<d>/ it came from. Administrative (g2p_attributes only),
+    # never part of a version.
+    list_domain = (domain or "core").strip().lower()
 
     if row is None:
         # ---- initial load of this list: version 1 ---------------------------------
         cur.execute(
             """INSERT INTO g2p_attributes (attribute_id, attribute_code, attribute_display, is_hierarchical,
-                   display_i18n, attribute_schema, description, owner_org, current_version_no)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NULL)""",
+                   display_i18n, attribute_schema, description, owner_org, domain, current_version_no)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NULL)""",
             (list_id, meta["list_code"], meta["display"], meta["is_hierarchical"], _jsonb(meta["display_i18n"]),
-             _jsonb(meta["attribute_schema"]), doc.get("description"), doc.get("owner_org") or args.owner_org),
+             _jsonb(meta["attribute_schema"]), doc.get("description"), doc.get("owner_org") or args.owner_org,
+             list_domain),
         )
         # 1, unless a list with this id existed before and used numbers (never reused).
         cur.execute("SELECT g2p_catalogue_next_list_version(%s)", (list_id,))
@@ -703,6 +708,10 @@ def load_list(cur, doc, domain, args, log, pack_label):
         cur.execute("UPDATE g2p_attributes SET description = %s WHERE attribute_id = %s", (doc["description"], list_id))
     if doc.get("owner_org") and doc.get("owner_org") != row[2]:
         cur.execute("UPDATE g2p_attributes SET owner_org = %s WHERE attribute_id = %s", (doc["owner_org"], list_id))
+    # Fill the domain of a list loaded before the column existed; one already set
+    # (by an earlier load or by a maker) is kept.
+    if not (row[3] or "").strip():
+        cur.execute("UPDATE g2p_attributes SET domain = %s WHERE attribute_id = %s", (list_domain, list_id))
 
     cur.execute(
         "SELECT version_no, status FROM g2p_list_versions WHERE list_id = %s AND status IN ('DRAFT', 'SUBMITTED')",
@@ -848,6 +857,8 @@ def seed_sql_codelists(conn, domains):
             if not os.path.isdir(d):
                 print(f"[geo-pack] no SQL codelist fixtures for domain '{domain}' — skipped")
                 continue
+            cur.execute("SELECT attribute_id FROM g2p_attributes")
+            before = [r[0] for r in cur.fetchall()]
             for fn in ("g2p_attributes.sql", "g2p_attribute_values.sql"):
                 path = os.path.join(d, fn)
                 if not os.path.exists(path):
@@ -855,6 +866,12 @@ def seed_sql_codelists(conn, domains):
                 with open(path) as fh:
                     cur.execute(fh.read())
                 applied.append(f"{domain}/{fn}")
+            # Lists this domain's fixtures just added belong to that domain.
+            cur.execute(
+                "UPDATE g2p_attributes SET domain = %s "
+                "WHERE coalesce(domain, '') = '' AND NOT (attribute_id = ANY(%s))",
+                (domain.strip().lower(), before),
+            )
     conn.commit()
     if applied:
         print(f"[geo-pack] sql codelist fixtures: {', '.join(applied)}")

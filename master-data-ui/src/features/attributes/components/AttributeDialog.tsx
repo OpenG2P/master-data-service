@@ -18,9 +18,9 @@ type AttributeDialogProps = {
 };
 
 /**
- * Create a code list (`create_list`, opens its first draft) or edit a list's metadata
- * (`update_list`): description and owner apply at once; code, label, labels and the hierarchy
- * flag go into the list's draft. Mount while open (or change `key`) to reset the fields.
+ * Create a dataset (`create_list`, opens its first draft) or edit a dataset's metadata
+ * (`update_list`): description, publisher and theme apply at once; code, label, labels and the
+ * hierarchy flag go into the dataset's draft. Mount while open (or change `key`) to reset the fields.
  */
 export default function AttributeDialog({ open, mode, attribute, onClose, onSuccess }: AttributeDialogProps) {
     const t = useTranslations();
@@ -31,6 +31,7 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
     const [displayI18n, setDisplayI18n] = useState<Record<string, string>>(attribute?.display_i18n ?? {});
     const [description, setDescription] = useState(attribute?.description ?? "");
     const [ownerOrg, setOwnerOrg] = useState(attribute?.owner_org ?? "");
+    const [domain, setDomain] = useState(attribute?.domain ?? "");
     const [isHierarchical, setIsHierarchical] = useState(attribute?.is_hierarchical ?? false);
     const [changeNote, setChangeNote] = useState("");
     const [error, setError] = useState("");
@@ -54,6 +55,7 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                     display_i18n: Object.keys(displayI18n).length ? displayI18n : undefined,
                     description: description.trim() || undefined,
                     owner_org: ownerOrg.trim() || undefined,
+                    domain: domain.trim().toLowerCase() || undefined,
                     is_hierarchical: isHierarchical,
                     change_note: changeNote.trim() || undefined,
                 }));
@@ -62,6 +64,7 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                 const payload: Record<string, unknown> = { list_code: a.list_id };
                 if ((a.description ?? "") !== description.trim()) payload.description = description.trim();
                 if ((a.owner_org ?? "") !== ownerOrg.trim()) payload.owner_org = ownerOrg.trim();
+                if ((a.domain ?? "") !== domain.trim().toLowerCase()) payload.domain = domain.trim().toLowerCase();
                 if ((a.list_code ?? "") !== code.trim()) payload.new_list_code = code.trim();
                 if ((a.display ?? "") !== display.trim()) payload.display = display.trim() || code.trim();
                 if (JSON.stringify(a.display_i18n ?? {}) !== JSON.stringify(displayI18n)) payload.display_i18n = displayI18n;
@@ -120,6 +123,20 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                 </Field>
                 <Field label={t("cat_owner_org")} hint={t("cat_owner_org_hint")}>
                     <input type="text" value={ownerOrg} onChange={(e) => setOwnerOrg(e.target.value)} className={inputClass} />
+                </Field>
+                <Field label={t("cat_theme")} hint={t("cat_theme_hint")}>
+                    <input
+                        type="text"
+                        value={domain}
+                        onChange={(e) => setDomain(e.target.value)}
+                        className={inputClass}
+                        list="dataset-theme-options"
+                        placeholder={t("cat_theme_placeholder")}
+                    />
+                    <datalist id="dataset-theme-options">
+                        <option value="core" />
+                        <option value="agriculture" />
+                    </datalist>
                 </Field>
                 <label className="flex cursor-pointer items-center gap-3">
                     <input

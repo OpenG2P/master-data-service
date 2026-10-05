@@ -4,7 +4,7 @@ import type { GetListsResponse } from "@/features/catalogue/types";
 
 const PAYLOAD = { include_unpublished: true };
 
-/** All code lists (`/catalogue/get_lists`): owner, current published version, open draft. */
+/** All datasets (`/catalogue/get_lists`): publisher, theme, current published version, open draft. */
 export function useCatalogueLists(searchText?: string) {
     const { data, loading, error, reload } = useCatalogueQuery<GetListsResponse>("get_lists", PAYLOAD);
     const all = useMemo(() => data?.lists ?? [], [data]);
@@ -17,6 +17,7 @@ export function useCatalogueLists(searchText?: string) {
                 l.list_code?.toLowerCase().includes(q) ||
                 l.display?.toLowerCase().includes(q) ||
                 l.owner_org?.toLowerCase().includes(q) ||
+                l.domain?.toLowerCase().includes(q) ||
                 l.list_id.toLowerCase().includes(q),
         );
     }, [all, searchText]);

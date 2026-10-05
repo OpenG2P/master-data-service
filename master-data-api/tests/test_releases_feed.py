@@ -408,3 +408,13 @@ async def test_display_names_are_returned_next_to_ids(client, db):
 
     # A system actor has no display name: readers fall back to the id.
     assert Actor.system("awe").display_name is None
+
+
+async def test_change_feed_newest():
+    await publish_list("N1", ("X",))
+    await publish_list("N2", ("Y",))
+    feed = G2PCatalogueFeedService.get_component()
+    everything, last, _ = await feed.get_changes(0, 1000)
+    events, cursor, more = await feed.get_changes(0, 3, newest=True)
+    assert [e.event_id for e in events] == [e.event_id for e in everything[-3:]]
+    assert cursor == last and not more
