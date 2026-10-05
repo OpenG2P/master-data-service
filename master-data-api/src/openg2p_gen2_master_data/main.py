@@ -2,6 +2,7 @@
 
 # ruff: noqa: I001, E402
 from openg2p_gen2_master_data.config import Settings
+from openg2p_gen2_master_data.audit_middleware import AuditMiddleware
 
 _config = Settings.get_config()
 
@@ -91,6 +92,20 @@ app.add_middleware(
     CsrfMiddleware,
     enabled=_config.csrf_enabled,
     excluded_paths=MASTER_DATA_CSRF_EXCLUDED_PATHS,
+)
+
+# Added after the auth middlewares so it is the OUTERMOST wrapper: by the time
+# it runs (after call_next) token validation and permission checks have filled
+# request.state, so each API call is recorded with its caller and outcome.
+app.add_middleware(
+    AuditMiddleware,
+    audit_manager_url=_config.audit_manager_url,
+    enabled=_config.audit_api_calls_enabled,
+    timeout_seconds=_config.audit_timeout_seconds,
+    source=_config.audit_api_source,
+    module=_config.audit_api_module,
+    client_id=_config.keycloak_client_id,
+    audit_anonymous_failures=_config.audit_anonymous_failures,
 )
 
 if __name__ == "__main__":

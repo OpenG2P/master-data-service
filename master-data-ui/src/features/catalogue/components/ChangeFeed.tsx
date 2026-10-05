@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import Pagination from "@/components/Pagination";
@@ -11,6 +11,7 @@ import { ErrorBox, formatDateTime, personLabel, tdClass, thClass } from "./ui";
 const PAGE_LIMIT = 1000;
 const MAX_PAGES = 20;
 const PAGE_SIZE = 20;
+const NO_EVENTS: ChangeEvent[] = [];
 
 interface FeedState {
     key: string;
@@ -20,30 +21,28 @@ interface FeedState {
     error?: string;
 }
 
+export interface ChangeFeedData {
+    events: ChangeEvent[];
+    truncated: boolean;
+    error?: string;
+    loading: boolean;
+    reload: () => void;
+}
+
 /**
- * The catalogue change feed (`get_changes`), newest first. Reads the cursor-based feed from the
- * start (up to MAX_PAGES × PAGE_LIMIT events) and filters by subject.
+ * Loads the catalogue change feed (`get_changes`) from the start (up to MAX_PAGES × PAGE_LIMIT
+ * events), filtered by subject, newest first. `enabled = false` skips loading (the caller passes
+ * an already loaded feed).
  */
-export default function ChangeFeed({
-    subjectType,
-    subjectId,
-    showSubjectFilter = false,
-}: {
-    subjectType?: "list" | "geo" | "release";
-    subjectId?: string;
-    showSubjectFilter?: boolean;
-}) {
-    const t = useTranslations();
+export function useChangeFeed(subjectType?: string, subjectId?: string, enabled = true): ChangeFeedData {
     const call = useCatalogueApi();
-    const [filterType, setFilterType] = useState<string>(subjectType ?? "");
-    const [query, setQuery] = useState("");
-    const [page, setPage] = useState(1);
     const [nonce, setNonce] = useState(0);
     const [state, setState] = useState<FeedState>({ key: "", nonce: -1 });
 
-    const key = JSON.stringify([filterType || null, subjectId ?? null]);
+    const key = JSON.stringify([subjectType || null, subjectId ?? null]);
 
     useEffect(() => {
+        if (!enabled) return;
         const controller = new AbortController();
         const load = async () => {
             const all: ChangeEvent[] = [];
@@ -55,7 +54,7 @@ export default function ChangeFeed({
                     {
                         cursor,
                         limit: PAGE_LIMIT,
-                        ...(filterType ? { subject_type: filterType } : {}),
+                        ...(subjectType ? { subject_type: subjectType } : {}),
                         ...(subjectId ? { subject_id: subjectId } : {}),
                     },
                     undefined,
@@ -77,11 +76,98 @@ export default function ChangeFeed({
             },
         );
         return () => controller.abort();
-    }, [key, nonce, call, filterType, subjectId]);
+    }, [key, nonce, call, subjectType, subjectId, enabled]);
 
-    const loading = state.key !== key || state.nonce !== nonce;
+    const reload = useCallback(() => setNonce((n) => n + 1), []);
+    const current = state.key === key;
+    return {
+        events: (current ? state.events : undefined) ?? NO_EVENTS,
+        truncated: current ? Boolean(state.truncated) : false,
+        error: current ? state.error : undefined,
+        loading: !current || state.nonce !== nonce,
+        reload,
+    };
+}
+
+const unitList = (v: unknown): string => (Array.isArray(v) ? v.map(String).join(", ") : v == null ? "" : String(v));
+
+function formatValue(v: unknown): string {
+    if (v == null) return "—";
+    if (Array.isArray(v)) return v.every((x) => typeof x !== "object" || x === null) ? v.join(", ") : JSON.stringify(v);
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+}
+
+/**
+ * A readable one-line summary of an event's details: a sentence for known events (a recorded
+ * geography change event: "SPLIT recorded: D1 → D1A, D1B"), otherwise `key: value` pairs.
+ */
+export function describeChange(e: ChangeEvent, t: ReturnType<typeof useTranslations>): string {
+    const d = e.details ?? {};
+    if (e.event_type === "geo.change.recorded") {
+        const from = unitList(d.from);
+        const to = unitList(d.to);
+        const units = from && to ? `${from} → ${to}` : from || to;
+        return t("cat_feed_change_recorded", { type: String(d.change_type ?? ""), units: units || "—" });
+    }
+    if (e.event_type === "geo.change.deleted") {
+        return t("cat_feed_change_deleted", { id: String(d.change_id ?? "") });
+    }
+    const entries = Object.entries(d);
+    if (!entries.length) return "—";
+    return entries.map(([k, v]) => `${k}: ${formatValue(v)}`).join(" · ");
+}
+
+/** A compact, newest-first timeline of events (used inside an expanded version row). */
+export function ChangeTimeline({ events }: { events: ChangeEvent[] }) {
+    const t = useTranslations();
+    if (!events.length) return <p className="py-2 text-[13px] text-gray-500">{t("cat_feed_empty")}</p>;
+    return (
+        <ol className="space-y-2 border-l-2 border-[#f4bb1b]/60 pl-4">
+            {events.map((e) => (
+                <li key={e.event_id} className="text-[13px]">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <span className="whitespace-nowrap text-gray-500">{formatDateTime(e.at)}</span>
+                        <span className="font-mono text-gray-800">{e.event_type}</span>
+                        <span className="text-gray-600">{personLabel(e.actor, e.actor_name)}</span>
+                    </div>
+                    <div
+                        className="break-words text-gray-700"
+                        title={e.details ? JSON.stringify(e.details) : ""}
+                    >
+                        {describeChange(e, t)}
+                    </div>
+                </li>
+            ))}
+        </ol>
+    );
+}
+
+/**
+ * The catalogue change feed, newest first, with a text filter and paging. Loads the feed itself
+ * unless `feed` (from `useChangeFeed`) is passed.
+ */
+export default function ChangeFeed({
+    subjectType,
+    subjectId,
+    showSubjectFilter = false,
+    feed: given,
+}: {
+    subjectType?: "list" | "geo" | "release";
+    subjectId?: string;
+    showSubjectFilter?: boolean;
+    feed?: ChangeFeedData;
+}) {
+    const t = useTranslations();
+    const [filterType, setFilterType] = useState<string>(subjectType ?? "");
+    const [query, setQuery] = useState("");
+    const [page, setPage] = useState(1);
+    const own = useChangeFeed(filterType, subjectId, !given);
+    const feed = given ?? own;
+
+    const loading = feed.loading;
     const events = useMemo(() => {
-        const list = state.key === key ? state.events ?? [] : [];
+        const list = feed.events;
         const q = query.trim().toLowerCase();
         if (!q) return list;
         return list.filter(
@@ -91,7 +177,7 @@ export default function ChangeFeed({
                 (e.actor ?? "").toLowerCase().includes(q) ||
                 (e.actor_name ?? "").toLowerCase().includes(q),
         );
-    }, [state, key, query]);
+    }, [feed.events, query]);
 
     const totalPages = Math.max(1, Math.ceil(events.length / PAGE_SIZE));
     const currentPage = Math.min(page, totalPages);
@@ -126,15 +212,15 @@ export default function ChangeFeed({
                     placeholder={t("cat_feed_search")}
                     className="h-9 w-64 rounded border border-gray-300 bg-white px-3 text-[14px] outline-none focus:border-[#EABB13]"
                 />
-                <Button variant="secondary" onClick={() => setNonce((n) => n + 1)} loading={loading}>
+                <Button variant="secondary" onClick={feed.reload} loading={loading}>
                     {t("refresh")}
                 </Button>
             </div>
 
-            <ErrorBox message={state.key === key ? state.error : undefined} />
-            {state.truncated ? <p className="text-[13px] text-gray-500">{t("cat_feed_truncated")}</p> : null}
+            <ErrorBox message={feed.error} />
+            {feed.truncated ? <p className="text-[13px] text-gray-500">{t("cat_feed_truncated")}</p> : null}
 
-            {loading && !state.events ? (
+            {loading && !feed.events.length ? (
                 <p className="text-[14px] text-gray-500">{t("loading")}</p>
             ) : rows.length === 0 ? (
                 <p className="py-6 text-center text-[14px] text-gray-500">{t("cat_feed_empty")}</p>
@@ -163,10 +249,10 @@ export default function ChangeFeed({
                                     <td className={`${tdClass} text-[13px]`}>{e.version_no != null ? `v${e.version_no}` : "—"}</td>
                                     <td className={`${tdClass} text-[13px]`}>{personLabel(e.actor, e.actor_name)}</td>
                                     <td
-                                        className={`${tdClass} max-w-md truncate font-mono text-[12px] text-gray-600`}
+                                        className={`${tdClass} max-w-md truncate text-[13px] text-gray-700`}
                                         title={e.details ? JSON.stringify(e.details) : ""}
                                     >
-                                        {e.details && Object.keys(e.details).length ? JSON.stringify(e.details) : "—"}
+                                        {describeChange(e, t)}
                                     </td>
                                 </tr>
                             ))}

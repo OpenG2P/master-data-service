@@ -88,6 +88,22 @@ async def test_split_merge_recode_lineage_and_crosswalk(db):
         ),
         MAKER,
     )
+    # Recording the event writes a change-log (outbox) entry the UI's activity timeline shows.
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT subject_type, subject_id, version_no, actor, details FROM g2p_catalogue_change_log "
+            "WHERE event_type = 'geo.change.recorded'"
+        )
+        logged = cur.fetchall()
+    assert logged == [
+        (
+            "geo",
+            "geography",
+            2,
+            MAKER.id,
+            {"change_id": split.change_id, "change_type": "SPLIT", "from": ["D1"], "to": ["D1A", "D1B"]},
+        )
+    ]
     with pytest.raises(CatalogueError, match="already end"):
         await g.record_geo_change(RecordGeoChangePayload(change_type="RETIRE", from_units=["D1"]), MAKER)
     with pytest.raises(CatalogueError, match="already exists"):

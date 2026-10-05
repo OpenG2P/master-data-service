@@ -12,10 +12,9 @@ import { useRbac } from "@/context/RbacContext";
 import { useCatalogueApi, useCatalogueQuery } from "@/features/catalogue/api";
 import { useCatalogueConfig } from "@/features/catalogue/hooks";
 import AttributeSchemaEditor from "@/features/catalogue/components/AttributeSchemaEditor";
-import ChangeFeed from "@/features/catalogue/components/ChangeFeed";
 import ListDiffView from "@/features/catalogue/components/ListDiffView";
 import VersionBar, { LIST_DRAFT_OPS, findOpenDraft } from "@/features/catalogue/components/VersionBar";
-import VersionHistoryTable from "@/features/catalogue/components/VersionHistoryTable";
+import VersionHistoryActivity from "@/features/catalogue/components/VersionHistoryActivity";
 import { ErrorBox, Panel, Tabs, localizedLabel } from "@/features/catalogue/components/ui";
 import type { GetListResponse, GetListVersionsResponse, JsonSchema, VersionRef } from "@/features/catalogue/types";
 import { useCatalogueLists } from "../hooks";
@@ -27,11 +26,12 @@ interface AttributeDetailProps {
     attributeId: string;
 }
 
-type TabKey = "values" | "schema" | "history" | "diff" | "activity";
+type TabKey = "values" | "schema" | "history" | "diff";
 
 /**
  * One code list: version selector and badge, draft lifecycle, values (edited in the draft),
- * attribute schema, version history, diff between versions and the list's change feed.
+ * attribute schema, history (version history, each version expanding to its activity, plus the
+ * list's full change feed) and diff between versions.
  */
 export default function AttributeDetail({ attributeId }: AttributeDetailProps) {
     const t = useTranslations();
@@ -166,9 +166,8 @@ export default function AttributeDetail({ attributeId }: AttributeDetailProps) {
                 tabs={[
                     { key: "values", label: t("cat_tab_values") },
                     { key: "schema", label: t("cat_tab_schema") },
-                    { key: "history", label: t("cat_tab_history") },
+                    { key: "history", label: t("cat_group_history") },
                     { key: "diff", label: t("cat_tab_diff") },
-                    { key: "activity", label: t("cat_tab_activity") },
                 ]}
                 active={tab}
                 onChange={setTab}
@@ -203,26 +202,20 @@ export default function AttributeDetail({ attributeId }: AttributeDetailProps) {
             ) : null}
 
             {tab === "history" ? (
-                <Panel>
-                    <VersionHistoryTable
-                        versions={versions}
-                        onView={(ref) => {
-                            setChosen(ref);
-                            setTab("values");
-                        }}
-                    />
-                </Panel>
+                <VersionHistoryActivity
+                    subjectType="list"
+                    subjectId={list.list_id}
+                    versions={versions}
+                    onView={(ref) => {
+                        setChosen(ref);
+                        setTab("values");
+                    }}
+                />
             ) : null}
 
             {tab === "diff" ? (
                 <Panel>
                     <ListDiffView listCode={list.list_id} versions={versions} />
-                </Panel>
-            ) : null}
-
-            {tab === "activity" ? (
-                <Panel>
-                    <ChangeFeed subjectType="list" subjectId={list.list_id} />
                 </Panel>
             ) : null}
 

@@ -5,5 +5,6 @@ export { default as ListDiffView } from "./ListDiffView";
 export { default as NoteDialog } from "./NoteDialog";
 export { default as TypedAttributeFields } from "./TypedAttributeFields";
 export { default as VersionBar, GEO_DRAFT_OPS, LIST_DRAFT_OPS, findOpenDraft, parseVersionRef } from "./VersionBar";
+export { default as VersionHistoryActivity } from "./VersionHistoryActivity";
 export { default as VersionHistoryTable } from "./VersionHistoryTable";
 export * from "./ui";

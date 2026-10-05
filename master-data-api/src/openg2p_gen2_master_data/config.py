@@ -104,6 +104,14 @@ class Settings(IamSettings):
     audit_manager_url: str = ""
     audit_source: str = "/openg2p/master-data"
     audit_timeout_seconds: float = 5.0
+    # Every API call is also sent to the Audit Manager (same middleware as the
+    # registry's APIs): who called which endpoint and how it went. Separate
+    # source from the catalogue lifecycle events above. Off when
+    # audit_manager_url is empty.
+    audit_api_calls_enabled: bool = True
+    audit_api_source: str = "/openg2p/master-data-api"
+    audit_api_module: str = "master-data-api"
+    audit_anonymous_failures: bool = True
 
     # WebSub hub for version notifications. Empty disables. Topics:
     # <prefix>.<list|geo|release>.published (a version / release was published,
