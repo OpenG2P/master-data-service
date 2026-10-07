@@ -40,6 +40,14 @@ class G2PAttribute(BaseORMModel):
     # country-pack loader or by the maker; NULL for lists of unknown origin.
     # Administrative, like owner_org: a filter in the UI, not versioned.
     domain: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # "public" lets the anonymous /public catalogue show the list's PUBLISHED
+    # versions; NULL or "private" (the default) keeps it to authenticated
+    # callers. Administrative (not versioned); authenticated reads ignore it.
+    visibility: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Optional licence of the dataset (e.g. https://creativecommons.org/licenses/by/4.0/,
+    # "CC BY 4.0"). Administrative.
+    licence_uri: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    licence_label: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # The published version the legacy rows currently show (latest published
     # version whose effective_from has passed). NULL until first published.
     current_version_no: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

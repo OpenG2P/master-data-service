@@ -423,3 +423,24 @@ class BoundaryStore(BaseService):
             return obj["Body"].read()
 
         return await asyncio.to_thread(_get)
+
+    async def stream(self, key: str, chunk_size: int = 64 * 1024):
+        """The object's bytes in chunks (the public catalogue streams boundaries
+        without holding a whole level's GeoJSON in memory). Opens the object
+        before the first chunk, so a missing key raises before anything is sent."""
+        obj = await asyncio.to_thread(
+            lambda: self._client().get_object(Bucket=_config.boundary_s3_bucket, Key=key)
+        )
+        body = obj["Body"]
+
+        async def chunks():
+            try:
+                while True:
+                    data = await asyncio.to_thread(body.read, chunk_size)
+                    if not data:
+                        break
+                    yield data
+            finally:
+                await asyncio.to_thread(body.close)
+
+        return chunks()

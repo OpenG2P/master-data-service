@@ -39,6 +39,7 @@ from ..schemas.g2p_catalogue import (
     DraftResponsePayload,
     EmptyPayload,
     GeoDraftResponsePayload,
+    GeoSettingsResponsePayload,
     GetChangesPayload,
     GetChangesResponsePayload,
     GetGeoBoundaryPayload,
@@ -80,6 +81,7 @@ from ..schemas.g2p_catalogue import (
     SubmitDraftPayload,
     SubmitGeoDraftPayload,
     UpdateGeoDraftPayload,
+    UpdateGeoSettingsPayload,
     UpdateListDraftPayload,
     UpdateListPayload,
     UploadDraftBoundaryPayload,
@@ -407,7 +409,7 @@ class G2PCatalogueController(BaseController):
             tag=TAG_LISTS,
             summary="Create a code list",
             description="Registers a new list (code, label, labels per locale, description, owner_org, domain, "
-            "hierarchy flag, attribute_schema) and opens its first draft (version 1). Nothing is published "
+            "visibility (private by default), licence_uri / licence_label, hierarchy flag, attribute_schema) and opens its first draft (version 1). Nothing is published "
             "until that draft is submitted and approved. `attribute_schema` is a JSON Schema (2020-12) for "
             'each value\'s `attributes`; a property may carry `"x-list-ref": "<LIST_CODE>"`.',
         )
@@ -424,7 +426,8 @@ class G2PCatalogueController(BaseController):
             permissions={"referenceData:edit"},
             tag=TAG_LISTS,
             summary="Update a list's metadata",
-            description="`description`, `owner_org` and `domain` are administrative and apply at once. `new_list_code`, "
+            description="`description`, `owner_org`, `domain`, `visibility` and `licence_uri` / `licence_label` "
+            "are administrative and apply at once. `new_list_code`, "
             "`display`, `display_i18n`, `is_hierarchical` and `attribute_schema` are part of what consumers "
             "see, so they go into the open draft." + _DRAFT,
         )
@@ -746,6 +749,39 @@ class G2PCatalogueController(BaseController):
             tag=TAG_GEO,
             summary="Set the geography draft's note / effective date / owner",
             description="Only fields present are changed.",
+        )
+
+        async def get_geo_settings(req, body, p):
+            return GeoSettingsResponsePayload(settings=await G.get_geo_settings())
+
+        r(
+            "/get_geo_settings",
+            EmptyPayload,
+            GeoSettingsResponsePayload,
+            get_geo_settings,
+            permissions=READ,
+            tag=TAG_GEO,
+            summary="Geography settings (visibility, licence)",
+            description="`visibility` (private — the default — or public) and the optional licence "
+            "(`licence_uri`, `licence_label`) of the geography. Administrative, not versioned.",
+        )
+
+        async def update_geo_settings(req, body, p):
+            return GeoSettingsResponsePayload(
+                settings=await G.update_geo_settings(p, actor_from_request(req))
+            )
+
+        r(
+            "/update_geo_settings",
+            UpdateGeoSettingsPayload,
+            GeoSettingsResponsePayload,
+            update_geo_settings,
+            permissions={"geo:edit"},
+            tag=TAG_GEO,
+            summary="Set the geography's visibility / licence",
+            description="Applied at once (not versioned); only fields present are changed, an empty licence "
+            'field clears it. `visibility: "public"` lets the anonymous /public catalogue (when enabled) show '
+            "the geography's PUBLISHED versions; drafts are never public. Logged as `geo.settings.updated`.",
         )
 
         async def upsert_draft_levels(req, body, p):
@@ -1071,6 +1107,8 @@ class G2PCatalogueController(BaseController):
                 websub_enabled=bool((_config.websub_hub_url or "").strip()),
                 country=state["country"],
                 geo_current_version_no=state["geo_current_version_no"],
+                public_catalogue_enabled=bool(_config.public_catalogue_enabled),
+                public_base_url=(_config.public_base_url or "").strip().rstrip("/") or None,
             )
 
         r(
@@ -1082,8 +1120,9 @@ class G2PCatalogueController(BaseController):
             tag=TAG_FEED,
             summary="How this catalogue is configured",
             description="`approval_mode` (permission | awe — the UI shows approve/reject buttons only in "
-            "permission mode), whether boundary upload, audit and WebSub are enabled, the country and the "
-            "geography version currently in effect.",
+            "permission mode), whether boundary upload, audit and WebSub are enabled, the country, the "
+            "geography version currently in effect and whether the anonymous /public catalogue is enabled "
+            "(with its base URL).",
         )
 
     # ------------------------------------------------------------------

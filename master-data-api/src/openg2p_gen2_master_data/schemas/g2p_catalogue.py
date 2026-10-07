@@ -52,6 +52,7 @@ class CatalogueResponse(G2PResponse, Generic[R]):
 # ---------------------------------------------------------------------------
 
 VersionRef = Union[int, Literal["latest", "draft"]]
+Visibility = Literal["private", "public"]
 
 
 class VersionSelector(BaseModel):
@@ -117,6 +118,13 @@ class ListSummary(BaseModel):
         "or on create/update; for a pack list loaded before the column existed it is derived from its "
         "first version's change note. NULL when unknown.",
     )
+    visibility: Visibility = Field(
+        default="private",
+        description='"public": shown (PUBLISHED versions only) by the anonymous /public catalogue when it is '
+        'enabled; "private" (default): authenticated callers only. Authenticated reads ignore it.',
+    )
+    licence_uri: Optional[str] = Field(default=None, description="Licence URI, e.g. a Creative Commons deed.")
+    licence_label: Optional[str] = Field(default=None, description='Licence label, e.g. "CC BY 4.0".')
     is_hierarchical: bool = False
     attribute_schema: Optional[Dict[str, Any]] = None
     attribute_schema_summary: Optional[Dict[str, Any]] = Field(
@@ -235,6 +243,9 @@ class CreateListPayload(BaseModel):
     domain: Optional[str] = Field(
         default=None, description='Pack domain ("core", "agriculture", ...); stored lower-case.'
     )
+    visibility: Visibility = Field(default="private", description='"private" (default) or "public".')
+    licence_uri: Optional[str] = None
+    licence_label: Optional[str] = None
     is_hierarchical: bool = False
     attribute_schema: Optional[Dict[str, Any]] = None
     list_id: Optional[str] = Field(default=None, description="Defaults to list_code.")
@@ -252,6 +263,11 @@ class UpdateListPayload(ListRef):
     domain: Optional[str] = Field(
         default=None, description="Applied directly (not versioned); lower-case, empty clears it."
     )
+    visibility: Optional[Visibility] = Field(
+        default=None, description='Applied directly (not versioned): "private" or "public".'
+    )
+    licence_uri: Optional[str] = Field(default=None, description="Applied directly; empty clears it.")
+    licence_label: Optional[str] = Field(default=None, description="Applied directly; empty clears it.")
     new_list_code: Optional[str] = Field(default=None, description="Goes into the open draft.")
     display: Optional[str] = Field(default=None, description="Goes into the open draft.")
     display_i18n: Optional[Dict[str, str]] = Field(default=None, description="Goes into the open draft.")
@@ -705,6 +721,30 @@ class CatalogueConfigResponsePayload(BaseModel):
     websub_enabled: bool
     country: Optional[str] = None
     geo_current_version_no: Optional[int] = None
+    public_catalogue_enabled: bool = False
+    public_base_url: Optional[str] = None
+
+
+class GeoSettings(BaseModel):
+    """Administrative settings of the geography (not versioned)."""
+
+    visibility: Visibility = Field(
+        default="private",
+        description='"public": the anonymous /public catalogue shows the geography\'s PUBLISHED versions '
+        '(levels, units, boundaries) when it is enabled; "private" (default): authenticated callers only.',
+    )
+    licence_uri: Optional[str] = None
+    licence_label: Optional[str] = None
+
+
+class UpdateGeoSettingsPayload(BaseModel):
+    visibility: Optional[Visibility] = None
+    licence_uri: Optional[str] = Field(default=None, description="Empty clears it.")
+    licence_label: Optional[str] = Field(default=None, description="Empty clears it.")
+
+
+class GeoSettingsResponsePayload(BaseModel):
+    settings: GeoSettings
 
 
 class AweWebhookEvent(BaseModel):

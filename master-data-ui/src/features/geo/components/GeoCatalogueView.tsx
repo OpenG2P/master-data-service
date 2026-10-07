@@ -8,7 +8,15 @@ import { useCatalogueConfig } from "@/features/catalogue/hooks";
 import VersionBar, { GEO_DRAFT_OPS, findOpenDraft } from "@/features/catalogue/components/VersionBar";
 import VersionHistoryActivity from "@/features/catalogue/components/VersionHistoryActivity";
 import { ErrorBox, Panel, Tabs } from "@/features/catalogue/components/ui";
-import type { GetGeoLevelsResponse, GetGeoVersionsResponse, VersionRef } from "@/features/catalogue/types";
+import { LicenceText, VisibilityBadge } from "@/features/catalogue/components/Publication";
+import EditButton from "@/components/EditButton";
+import type {
+    GeoSettingsResponse,
+    GetGeoLevelsResponse,
+    GetGeoVersionsResponse,
+    VersionRef,
+} from "@/features/catalogue/types";
+import GeoSettingsDialog from "./GeoSettingsDialog";
 import GeoBoundaries from "./GeoBoundaries";
 import GeoChangeEvents from "./GeoChangeEvents";
 import GeoCrosswalk from "./GeoCrosswalk";
@@ -42,6 +50,9 @@ export default function GeoCatalogueView() {
     const [chosen, setChosen] = useState<VersionRef | null>(null);
     const [includeRetired, setIncludeRetired] = useState(false);
     const [treeNonce, setTreeNonce] = useState(0);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const settingsQuery = useCatalogueQuery<GeoSettingsResponse>("get_geo_settings", EMPTY);
+    const geoSettings = settingsQuery.data?.settings ?? null;
 
     const versionsQuery = useCatalogueQuery<GetGeoVersionsResponse>("get_geo_versions", EMPTY);
     const versions = versionsQuery.data?.versions ?? [];
@@ -102,6 +113,22 @@ export default function GeoCatalogueView() {
                     </span>
                 ) : null}
             </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-[14px] text-gray-600">
+                <VisibilityBadge visibility={geoSettings?.visibility} />
+                <LicenceText uri={geoSettings?.licence_uri} label={geoSettings?.licence_label} />
+                {can(GEO_ACTIONS.edit) ? (
+                    <EditButton onClick={() => setSettingsOpen(true)}>{t("cat_geo_settings")}</EditButton>
+                ) : null}
+            </div>
+            {settingsOpen ? (
+                <GeoSettingsDialog
+                    settings={geoSettings}
+                    publicCatalogueEnabled={config?.public_catalogue_enabled}
+                    onClose={() => setSettingsOpen(false)}
+                    onSaved={() => settingsQuery.reload()}
+                />
+            ) : null}
 
             <ErrorBox message={versionsQuery.error} />
 

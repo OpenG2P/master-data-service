@@ -222,6 +222,14 @@ masterDataAPI:
     MASTER_DATA_API_BOUNDARY_S3_ENDPOINT: '{{ .Values.catalogue.boundaryStore.endpoint }}'
     MASTER_DATA_API_BOUNDARY_S3_BUCKET: '{{ .Values.catalogue.boundaryStore.bucket }}'
     MASTER_DATA_API_BOUNDARY_PUBLIC_BASE_URL: '{{ tpl .Values.catalogue.boundaryStore.publicBaseUrl $ }}'
+    # Public catalogue (see masterDataAPI.catalogue.public below).
+    MASTER_DATA_API_PUBLIC_CATALOGUE_ENABLED: '{{ .Values.catalogue.public.enabled }}'
+    MASTER_DATA_API_PUBLIC_BASE_URL: '{{ tpl .Values.catalogue.public.baseUrl $ }}'
+    MASTER_DATA_API_PUBLIC_CATALOGUE_RATE_LIMIT_PER_MINUTE: '{{ .Values.catalogue.public.rateLimitPerMinute }}'
+    MASTER_DATA_API_PUBLIC_CATALOGUE_TRUSTED_PROXY_HOPS: '{{ .Values.catalogue.public.trustedProxyHops }}'
+    MASTER_DATA_API_PUBLIC_CATALOGUE_CACHE_SECONDS: '{{ .Values.catalogue.public.cacheSeconds }}'
+    MASTER_DATA_API_PUBLIC_CATALOGUE_TITLE: '{{ .Values.catalogue.public.title }}'
+    MASTER_DATA_API_PUBLIC_CATALOGUE_PUBLISHER: '{{ .Values.catalogue.public.publisher }}'
 
   envVarsFrom:
     MASTER_DATA_API_DB_PASSWORD:
@@ -307,6 +315,38 @@ masterDataAPI:
       existingSecret: commons-minio
       accessKeyKey: root-user
       secretKeyKey: root-password
+    # Public catalogue: anonymous, read-only GET /public/... (DCAT JSON-LD at
+    # /public/catalog, SKOS per dataset, CSV / JSON / GeoJSON downloads) for
+    # other websites and open-data portals. Off by default — every /public
+    # route answers 404 — and even when on, only datasets / the geography an
+    # administrator marked "public" in Master Data are shown, at their PUBLISHED
+    # versions. Master Data itself stays an admin UI; there is no public site.
+    public:
+      enabled: false
+      # Absolute base of links in DCAT / SKOS and download URLs, e.g.
+      # https://catalogue.example.gov. Empty: taken from each request (the
+      # public host below sets X-Forwarded-Host / -Proto, so links then point
+      # at it). Set it when a CDN or another proxy fronts the catalogue.
+      baseUrl: ""
+      # Per client IP and API worker (in-process token bucket); 0 disables.
+      rateLimitPerMinute: 60
+      # Proxies in front of the API that append to X-Forwarded-For (the Istio
+      # ingress gateway: 1). The client IP is taken that many entries from the right.
+      trustedProxyHops: 1
+      cacheSeconds: 300
+      title: Master data catalogue
+      # Publisher named in the DCAT catalogue; empty uses catalogue.defaultOwnerOrg.
+      publisher: ""
+      # A separate host that routes ONLY /public/ to the API (nothing else of
+      # the API or the admin UI is reachable on it).
+      istio:
+        enabled: false
+        host: 'catalogue.{{ .Release.Namespace }}.openg2p.org'
+        # Default: the existing internal gateway, i.e. reachable on the
+        # internal network only. Exposing the catalogue to the internet needs a
+        # public (internet-facing) Istio gateway named here, and a DNS name /
+        # TLS certificate for the host on it.
+        gateway: internal
 
 
   startupProbe:

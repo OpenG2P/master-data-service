@@ -49,6 +49,8 @@ const CATALOGUE_OPS = new Set([
 	"approve_geo_draft",
 	"reject_geo_draft",
 	"discard_geo_draft",
+	"get_geo_settings",
+	"update_geo_settings",
 	// releases
 	"get_releases",
 	"get_release",

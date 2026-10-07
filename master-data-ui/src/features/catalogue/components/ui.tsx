@@ -98,6 +98,8 @@ const STATUS_STYLES: Record<string, string> = {
     ACTIVE: "bg-green-50 text-green-700 border-green-200",
     LATEST: "bg-[#f4bb1b]/20 text-black border-[#f4bb1b]",
     PENDING: "bg-purple-50 text-purple-700 border-purple-200",
+    PUBLIC: "bg-emerald-50 text-emerald-700 border-emerald-300",
+    PRIVATE: "bg-gray-100 text-gray-600 border-gray-300",
     AUTO: "bg-gray-100 text-gray-600 border-gray-300",
 };
 

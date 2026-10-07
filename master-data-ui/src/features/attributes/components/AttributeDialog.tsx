@@ -6,6 +6,8 @@ import Button from "@/components/Button";
 import { toast } from "react-toastify";
 import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
 import I18nLabelsEditor from "@/features/catalogue/components/I18nLabelsEditor";
+import { PublicationFields, type PublicationValue } from "@/features/catalogue/components/Publication";
+import { useCatalogueConfig } from "@/features/catalogue/hooks";
 import { ErrorBox, Field, Modal, inputClass, textareaClass } from "@/features/catalogue/components/ui";
 import type { ListAndDraftResponse, ListSummary } from "@/features/catalogue/types";
 
@@ -19,7 +21,7 @@ type AttributeDialogProps = {
 
 /**
  * Create a dataset (`create_list`, opens its first draft) or edit a dataset's metadata
- * (`update_list`): description, publisher and theme apply at once; code, label, labels and the
+ * (`update_list`): description, publisher, theme, visibility and licence apply at once; code, label, labels and the
  * hierarchy flag go into the dataset's draft. Mount while open (or change `key`) to reset the fields.
  */
 export default function AttributeDialog({ open, mode, attribute, onClose, onSuccess }: AttributeDialogProps) {
@@ -33,6 +35,12 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
     const [ownerOrg, setOwnerOrg] = useState(attribute?.owner_org ?? "");
     const [domain, setDomain] = useState(attribute?.domain ?? "");
     const [isHierarchical, setIsHierarchical] = useState(attribute?.is_hierarchical ?? false);
+    const [publication, setPublication] = useState<PublicationValue>({
+        visibility: attribute?.visibility ?? "private",
+        licenceUri: attribute?.licence_uri ?? "",
+        licenceLabel: attribute?.licence_label ?? "",
+    });
+    const { config } = useCatalogueConfig();
     const [changeNote, setChangeNote] = useState("");
     const [error, setError] = useState("");
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -56,6 +64,9 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                     description: description.trim() || undefined,
                     owner_org: ownerOrg.trim() || undefined,
                     domain: domain.trim().toLowerCase() || undefined,
+                    visibility: publication.visibility,
+                    licence_uri: publication.licenceUri.trim() || undefined,
+                    licence_label: publication.licenceLabel.trim() || undefined,
                     is_hierarchical: isHierarchical,
                     change_note: changeNote.trim() || undefined,
                 }));
@@ -65,6 +76,9 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                 if ((a.description ?? "") !== description.trim()) payload.description = description.trim();
                 if ((a.owner_org ?? "") !== ownerOrg.trim()) payload.owner_org = ownerOrg.trim();
                 if ((a.domain ?? "") !== domain.trim().toLowerCase()) payload.domain = domain.trim().toLowerCase();
+                if ((a.visibility ?? "private") !== publication.visibility) payload.visibility = publication.visibility;
+                if ((a.licence_uri ?? "") !== publication.licenceUri.trim()) payload.licence_uri = publication.licenceUri.trim();
+                if ((a.licence_label ?? "") !== publication.licenceLabel.trim()) payload.licence_label = publication.licenceLabel.trim();
                 if ((a.list_code ?? "") !== code.trim()) payload.new_list_code = code.trim();
                 if ((a.display ?? "") !== display.trim()) payload.display = display.trim() || code.trim();
                 if (JSON.stringify(a.display_i18n ?? {}) !== JSON.stringify(displayI18n)) payload.display_i18n = displayI18n;
@@ -138,6 +152,11 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                         <option value="agriculture" />
                     </datalist>
                 </Field>
+                <PublicationFields
+                    value={publication}
+                    onChange={setPublication}
+                    publicCatalogueEnabled={config?.public_catalogue_enabled}
+                />
                 <label className="flex cursor-pointer items-center gap-3">
                     <input
                         type="checkbox"

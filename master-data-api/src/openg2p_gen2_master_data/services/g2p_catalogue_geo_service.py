@@ -40,6 +40,7 @@ from ..helpers.catalogue_integrations import (
 from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import (
     G2PCatalogueRelease,
+    G2PCatalogueState,
     G2PGeoChange,
     G2PGeoVersion,
     G2PGeoVersionLevel,
@@ -54,6 +55,7 @@ from ..schemas.g2p_catalogue import (
     CrosswalkStep,
     GeoChange,
     GeoLevel,
+    GeoSettings,
     GeoUnit,
     GeoVersionInfo,
     VersionSelector,
@@ -68,6 +70,32 @@ GEO_ARTIFACT = "master_data.geo_version"
 GEO_SUBJECT = "geography"
 # Events after which a unit does not continue as itself (same set as catalogue_geo_rules.TERMINAL).
 _TERMINAL = {GeoChangeType.RETIRE, GeoChangeType.SPLIT, GeoChangeType.MERGE, GeoChangeType.RECODE}
+
+# Administrative settings of the geography (not versioned: a PUBLISHED version
+# row is immutable), kept in g2p_catalogue_state. The country-pack loader fills
+# the licence from the pack manifest when none is set.
+GEO_SETTING_KEYS = {
+    "visibility": "geo.visibility",
+    "licence_uri": "geo.licence_uri",
+    "licence_label": "geo.licence_label",
+}
+
+
+async def read_geo_settings(session) -> GeoSettings:
+    rows = (
+        await session.execute(
+            select(G2PCatalogueState.key, G2PCatalogueState.text_value).where(
+                G2PCatalogueState.key.in_(list(GEO_SETTING_KEYS.values()))
+            )
+        )
+    ).all()
+    stored = {k: v for k, v in rows}
+    visibility = (stored.get(GEO_SETTING_KEYS["visibility"]) or "").strip().lower()
+    return GeoSettings(
+        visibility="public" if visibility == "public" else "private",
+        licence_uri=stored.get(GEO_SETTING_KEYS["licence_uri"]) or None,
+        licence_label=stored.get(GEO_SETTING_KEYS["licence_label"]) or None,
+    )
 
 
 def _unit(u: G2PGeoVersionUnit) -> GeoUnit:
@@ -750,6 +778,44 @@ class G2PCatalogueGeoService(BaseService):
             info = await self._info(uow.session, draft, await self.current_no(uow.session))
             await uow.commit()
             return info
+
+    # ------------------------------------------------------------------
+    # Settings (visibility, licence)
+    # ------------------------------------------------------------------
+
+    async def get_geo_settings(self) -> GeoSettings:
+        async with get_async_session_maker()() as s:
+            return await read_geo_settings(s)
+
+    async def update_geo_settings(self, payload, actor: Actor) -> GeoSettings:
+        fields = payload.model_fields_set & set(GEO_SETTING_KEYS)
+        if not fields:
+            raise CatalogueError("G2P-CAT-400", "at least one field must be provided to update")
+        async with CatalogueUnitOfWork(actor) as uow:
+            s = uow.session
+            changed: Dict[str, Any] = {}
+            for field in sorted(fields):
+                value = getattr(payload, field)
+                if field == "visibility":
+                    if value is None:
+                        continue
+                    value = "public" if value == "public" else "private"
+                else:
+                    value = (value or "").strip() or None
+                key = GEO_SETTING_KEYS[field]
+                row = await s.get(G2PCatalogueState, key, with_for_update=True)
+                if row is None:
+                    s.add(G2PCatalogueState(key=key, text_value=value))
+                else:
+                    row.text_value = value
+                    row.updated_at = utcnow()
+                changed[field] = value
+            await s.flush()
+            if changed:
+                await uow.log("geo.settings.updated", "geo", GEO_SUBJECT, None, changed)
+            result = await read_geo_settings(s)
+            await uow.commit()
+            return result
 
     async def upsert_draft_levels(self, levels, actor: Actor) -> Tuple[GeoVersionInfo, List[GeoLevel]]:
         if not levels:

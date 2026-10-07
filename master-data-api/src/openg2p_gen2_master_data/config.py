@@ -130,3 +130,34 @@ class Settings(IamSettings):
     # Browser-reachable base URL for objects (<base>/<bucket>/<key>), if public.
     boundary_public_base_url: str = ""
     boundary_presign_seconds: int = 3600
+
+    # ── Public catalogue (opt-in) ────────────────────────────────────────────
+    # Anonymous, read-only GET endpoints under /public/... for open-data portals
+    # and other websites: public datasets (visibility = public) at their
+    # PUBLISHED versions only, the geography when it is public, releases
+    # (public members only), CSV/JSON/GeoJSON downloads, DCAT (JSON-LD) at
+    # /public/catalog and SKOS per dataset. Off by default: every /public route
+    # answers 404. Drafts, submitted/rejected versions, private datasets and
+    # sample people are never served here, whatever the setting.
+    public_catalogue_enabled: bool = False
+    # Absolute base for links in the DCAT / SKOS documents and download URLs,
+    # e.g. https://catalogue.example.gov (no trailing slash). Empty: derived from
+    # the request (scheme + Host / X-Forwarded-Host).
+    public_base_url: str = ""
+    # Per client IP, in-process token bucket (per worker): requests per minute,
+    # also the burst. 0 disables. Over the limit: 429 with Retry-After.
+    public_catalogue_rate_limit_per_minute: int = 60
+    # How many proxies in front of the API append to X-Forwarded-For (the
+    # client IP is the entry that many from the right). 0: use the socket peer.
+    public_catalogue_trusted_proxy_hops: int = 1
+    # Cache-Control max-age (seconds) of public responses (all carry an ETag).
+    public_catalogue_cache_seconds: int = 300
+    # DCAT catalogue metadata.
+    public_catalogue_title: str = "Master data catalogue"
+    public_catalogue_description: str = (
+        "Reference data (code lists and geography) published by this deployment."
+    )
+    # Catalogue publisher; empty falls back to catalogue_default_owner_org.
+    public_catalogue_publisher: str = ""
+    # Language of the plain `display` labels (display_i18n carries the others).
+    public_catalogue_default_language: str = "en"

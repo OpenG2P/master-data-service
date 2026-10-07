@@ -18,6 +18,7 @@ import AttributeDialog from "./AttributeDialog";
 import { toast } from "react-toastify";
 import { getErrorMessage } from "@/shared/utils/errorHandler";
 import { ErrorBox, StatusBadge, localizedLabel } from "@/features/catalogue/components/ui";
+import { VisibilityBadge } from "@/features/catalogue/components/Publication";
 import { themeKey, themeLabel, themesOf } from "@/features/catalogue/theme";
 import type { ListSummary } from "../types";
 
@@ -210,7 +211,10 @@ export default function AttributeListExplorer() {
                                                                 title={t("cat_changes_pending_hint", { no: pendingNo })}
                                                             />
                                                         ) : null}
-                                                        {!item.open_draft_status && !pendingNo ? <span className="text-gray-400">—</span> : null}
+                                                        {item.visibility === "public" ? <VisibilityBadge visibility="public" /> : null}
+                                                        {!item.open_draft_status && !pendingNo && item.visibility !== "public" ? (
+                                                            <span className="text-gray-400">—</span>
+                                                        ) : null}
                                                     </div>
                                                 </td>
                                                 <td className="py-2 px-6 align-middle text-[15px] text-gray-600">

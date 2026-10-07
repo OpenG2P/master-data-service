@@ -320,7 +320,8 @@ class G2PCatalogueChangeLog(BaseORMModel):
 
 class G2PCatalogueState(BaseORMModel):
     """Small key/value state: ``geo.current_version_no``, ``schema_version``,
-    ``legacy.generation`` (bumped whenever the legacy tables are re-materialised)."""
+    ``legacy.generation`` (bumped whenever the legacy tables are re-materialised),
+    ``geo.visibility`` / ``geo.licence_uri`` / ``geo.licence_label`` (geography settings)."""
 
     __tablename__ = "g2p_catalogue_state"
 

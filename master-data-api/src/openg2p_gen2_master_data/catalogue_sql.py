@@ -56,10 +56,10 @@ columns are added it fills them for existing rows (see ``_add_name_columns``).
 """
 
 # Bumped whenever the catalogue schema changes (3: *_by_name columns;
-# 4: g2p_attributes.domain). The
+# 4: g2p_attributes.domain; 5: g2p_attributes.visibility / licence_*). The
 # geo-seed Job waits for g2p_catalogue_state['schema_version'] >= this (its
 # CATALOGUE_SCHEMA_VERSION value in the Helm chart must match).
-CATALOGUE_SCHEMA_VERSION = 4
+CATALOGUE_SCHEMA_VERSION = 5
 
 _ALTER_LEGACY = [
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS description text",
@@ -68,6 +68,11 @@ _ALTER_LEGACY = [
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS owner_org varchar",
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS current_version_no integer",
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS domain varchar",
+    # Public catalogue: NULL visibility means private (nothing is public until
+    # someone says so). Licence is optional metadata (URI + label).
+    "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS visibility varchar",
+    "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS licence_uri varchar",
+    "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS licence_label varchar",
 ]
 
 

@@ -9,11 +9,18 @@ _config = Settings.get_config()
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend  # per worker; see catalogue_outbox.py
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import app_registry, dbengine
 from sqlalchemy import text
 
 from .catalogue_sql import catalogue_statements, legacy_alter_statements, schema_marker_statements
-from .controllers import G2PAttributeController, G2PCatalogueController, G2PGeoController, G2PSampleController
+from .controllers import (
+    G2PAttributeController,
+    G2PCatalogueController,
+    G2PGeoController,
+    G2PPublicCatalogueController,
+    G2PSampleController,
+)
+from .controllers.g2p_public_catalogue_controller import PublicCatalogueGuardMiddleware
 from .helpers import RequestResponseHelper
 from .helpers.catalogue_integrations import (
     BoundaryStore,
@@ -48,6 +55,7 @@ from .services import (
     G2PCatalogueFeedService,
     G2PCatalogueGeoService,
     G2PCatalogueListService,
+    G2PCataloguePublicService,
     G2PCatalogueReleaseService,
     G2PGeoService,
     G2PSampleService,
@@ -117,12 +125,16 @@ class Initializer(BaseInitializer):
         G2PCatalogueReleaseService()
         G2PCatalogueFeedService()
         G2PCatalogueAweCallbackService()
+        G2PCataloguePublicService()
         G2PSampleService()
 
         G2PGeoController().post_init()
         G2PAttributeController().post_init()
         G2PCatalogueController().post_init()
         G2PSampleController().post_init()
+        # Anonymous /public/... (404 unless public_catalogue_enabled).
+        G2PPublicCatalogueController().post_init()
+        app_registry.get().add_middleware(PublicCatalogueGuardMiddleware)
 
         # Initialize cache
         FastAPICache.init(InMemoryBackend(), prefix="master-data-cache")

@@ -74,7 +74,8 @@ _SKIP_PATHS = frozenset(
 
 def _status_to_outcome(status_code: int) -> str:
     """Map HTTP status to CloudEvents outcome enum."""
-    if 200 <= status_code < 300:
+    # 304 Not Modified: a conditional GET (e.g. the public catalogue's ETags) succeeded.
+    if 200 <= status_code < 300 or status_code == 304:
         return "success"
     if status_code in (401, 403):
         return "denied"
@@ -241,7 +242,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             is_success = False
         else:
             status_code = response.status_code
-            is_success = 200 <= status_code < 300
+            is_success = 200 <= status_code < 300 or status_code == 304
 
         # Audit decision
         if principal is not None or service_actor is not None:

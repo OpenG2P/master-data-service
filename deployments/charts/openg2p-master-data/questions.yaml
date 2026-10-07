@@ -97,3 +97,46 @@ questions:
   default: ""
   label: Domain Code Lists
   group: Country Pack
+
+# ── Public catalogue ────────────────────────────────────────────────────────
+# Opt-in. Master Data stays an admin UI; this only opens a read-only API for
+# other websites and open-data portals. Even when enabled, only datasets and
+# geography marked "public" in Master Data are served (published versions only).
+- variable: masterDataAPI.catalogue.public.enabled
+  description: "Serve the anonymous, read-only public catalogue under /public/ (DCAT JSON-LD at /public/catalog, SKOS per dataset, CSV / JSON / GeoJSON downloads). Off: every /public route answers 404. Only datasets and geography marked public in Master Data are shown, at their published versions."
+  type: boolean
+  default: false
+  label: Enable Public Catalogue
+  group: Public catalogue
+  show_subquestion_if: true
+  subquestions:
+    - variable: masterDataAPI.catalogue.public.istio.enabled
+      description: "Route a separate host to the public catalogue (only /public/ is reachable on it)."
+      type: boolean
+      default: false
+      label: Public Catalogue Host
+    - variable: masterDataAPI.catalogue.public.istio.host
+      description: "Hostname of the public catalogue."
+      type: string
+      default: 'catalogue.{{ .Release.Namespace }}.openg2p.org'
+      label: Public Catalogue Hostname
+    - variable: masterDataAPI.catalogue.public.istio.gateway
+      description: "Istio gateway for the public host. The default 'internal' gateway is reachable on the internal network only; exposing the catalogue to the internet needs a public (internet-facing) gateway."
+      type: string
+      default: internal
+      label: Public Catalogue Gateway
+    - variable: masterDataAPI.catalogue.public.baseUrl
+      description: "Absolute base URL used in DCAT / SKOS links and download URLs, e.g. https://catalogue.example.gov. Empty: taken from each request (the public host sets it)."
+      type: string
+      default: ""
+      label: Public Base URL
+    - variable: masterDataAPI.catalogue.public.rateLimitPerMinute
+      description: "Requests per minute per client IP (per API worker); 0 disables. Over the limit: HTTP 429."
+      type: int
+      default: 60
+      label: Rate Limit (per minute)
+    - variable: masterDataAPI.catalogue.public.publisher
+      description: "Publisher named in the DCAT catalogue. Empty: the catalogue's default owner."
+      type: string
+      default: ""
+      label: Catalogue Publisher

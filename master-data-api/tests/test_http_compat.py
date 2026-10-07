@@ -194,7 +194,8 @@ async def test_catalogue_envelope_errors_and_paging(client):
 async def test_openapi_documents_every_catalogue_endpoint(client):
     spec = (await client.get("/openapi.json")).json()
     paths = {p: v["post"] for p, v in spec["paths"].items() if p.startswith("/catalogue/")}
-    assert len(paths) == 44  # 16 list + 19 geography + 6 release + 2 feed/config + AWE callback
+    # 16 list + 21 geography (incl. settings) + 6 release + 2 feed/config + AWE callback
+    assert len(paths) == 46
     for path, op in paths.items():
         assert op.get("description"), path
         assert op.get("summary"), path

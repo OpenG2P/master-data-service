@@ -51,6 +51,23 @@ export interface CatalogueConfig {
     websub_enabled: boolean;
     country?: string | null;
     geo_current_version_no?: number | null;
+    /** Whether the anonymous /public catalogue is switched on in this deployment. */
+    public_catalogue_enabled?: boolean;
+    public_base_url?: string | null;
+}
+
+/** "public": shown (published versions only) by the anonymous /public catalogue; default "private". */
+export type Visibility = "private" | "public";
+
+/** Geography settings (`get_geo_settings` / `update_geo_settings`); administrative, not versioned. */
+export interface GeoSettings {
+    visibility: Visibility;
+    licence_uri?: string | null;
+    licence_label?: string | null;
+}
+
+export interface GeoSettingsResponse {
+    settings: GeoSettings;
 }
 
 /* ------------------------------------------------------------------ Lists */
@@ -73,6 +90,9 @@ export interface ListSummary {
     owner_org?: string | null;
     /** Pack domain ("core", "agriculture", ...), shown as the dataset's Theme; null when unknown. */
     domain?: string | null;
+    visibility?: Visibility;
+    licence_uri?: string | null;
+    licence_label?: string | null;
     is_hierarchical: boolean;
     attribute_schema?: JsonSchema | null;
     attribute_schema_summary?: AttributeSchemaSummary | null;

@@ -1,0 +1,42 @@
+{{- /*
+Separate host for the anonymous public catalogue. Routes only /public/ to the
+API; every other path on this host gets Istio's 404. The API itself answers
+404 on /public while catalogue.public.enabled is false.
+*/ -}}
+{{- $values := .Values.masterDataAPI -}}
+{{- $context := dict "Values" (merge (deepCopy $values) (dict "global" .Values.global)) "Chart" .Chart "Release" .Release "Files" .Files "Capabilities" .Capabilities -}}
+{{- with $context -}}
+{{- if and .Values.enabled .Values.istio.enabled .Values.catalogue.public.enabled .Values.catalogue.public.istio.enabled }}
+{{- $hostname := include "common.tplvalues.render" (dict "value" .Values.catalogue.public.istio.host "context" $) }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ template "common.names.fullname" . }}-public-catalogue
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  hosts:
+  - {{ $hostname | quote }}
+  gateways:
+  # The internal gateway by default. Internet exposure needs a public gateway.
+  - {{ .Values.catalogue.public.istio.gateway | quote }}
+  http:
+  - headers:
+      request:
+        set:
+          x-forwarded-host: {{ $hostname | quote }}
+          x-forwarded-proto: https
+    match:
+    - uri:
+        prefix: /public/
+      method:
+        regex: "GET|HEAD|OPTIONS"
+    route:
+    - destination:
+        host: {{ include "common.tplvalues.render" (dict "value" .Values.istio.virtualservice.destination "context" $) }}
+        port:
+          number: {{ include "common.tplvalues.render" (dict "value" .Values.istio.virtualservice.destinationPort "context" $) }}
+{{- end }}
+{{- end -}}

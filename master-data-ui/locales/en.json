@@ -465,5 +465,18 @@
   "home_continue": "Continue",
   "home_latest_release": "Latest: {code}",
   "home_recent_activity": "Recent activity",
-  "home_all_activity": "All activity"
+  "home_all_activity": "All activity",
+  "cat_visibility": "Visibility",
+  "cat_visibility_hint": "Public datasets are shown — published versions only, never drafts — by the open public catalogue for other websites and open-data portals. Private (the default) keeps it to signed-in users and registries.",
+  "cat_visibility_public": "Public",
+  "cat_visibility_private": "Private",
+  "cat_visibility_public_hint": "Published versions are shown in the public catalogue (when it is enabled).",
+  "cat_visibility_private_hint": "Not in the public catalogue; signed-in users and registries only.",
+  "cat_public_catalogue_off_hint": "The public catalogue is switched off in this deployment: nothing is shown publicly until an administrator enables it.",
+  "cat_licence": "Licence",
+  "cat_licence_label": "Licence",
+  "cat_licence_uri": "Licence URL",
+  "cat_geo_settings": "Publication settings",
+  "cat_geo_settings_hint": "Visibility and licence of the geography (levels, units and boundaries). Applied at once; not part of a version.",
+  "cat_geo_settings_saved": "Geography settings saved"
 }

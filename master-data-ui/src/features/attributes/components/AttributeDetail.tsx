@@ -16,6 +16,7 @@ import ListDiffView from "@/features/catalogue/components/ListDiffView";
 import VersionBar, { LIST_DRAFT_OPS, findOpenDraft } from "@/features/catalogue/components/VersionBar";
 import VersionHistoryActivity from "@/features/catalogue/components/VersionHistoryActivity";
 import { ErrorBox, Panel, Tabs, localizedLabel } from "@/features/catalogue/components/ui";
+import { LicenceText, VisibilityBadge } from "@/features/catalogue/components/Publication";
 import { themeKey, themeLabel } from "@/features/catalogue/theme";
 import type { GetListResponse, GetListVersionsResponse, JsonSchema, VersionRef } from "@/features/catalogue/types";
 import { useCatalogueLists } from "../hooks";
@@ -137,6 +138,10 @@ export default function AttributeDetail({ attributeId }: AttributeDetailProps) {
                             {t("cat_theme")}: <span className="text-gray-800">{themeLabel(themeKey(list), t)}</span>
                         </span>
                         {list.is_hierarchical ? <span>{` · ${t("is_hierarchical")}`}</span> : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <VisibilityBadge visibility={list.visibility} />
+                        <LicenceText uri={list.licence_uri} label={list.licence_label} />
                     </div>
                     {list.description ? <p className="max-w-3xl">{list.description}</p> : null}
                     {list.display_i18n && Object.keys(list.display_i18n).length ? (

@@ -93,6 +93,16 @@ def normalise_domain(value: Optional[str]) -> Optional[str]:
     return value or None
 
 
+def visibility_of(value: Optional[str]) -> str:
+    """Stored visibility as shown: only an explicit "public" is public."""
+    return "public" if (value or "").strip().lower() == "public" else "private"
+
+
+def blank_to_none(value: Optional[str]) -> Optional[str]:
+    value = (value or "").strip()
+    return value or None
+
+
 def domain_from_note(note: Optional[str]) -> Optional[str]:
     """The domain a pack-loaded list was loaded under, from its first version's
     change note ("core" when the note has no domain suffix); None otherwise."""
@@ -277,6 +287,9 @@ class G2PCatalogueListService(BaseService):
             description=attr.description,
             owner_org=attr.owner_org,
             domain=domain,
+            visibility=visibility_of(attr.visibility),
+            licence_uri=attr.licence_uri,
+            licence_label=attr.licence_label,
             is_hierarchical=bool(attr.is_hierarchical),
             attribute_schema=attr.attribute_schema,
             attribute_schema_summary=schema_summary(attr.attribute_schema),
@@ -326,6 +339,9 @@ class G2PCatalogueListService(BaseService):
                     description=attr.description,
                     owner_org=attr.owner_org,
                     domain=normalise_domain(attr.domain) or derived.get(attr.attribute_id),
+                    visibility=visibility_of(attr.visibility),
+                    licence_uri=attr.licence_uri,
+                    licence_label=attr.licence_label,
                     is_hierarchical=bool(attr.is_hierarchical),
                     attribute_schema=attr.attribute_schema,
                     attribute_schema_summary=schema_summary(attr.attribute_schema),
@@ -690,6 +706,9 @@ class G2PCatalogueListService(BaseService):
                 description=payload.description,
                 owner_org=payload.owner_org or (_config.catalogue_default_owner_org or None),
                 domain=normalise_domain(payload.domain),
+                visibility=visibility_of(payload.visibility),
+                licence_uri=blank_to_none(payload.licence_uri),
+                licence_label=blank_to_none(payload.licence_label),
                 current_version_no=None,
             )
             s.add(attr)
@@ -699,7 +718,13 @@ class G2PCatalogueListService(BaseService):
                 "list",
                 list_id,
                 None,
-                {"list_code": code, "owner_org": attr.owner_org, "domain": attr.domain},
+                {
+                    "list_code": code,
+                    "owner_org": attr.owner_org,
+                    "domain": attr.domain,
+                    "visibility": attr.visibility,
+                    "licence_uri": attr.licence_uri,
+                },
             )
             draft = await self._create_draft(uow, attr, change_note=payload.change_note)
             summary = await self._summary(s, attr)
@@ -724,6 +749,15 @@ class G2PCatalogueListService(BaseService):
             if "domain" in fields:
                 attr.domain = normalise_domain(payload.domain)
                 direct["domain"] = attr.domain
+            if "visibility" in fields and payload.visibility is not None:
+                attr.visibility = visibility_of(payload.visibility)
+                direct["visibility"] = attr.visibility
+            if "licence_uri" in fields:
+                attr.licence_uri = blank_to_none(payload.licence_uri)
+                direct["licence_uri"] = attr.licence_uri
+            if "licence_label" in fields:
+                attr.licence_label = blank_to_none(payload.licence_label)
+                direct["licence_label"] = attr.licence_label
             if direct:
                 await uow.log("list.updated", "list", attr.attribute_id, None, direct)
             draft = None

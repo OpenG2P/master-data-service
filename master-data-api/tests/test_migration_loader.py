@@ -553,3 +553,30 @@ def test_loader_sets_list_domain_and_fills_it_when_empty(tmp_path):
     ]
     assert q("SELECT count(*) FROM g2p_list_versions") == [(2,)]
     shutil.rmtree(pack)
+
+
+def test_loader_sets_geography_licence_from_manifest_and_keeps_an_admins(tmp_path):
+    """The manifest's licence fills geo.licence_* (URI derived for a known label) when
+    none is set; one set by an administrator is kept. Visibility stays private."""
+    pack, _ = _mini_pack(tmp_path)
+    manifest = json.loads((pack / "manifest.json").read_text())
+    manifest["license"] = "Creative Commons Attribution for Intergovernmental Organisations (CC BY-IGO)"
+    (pack / "manifest.json").write_text(json.dumps(manifest))
+    run_loader(pack, "--load", "geo")
+    state = dict(
+        q(
+            "SELECT key, text_value FROM g2p_catalogue_state WHERE key LIKE 'geo.%%' AND text_value IS NOT NULL"
+        )
+    )
+    assert state["geo.licence_uri"] == "https://creativecommons.org/licenses/by/3.0/igo/"
+    assert state["geo.licence_label"].endswith("(CC BY-IGO)")
+    assert "geo.visibility" not in state
+
+    conn = pg_connect()
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute("UPDATE g2p_catalogue_state SET text_value = 'CC0' WHERE key = 'geo.licence_label'")
+    conn.close()
+    out = run_loader(pack, "--load", "geo")
+    assert "geography licence already set — kept" in out
+    assert q("SELECT text_value FROM g2p_catalogue_state WHERE key = 'geo.licence_label'") == [("CC0",)]

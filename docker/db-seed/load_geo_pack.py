@@ -71,7 +71,7 @@ import psycopg2.extras
 ACTOR_DEFAULT = "country-pack-loader"
 # The API's migration writes this; the loader needs the functions it creates
 # (2: version allocation that never reuses numbers, outbox change log).
-REQUIRED_SCHEMA_VERSION = 4  # 4: g2p_attributes.domain
+REQUIRED_SCHEMA_VERSION = 5  # 4: g2p_attributes.domain; 5: visibility / licence
 
 
 def _geo_rules():
@@ -913,6 +913,59 @@ SAMPLE_HOUSEHOLD_COLS = [
 ]
 
 
+# Well-known licences a pack manifest names by label or SPDX id -> deed URI.
+_LICENCE_URIS = {
+    "cc0-1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "cc-by-4.0": "https://creativecommons.org/licenses/by/4.0/",
+    "cc by 4.0": "https://creativecommons.org/licenses/by/4.0/",
+    "cc-by-sa-4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "cc by-sa 4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "cc by-igo": "https://creativecommons.org/licenses/by/3.0/igo/",
+    "cc-by-igo": "https://creativecommons.org/licenses/by/3.0/igo/",
+    "odbl-1.0": "https://opendatacommons.org/licenses/odbl/1-0/",
+}
+
+
+def manifest_licence(manifest):
+    """(uri, label) of the pack's licence from its manifest, either may be None."""
+    label = (manifest.get("licence") or manifest.get("license") or "").strip() or None
+    uri = (manifest.get("licence_uri") or manifest.get("license_uri") or manifest.get("license_url")
+           or "").strip() or None
+    if label and not uri:
+        low = label.lower()
+        uri = _LICENCE_URIS.get(low)
+        if uri is None:
+            # "Creative Commons Attribution for Intergovernmental Organisations (CC BY-IGO)"
+            for key, value in _LICENCE_URIS.items():
+                if f"({key})" in low:
+                    uri = value
+                    break
+    return uri, label
+
+
+def set_geo_licence(conn, manifest):
+    """Fill the geography's licence (g2p_catalogue_state geo.licence_*) from the
+    manifest when none is set; one an administrator set is kept. Visibility is
+    never touched: the geography stays private until someone makes it public."""
+    uri, label = manifest_licence(manifest)
+    if not uri and not label:
+        return
+    with conn.cursor() as cur:
+        cur.execute("SELECT key, text_value FROM g2p_catalogue_state "
+                    "WHERE key IN ('geo.licence_uri', 'geo.licence_label')")
+        if any(v for _, v in cur.fetchall()):
+            print("[geo-pack] geography licence already set — kept")
+            return
+        for key, value in (("geo.licence_uri", uri), ("geo.licence_label", label)):
+            cur.execute(
+                "INSERT INTO g2p_catalogue_state (key, text_value, updated_at) VALUES (%s, %s, now()) "
+                "ON CONFLICT (key) DO UPDATE SET text_value = EXCLUDED.text_value, updated_at = now()",
+                (key, value),
+            )
+    conn.commit()
+    print(f"[geo-pack] geography licence: {label or '-'} {uri or ''}".rstrip())
+
+
 def seed_samples(conn, pack_dir, manifest):
     """Upsert the pack's sample people.
 
@@ -1098,6 +1151,7 @@ def main():
     if "geo" in wanted:
         uploader = BoundaryUploader(args)
         load_geo(conn, args.pack, levels, values, manifest, args, uploader, log)
+        set_geo_licence(conn, manifest)
     else:
         print("[geo-pack] geo not requested — skipping")
 
