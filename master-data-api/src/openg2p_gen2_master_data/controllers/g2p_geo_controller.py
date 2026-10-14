@@ -89,6 +89,11 @@ class G2PGeoController(BaseController):
             self.get_all_geo_levels,
             responses={200: {"model": GetAllGeoLevelsResponse}},
             methods=["POST"],
+            summary="All geography levels (current published version)",
+            description="Levels of the geography version in effect (level_id, level_mnemonic, "
+            "parent_level_id). Depth and names are country-specific: walk `parent_level_id`. For other "
+            "versions use /catalogue/get_geo_levels. Cached per worker. "
+            "Permission: any authenticated caller.",
         )
 
         self.router.add_api_route(
@@ -96,6 +101,10 @@ class G2PGeoController(BaseController):
             self.get_geo_level_values,
             responses={200: {"model": GetGeoLevelValuesResponse}},
             methods=["POST"],
+            summary="Units of a geography level (current published version)",
+            description="Units of `level_id`, optionally only the children of `parent_level_value_id`, "
+            "from the geography version in effect. Data policies filter the result. For other versions "
+            "use /catalogue/get_geo_units. Cached per worker. Permission: any authenticated caller.",
         )
 
         self.router.add_api_route(
@@ -103,7 +112,8 @@ class G2PGeoController(BaseController):
             self.add_geo_level,
             responses={200: {"model": AddGeoLevelResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Add a geography level (into the draft)",
+            description=_DRAFT_NOTE + " Permission: `geo:create`.",
         )
 
         self.router.add_api_route(
@@ -111,7 +121,8 @@ class G2PGeoController(BaseController):
             self.update_geo_level,
             responses={200: {"model": UpdateGeoLevelResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Update a geography level (in the draft)",
+            description=_DRAFT_NOTE + " Permission: `geo:edit`.",
         )
 
         self.router.add_api_route(
@@ -119,7 +130,8 @@ class G2PGeoController(BaseController):
             self.delete_geo_level,
             responses={200: {"model": DeleteGeoLevelResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Delete a geography level (in the draft)",
+            description=_DRAFT_NOTE + " Permission: `geo:delete`.",
         )
 
         self.router.add_api_route(
@@ -127,7 +139,8 @@ class G2PGeoController(BaseController):
             self.add_geo_level_value,
             responses={200: {"model": AddGeoLevelValueResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Add a geography unit (into the draft)",
+            description=_DRAFT_NOTE + " Permission: `geo:create`.",
         )
 
         self.router.add_api_route(
@@ -135,7 +148,8 @@ class G2PGeoController(BaseController):
             self.update_geo_level_value,
             responses={200: {"model": UpdateGeoLevelValueResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Update a geography unit (in the draft)",
+            description=_DRAFT_NOTE + " Permission: `geo:edit`.",
         )
 
         self.router.add_api_route(
@@ -143,7 +157,8 @@ class G2PGeoController(BaseController):
             self.delete_geo_level_value,
             responses={200: {"model": DeleteGeoLevelValueResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Retire a geography unit (in the draft)",
+            description=_DRAFT_NOTE + " Permission: `geo:delete`.",
         )
 
     @require_permissions({})

@@ -20,13 +20,26 @@ class Settings(IamSettings):
         env_nested_delimiter="__",
     )
 
-    openapi_title: str = "OpenG2P Gen 2 Master Data"
+    openapi_title: str = "OpenG2P Master Data Service (Catalogue)"
     openapi_description: str = """
-        FastAPI Service for OpenG2P Gen 2 Master Data API
-        ***********************************
-        Further details goes here
-        ***********************************
-        """
+The platform's catalogue service: versioned datasets (lists of entries such as
+gender, crop or relationship) and the country's geography (levels, units,
+boundaries), with drafts, maker-checker approval, releases and a change feed.
+
+* `/catalogue/...` - versioned reads and the draft / approve / publish workflow.
+* `/attributes/...` and `/geo/...` - the original endpoints, kept for existing
+  consumers; they read the current published version and write into drafts.
+* `/samples/...` - sample people and households from the country pack, for
+  testing and demos only.
+* `/public/...` - anonymous, read-only GET endpoints of the opt-in public
+  catalogue (404 unless enabled).
+
+POST endpoints use the OpenG2P envelope: `request_header` and
+`request_body.request_payload` in, `response_header` and
+`response_body.response_payload` out. A business error comes back as HTTP 200
+with `response_header.response_status = "ERROR"` and a code. Every POST
+endpoint needs a Keycloak access token; writes also need a permission.
+"""
     openapi_version: str = __version__
 
     # Master Data Database

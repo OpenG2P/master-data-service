@@ -107,8 +107,10 @@ class G2PAttributeController(BaseController):
             self.get_all_attributes,
             responses={200: {"model": GetAttributesResponse}},
             methods=["POST"],
-            description="All code lists, as currently published. `current_version_no` (additive) is the "
-            "published version the list shows; null for a list never published.",
+            summary="All datasets (current published version)",
+            description="All datasets (lists), as currently published. `current_version_no` (additive) is the "
+            "published version the list shows; null for a list never published. Cached per worker. "
+            "Permission: any authenticated caller.",
         )
 
         self.router.add_api_route(
@@ -116,9 +118,11 @@ class G2PAttributeController(BaseController):
             self.get_attribute_values,
             responses={200: {"model": GetAttributeValuesResponse}},
             methods=["POST"],
+            summary="Entries of datasets (current published version)",
             description="Values of the current published version (active values only). "
             "`list_versions` (additive) maps each attribute_id returned to that version. "
-            "For other versions use /catalogue/get_list_values.",
+            "For other versions use /catalogue/get_list_values. ATTRIBUTE data policies filter the "
+            "result. Cached per worker. Permission: any authenticated caller.",
         )
 
         self.router.add_api_route(
@@ -126,7 +130,8 @@ class G2PAttributeController(BaseController):
             self.add_attribute,
             responses={200: {"model": AddAttributeResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Add a dataset (into a draft)",
+            description=_DRAFT_NOTE + " Permission: `referenceData:create`.",
         )
 
         self.router.add_api_route(
@@ -134,7 +139,8 @@ class G2PAttributeController(BaseController):
             self.update_attribute,
             responses={200: {"model": UpdateAttributeResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Update a dataset (in its draft)",
+            description=_DRAFT_NOTE + " Permission: `referenceData:edit`.",
         )
 
         self.router.add_api_route(
@@ -142,7 +148,8 @@ class G2PAttributeController(BaseController):
             self.delete_attribute,
             responses={200: {"model": DeleteAttributeResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Delete a dataset",
+            description=_DRAFT_NOTE + " Permission: `referenceData:delete`.",
         )
 
         self.router.add_api_route(
@@ -150,7 +157,8 @@ class G2PAttributeController(BaseController):
             self.add_attribute_value,
             responses={200: {"model": AddAttributeValueResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Add an entry (into the draft)",
+            description=_DRAFT_NOTE + " Permission: `referenceData:create`.",
         )
 
         self.router.add_api_route(
@@ -158,7 +166,8 @@ class G2PAttributeController(BaseController):
             self.update_attribute_value,
             responses={200: {"model": UpdateAttributeValueResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Update an entry (in the draft)",
+            description=_DRAFT_NOTE + " Permission: `referenceData:edit`.",
         )
 
         self.router.add_api_route(
@@ -166,7 +175,8 @@ class G2PAttributeController(BaseController):
             self.delete_attribute_value,
             responses={200: {"model": DeleteAttributeValueResponse}},
             methods=["POST"],
-            description=_DRAFT_NOTE,
+            summary="Retire an entry (in the draft)",
+            description=_DRAFT_NOTE + " Permission: `referenceData:delete`.",
         )
 
     @require_permissions({})

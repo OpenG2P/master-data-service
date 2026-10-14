@@ -42,6 +42,11 @@ _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 TAG = "/public — open catalogue (anonymous, read-only)"
+_PUBLIC_NOTE = (
+    "Anonymous (no token). 404 unless the public catalogue is enabled and the item is public; only "
+    "PUBLISHED versions. Responses carry ETag / Last-Modified (304 on If-None-Match / If-Modified-Since) "
+    "and Cache-Control; over the per-IP rate limit the answer is 429 with Retry-After."
+)
 MAX_PAGE_SIZE = 5000
 
 
@@ -236,7 +241,7 @@ class G2PPublicCatalogueController(BaseController):
             methods=["GET"],
             tags=[TAG],
             summary=summary,
-            description=description,
+            description=(description + "\n\n" if description else "") + _PUBLIC_NOTE,
             include_in_schema=bool(_config.public_catalogue_enabled),
             response_class=Response,
         )
@@ -275,7 +280,7 @@ class G2PPublicCatalogueController(BaseController):
             "/datasets",
             datasets,
             "Public datasets",
-            "Every public code list with a published version in effect: code, title, description, theme, "
+            "Every public dataset with a published version in effect: code, title, description, theme, "
             "publisher, licence, current version, effective date, issued / modified and links.",
         )
 
@@ -342,7 +347,12 @@ class G2PPublicCatalogueController(BaseController):
             body, modified, name = await S.download_csv(code, sel(version, as_of), include_retired)
             return respond(request, body, "text/csv; charset=utf-8", modified, filename=name)
 
-        self._get("/datasets/{code}/download.csv", download_csv, "Download a version as CSV", "")
+        self._get(
+            "/datasets/{code}/download.csv",
+            download_csv,
+            "Download a version as CSV",
+            "One row per entry of the selected published version.",
+        )
 
         async def download_json(
             request: Request,
@@ -354,7 +364,12 @@ class G2PPublicCatalogueController(BaseController):
             body, modified, name = await S.download_json(code, sel(version, as_of), include_retired)
             return respond(request, body, "application/json", modified, filename=name)
 
-        self._get("/datasets/{code}/download.json", download_json, "Download a version as JSON", "")
+        self._get(
+            "/datasets/{code}/download.json",
+            download_json,
+            "Download a version as JSON",
+            "The selected published version with its entries.",
+        )
 
         async def skos(
             request: Request,
@@ -393,7 +408,12 @@ class G2PPublicCatalogueController(BaseController):
             data, modified = await S.get_geo_levels(sel(version, as_of), base_url(request))
             return as_json(request, data, modified)
 
-        self._get("/geography/levels", geo_levels, "Geography levels", "")
+        self._get(
+            "/geography/levels",
+            geo_levels,
+            "Geography levels",
+            "Levels of the selected published geography version.",
+        )
 
         async def geo_units(
             request: Request,
@@ -428,7 +448,12 @@ class G2PPublicCatalogueController(BaseController):
             body, modified, name = await S.units_csv(sel(version, as_of), level, include_retired)
             return respond(request, body, "text/csv; charset=utf-8", modified, filename=name)
 
-        self._get("/geography/levels/{level}/units.csv", units_csv, "Units of a level as CSV", "")
+        self._get(
+            "/geography/levels/{level}/units.csv",
+            units_csv,
+            "Units of a level as CSV",
+            "One row per unit of `level` (mnemonic or id).",
+        )
 
         async def boundaries(
             request: Request,

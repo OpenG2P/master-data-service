@@ -107,7 +107,7 @@ _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 READ = frozenset()
-TAG_LISTS = "/catalogue — lists"
+TAG_LISTS = "/catalogue — datasets"
 TAG_GEO = "/catalogue — geography"
 TAG_RELEASES = "/catalogue — releases"
 TAG_FEED = "/catalogue — change feed"
@@ -245,6 +245,12 @@ class G2PCatalogueController(BaseController):
         require_permissions(set(permissions))(endpoint)
         if data_policy:
             data_policy_marker(endpoint)
+        perms = sorted(permissions)
+        description += (
+            "\n\nPermission: " + ", ".join(f"`{p}`" for p in perms)
+            if perms
+            else "\n\nPermission: any authenticated caller."
+        )
         responses = {200: {"model": response_model}}
         if extra_responses:
             responses.update(extra_responses)
@@ -276,9 +282,10 @@ class G2PCatalogueController(BaseController):
             get_lists,
             permissions=READ,
             tag=TAG_LISTS,
-            summary="All code lists",
+            summary="All datasets",
             description=(
-                "Every code list with its owner, domain (`core`, `agriculture`, ...; null when unknown), current "
+                "Every dataset (list) with its owner, domain (shown as Theme: `core`, `agriculture`, ...; "
+                "null when unknown), visibility, licence, current "
                 "published version (in effect now), highest published "
                 "version (may be future-effective), open draft (number and status) and a summary of its "
                 "attribute schema (properties, required, list references)."
@@ -296,7 +303,7 @@ class G2PCatalogueController(BaseController):
             get_list,
             permissions=READ,
             tag=TAG_LISTS,
-            summary="One code list at a version",
+            summary="One dataset at a version",
             description="A list's metadata as it is in the selected version (code, labels, attribute schema), "
             "plus that version's metadata." + _VERSIONING,
         )
@@ -328,7 +335,7 @@ class G2PCatalogueController(BaseController):
             permissions=READ,
             tag=TAG_LISTS,
             data_policy=True,
-            summary="Values of a list at a version",
+            summary="Entries (values) of a dataset at a version",
             description=(
                 "Values of the selected version, ordered by sort_order. Active values only unless "
                 '`include_retired`. Filters: `parent_code` ("" = top level), `attribute_filters` (JSON '
@@ -351,7 +358,7 @@ class G2PCatalogueController(BaseController):
             get_list_value,
             permissions=READ,
             tag=TAG_LISTS,
-            summary="One value by code at a version",
+            summary="One entry by code at a version",
             description="Resolves a code in the selected version — including a RETIRED value, so an old "
             "reference still resolves against the version it was taken from." + _VERSIONING,
         )
@@ -367,7 +374,7 @@ class G2PCatalogueController(BaseController):
             get_list_versions,
             permissions=READ,
             tag=TAG_LISTS,
-            summary="Version history of a list",
+            summary="Version history of a dataset",
             description="All versions, newest first: DRAFT, SUBMITTED, PUBLISHED (with effective_from, "
             "published_at, decided_by), REJECTED (with decision_note) and DISCARDED. Numbers are never reused. "
             "`is_latest` marks the version in "
@@ -407,7 +414,7 @@ class G2PCatalogueController(BaseController):
             create_list,
             permissions={"referenceData:create"},
             tag=TAG_LISTS,
-            summary="Create a code list",
+            summary="Create a dataset",
             description="Registers a new list (code, label, labels per locale, description, owner_org, domain, "
             "visibility (private by default), licence_uri / licence_label, hierarchy flag, attribute_schema) and opens its first draft (version 1). Nothing is published "
             "until that draft is submitted and approved. `attribute_schema` is a JSON Schema (2020-12) for "
@@ -425,7 +432,7 @@ class G2PCatalogueController(BaseController):
             update_list,
             permissions={"referenceData:edit"},
             tag=TAG_LISTS,
-            summary="Update a list's metadata",
+            summary="Update a dataset's metadata",
             description="`description`, `owner_org`, `domain`, `visibility` and `licence_uri` / `licence_label` "
             "are administrative and apply at once. `new_list_code`, "
             "`display`, `display_i18n`, `is_hierarchical` and `attribute_schema` are part of what consumers "
@@ -475,7 +482,7 @@ class G2PCatalogueController(BaseController):
             upsert_draft_values,
             permissions={"referenceData:edit"},
             tag=TAG_LISTS,
-            summary="Add or change values in the draft (batch)",
+            summary="Add or change entries in the draft (batch)",
             description="Each item is matched on `value_id` when given (which lets a value change its code), "
             "else on `value_code`; unmatched items are added. Only fields present are changed. Upserting a "
             "retired code re-activates it. `attributes` are validated against the draft's attribute_schema, "
@@ -499,7 +506,7 @@ class G2PCatalogueController(BaseController):
             retire_draft_values,
             permissions={"referenceData:delete"},
             tag=TAG_LISTS,
-            summary="Retire values in the draft",
+            summary="Retire entries in the draft",
             description="A value that exists in the base version becomes RETIRED (kept, so old references "
             "still resolve); a value added in this draft is removed. Active children block unless "
             "`cascade`." + _DRAFT,
@@ -1020,7 +1027,7 @@ class G2PCatalogueController(BaseController):
             set_release_members,
             permissions={"referenceData:edit"},
             tag=TAG_RELEASES,
-            summary="Pin list versions and a geography version",
+            summary="Pin dataset versions and a geography version",
             description="Only PUBLISHED versions can be members. `replace: true` (default) replaces all "
             "members; false adds / overwrites the given ones. `geo_version_no` sets the geography pin. DRAFT "
             "releases only.",

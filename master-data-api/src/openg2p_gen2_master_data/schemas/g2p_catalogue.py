@@ -71,13 +71,17 @@ class VersionSelector(BaseModel):
 class VersionInfo(BaseModel):
     """Which version the data came from, and where it is in its lifecycle."""
 
-    version_no: int
-    status: str
-    base_version_no: Optional[int] = None
-    effective_from: Optional[datetime] = None
+    version_no: int = Field(..., description="Version number. Numbers are never reused.")
+    status: str = Field(..., description="DRAFT, SUBMITTED, PUBLISHED, REJECTED or DISCARDED.")
+    base_version_no: Optional[int] = Field(
+        default=None, description="The published version this one was copied from."
+    )
+    effective_from: Optional[datetime] = Field(
+        default=None, description="When a published version comes into effect."
+    )
     published_at: Optional[datetime] = None
-    is_latest: bool = False
-    change_note: Optional[str] = None
+    is_latest: bool = Field(default=False, description="True for the published version in effect now.")
+    change_note: Optional[str] = Field(default=None, description="What changed and why (the maker's note).")
     # *_by: the stable user id (token sub) or a system name; *_by_name: the
     # user's display name when they acted (None for a system actor).
     created_by: Optional[str] = None
@@ -106,10 +110,12 @@ class EmptyPayload(BaseModel):
 
 
 class ListSummary(BaseModel):
-    list_id: str
-    list_code: Optional[str] = None
-    display: Optional[str] = None
-    display_i18n: Optional[Dict[str, str]] = None
+    list_id: str = Field(..., description="Stable id of the dataset (list).")
+    list_code: Optional[str] = Field(default=None, description='Dataset code, e.g. "GENDER".')
+    display: Optional[str] = Field(default=None, description="Title in the default language.")
+    display_i18n: Optional[Dict[str, str]] = Field(
+        default=None, description='Title per language code, e.g. {"am": "..."}.'
+    )
     description: Optional[str] = None
     owner_org: Optional[str] = None
     domain: Optional[str] = Field(
@@ -142,19 +148,23 @@ class ListSummary(BaseModel):
 
 
 class ListValue(BaseModel):
-    value_id: str
-    value_code: str
-    display: Optional[str] = None
-    display_i18n: Optional[Dict[str, str]] = None
-    parent_code: Optional[str] = None
+    """One entry of a dataset."""
+
+    value_id: str = Field(..., description="Stable id of the entry.")
+    value_code: str = Field(..., description='Entry code, e.g. "MALE". Consumers store this.')
+    display: Optional[str] = Field(default=None, description="Label in the default language.")
+    display_i18n: Optional[Dict[str, str]] = Field(default=None, description="Label per language code.")
+    parent_code: Optional[str] = Field(default=None, description="Parent entry code (hierarchical datasets).")
     sort_order: Optional[int] = None
-    attributes: Optional[Dict[str, Any]] = None
-    roles: Optional[List[str]] = None
-    status: str = "ACTIVE"
+    attributes: Optional[Dict[str, Any]] = Field(
+        default=None, description="Typed attributes, validated against the dataset's attribute_schema."
+    )
+    roles: Optional[List[str]] = Field(default=None, description="Role tags of the entry, if any.")
+    status: str = Field(default="ACTIVE", description="ACTIVE or RETIRED (kept so old references resolve).")
 
 
 class ListRef(BaseModel):
-    list_code: str = Field(..., description="List code (or list id).")
+    list_code: str = Field(..., description='Dataset (list) code or list id, e.g. "GENDER".')
 
 
 class GetListsPayload(BaseModel):

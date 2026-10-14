@@ -24,7 +24,7 @@ TAG = "/samples"
 _PAGING = (
     " Paged with `pagination_request` (`page_size`, `current_page`; default 1000 per page); "
     "`response_body.pagination_response` carries `number_of_items` and `number_of_pages`. Empty unless the "
-    "deployment loaded the country pack's samples (`--load samples`)."
+    "deployment loaded the country pack's samples (`--load samples`). Permission: any authenticated caller."
 )
 
 IndividualsRequest = CatalogueRequest[GetSampleIndividualsPayload]
@@ -78,7 +78,7 @@ class G2PSampleController(BaseController):
                 "The sample individuals the country pack loaded, in `individual_id` order: who they are "
                 "(names, gender, birth date, national id, phone), where they live (`geo_pcode`, a unit of "
                 "the geography, plus `address_parts` below the lowest level and coordinates) and coded facts "
-                "(values of the pack's code lists). Registries seed their sample records from these, so one "
+                "(entries of the pack's datasets). Registries seed their sample records from these, so one "
                 "set of people populates every registry of the deployment. Optional filters: "
                 "`household_id`, `geo_pcode`, `country`." + _PAGING
             ),
@@ -93,7 +93,7 @@ class G2PSampleController(BaseController):
             description=(
                 "**For testing and demos only; not for production use.** "
                 "The sample households the country pack loaded, in `household_id` order, with their head, "
-                "size, dwelling and amenities (codes of the pack's lists) and location. Optional filters: "
+                "size, dwelling and amenities (codes of the pack's datasets) and location. Optional filters: "
                 "`geo_pcode`, `country`." + _PAGING
             ),
         )
