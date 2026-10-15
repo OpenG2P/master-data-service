@@ -12,7 +12,7 @@ This repo merges what were previously three separate repos:
 | `openg2p-gen2-master-data-deployment` | `deployments/`         |
 
 ## Layout
-
+ 
 ```
 master-data-api/                      Python (FastAPI) source — package openg2p-gen2-master-data
 docker/master-data-api/Dockerfile     Image build (build context = repo root; installs local source)
