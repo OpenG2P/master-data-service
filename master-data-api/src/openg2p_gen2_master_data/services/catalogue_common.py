@@ -30,7 +30,8 @@ _logger = logging.getLogger(_config.logging_default_logger_name)
 
 
 class CatalogueError(Exception):
-    """``code`` is G2P-CAT-400 (bad request), -403 (not allowed), -404, -409 (state conflict)."""
+    """``code`` is G2P-CAT-400 (bad request), -403 (not allowed), -404, -409 (state conflict),
+    or G2P-CAT-CODE-IMMUTABLE (a published entry's code cannot change)."""
 
     def __init__(self, code: str, message: str):
         self.code = code
@@ -107,7 +108,7 @@ def actor_from_request(request) -> Actor:
     return Actor(id=str(actor_id), token=token, name=name or username or (str(actor_id) if auth else None))
 
 
-_DB_CODE = re.compile(r"(G2P-CAT-(?:IMMUTABLE|\d{3}))[: ]\s*(.*)", re.S)
+_DB_CODE = re.compile(r"(G2P-CAT-(?:CODE-IMMUTABLE|IMMUTABLE|\d{3}))[: ]\s*(.*)", re.S)
 
 
 def translate_db_error(exc: Exception) -> Exception:

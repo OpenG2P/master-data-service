@@ -320,7 +320,11 @@ class DraftValueInput(BaseModel):
     roles: Optional[List[str]] = None
     value_id: Optional[str] = Field(
         default=None,
-        description="Stable id. Give it to change a value's code (RECODE); omit to match on value_code.",
+        description=(
+            "Stable id. Omit to match on value_code. Give it to change the code of an entry that has "
+            "never been published; a published code cannot change (G2P-CAT-CODE-IMMUTABLE): retire "
+            "the entry and add a new one instead."
+        ),
     )
     status: Optional[Literal["ACTIVE", "RETIRED"]] = Field(default=None, description="ACTIVE re-activates.")
 

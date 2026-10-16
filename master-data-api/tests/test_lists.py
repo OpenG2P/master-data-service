@@ -453,3 +453,188 @@ async def test_list_domain_create_update_and_fallback(db):
     assert summary.domain == "agriculture"
     summary, _ = await s.update_list(UpdateListPayload(list_code="PLAIN", domain=""), MAKER)
     assert summary.domain is None
+
+
+# ---------------------------------------------------------------------------
+# Codes are immutable once published
+# ---------------------------------------------------------------------------
+
+
+async def test_published_code_is_immutable_labels_stay_editable(db):
+    s = svc()
+    await publish_list("COLOUR", ("RED", "BLUE"))
+    _, _, vals, _ = await s.get_list_values("COLOUR", None)
+    red_id = next(v.value_id for v in vals if v.value_code == "RED")
+    blue_id = next(v.value_id for v in vals if v.value_code == "BLUE")
+
+    # Labels, labels per language, attributes and sort order of a published entry change freely.
+    await s.upsert_draft_values(
+        "COLOUR",
+        [
+            DraftValueInput(
+                value_id=red_id, value_code="RED", display="Crimson", display_i18n={"am": "ቀይ"}, sort_order=9
+            )
+        ],
+        MAKER,
+    )
+    # Its code does not: not through upsert with value_id...
+    with pytest.raises(CatalogueError, match="published code cannot change") as e:
+        await s.upsert_draft_values(
+            "COLOUR", [DraftValueInput(value_id=red_id, value_code="ROUGE", display="Rouge")], MAKER
+        )
+    assert e.value.code == "G2P-CAT-CODE-IMMUTABLE"
+    assert "RED" in e.value.message and "ROUGE" in e.value.message and "version 1" in e.value.message
+    # ...nor for a published entry that is retired in the draft.
+    await s.retire_draft_values("COLOUR", ["BLUE"], False, MAKER)
+    with pytest.raises(CatalogueError) as e:
+        await s.upsert_draft_values("COLOUR", [DraftValueInput(value_id=blue_id, value_code="AZURE")], MAKER)
+    assert e.value.code == "G2P-CAT-CODE-IMMUTABLE"
+
+    # An entry only in the open draft (never published) may still change its code.
+    _, _, added = await s.upsert_draft_values("COLOUR", values("GREN"), MAKER)
+    await s.upsert_draft_values(
+        "COLOUR", [DraftValueInput(value_id=added[0].value_id, value_code="GREEN", display="Green")], MAKER
+    )
+
+    # A real recode: retire the old entry, add a new one.
+    await s.retire_draft_values("COLOUR", ["RED"], False, MAKER)
+    await s.upsert_draft_values("COLOUR", values("ROUGE"), MAKER)
+    await submit_and_approve("COLOUR")
+    diff = await s.get_list_diff("COLOUR", 1, 2)
+    assert sorted(v.value_code for v in diff["added"]) == ["GREEN", "ROUGE"]
+    assert sorted(v.value_code for v in diff["retired"]) == ["BLUE", "RED"]
+    assert diff["changed"] == []
+    # The retired entry still resolves, with its code.
+    _, _, red = await s.get_list_value("COLOUR", "RED", VersionSelector(version=2))
+    assert red.value_id == red_id and red.status == "RETIRED" and red.display == "Crimson"
+
+    # GREEN is now published: its code is fixed from here on.
+    green_id = added[0].value_id
+    with pytest.raises(CatalogueError) as e:
+        await s.upsert_draft_values("COLOUR", [DraftValueInput(value_id=green_id, value_code="VERT")], MAKER)
+    assert e.value.code == "G2P-CAT-CODE-IMMUTABLE"
+
+
+async def test_published_code_is_immutable_through_the_legacy_endpoint():
+    from openg2p_gen2_master_data.schemas.g2p_attribute import UpdateAttributeValueRequestPayload
+
+    s = svc()
+    await publish_list("SIZE", ("S", "M"))
+    _, _, vals, _ = await s.get_list_values("SIZE", None)
+    small = next(v for v in vals if v.value_code == "S")
+    with pytest.raises(CatalogueError) as e:
+        await s.legacy_update_value(
+            UpdateAttributeValueRequestPayload(
+                value_id=small.value_id, attribute_id="SIZE", value_code="SMALL"
+            ),
+            MAKER,
+        )
+    assert e.value.code == "G2P-CAT-CODE-IMMUTABLE"
+    # The label still changes.
+    out = await s.legacy_update_value(
+        UpdateAttributeValueRequestPayload(
+            value_id=small.value_id, attribute_id="SIZE", value_display="Small"
+        ),
+        MAKER,
+    )
+    assert out.value_code == "S" and out.value_display == "Small"
+    # A never-published entry added through the legacy endpoint can be recoded there.
+    added = await s.legacy_add_value(
+        attribute_id="SIZE",
+        value_code="LRG",
+        value_display="Large",
+        parent_value_id=None,
+        sort_order=3,
+        actor=MAKER,
+    )
+    out = await s.legacy_update_value(
+        UpdateAttributeValueRequestPayload(value_id=added.value_id, attribute_id="SIZE", value_code="L"),
+        MAKER,
+    )
+    assert out.value_code == "L"
+
+
+async def test_published_code_change_is_refused_on_submit_and_in_the_database(db):
+    """A code changed behind the API's back (a direct write into the draft) is caught
+    on submit, and by g2p_catalogue_publish_list for callers that publish directly."""
+    s = svc()
+    await publish_list("SHAPE", ("SQUARE", "ROUND"))
+    await s.create_list_draft(CreateListDraftPayload(list_code="SHAPE"), MAKER)
+    with db.cursor() as cur:
+        cur.execute(
+            "UPDATE g2p_list_version_values SET value_code = 'CIRCLE' "
+            "WHERE list_id = 'SHAPE' AND version_no = 2 AND value_code = 'ROUND'"
+        )
+    with pytest.raises(CatalogueError) as e:
+        await s.submit_draft(SubmitDraftPayload(list_code="SHAPE"), MAKER)
+    assert e.value.code == "G2P-CAT-CODE-IMMUTABLE" and "CIRCLE" in e.value.message
+    with db.cursor() as cur, pytest.raises(psycopg2.Error, match="G2P-CAT-CODE-IMMUTABLE: list SHAPE: entry"):
+        cur.execute("SELECT g2p_catalogue_publish_list('SHAPE', 2, 'loader', NULL, NULL, true)")
+    with db.cursor() as cur:
+        cur.execute("SELECT version_no, status FROM g2p_list_versions WHERE list_id = 'SHAPE' ORDER BY 1")
+        assert cur.fetchall() == [(1, "PUBLISHED"), (2, "DRAFT")]
+
+
+# ---------------------------------------------------------------------------
+# Lists of references (cross-classification)
+# ---------------------------------------------------------------------------
+
+
+async def test_list_of_references_attribute():
+    """An attribute may hold several codes of another dataset: an array whose items carry
+    x-list-ref. Each code is validated, and checked against the referenced dataset's
+    version in effect."""
+    s = svc()
+    await publish_list("CROP_GROUP", ("CEREAL", "PULSE", "FODDER"))
+    schema = {
+        "type": "object",
+        "properties": {
+            "groups": {
+                "type": "array",
+                "items": {"type": "string", "x-list-ref": "CROP_GROUP"},
+                "minItems": 1,
+                "uniqueItems": True,
+            }
+        },
+        "required": ["groups"],
+    }
+    await s.create_list(CreateListPayload(list_code="CROP", display="Crop", attribute_schema=schema), MAKER)
+    summary, _ = await s.get_list("CROP", VersionSelector(version="draft"))
+    assert summary.attribute_schema_summary["list_refs"] == {"groups[]": "CROP_GROUP"}
+
+    def crop(code, groups):
+        return DraftValueInput(value_code=code, display=code.title(), attributes={"groups": groups})
+
+    await s.upsert_draft_values(
+        "CROP", [crop("MAIZE", ["CEREAL", "FODDER"]), crop("LENTIL", ["PULSE"])], MAKER
+    )
+    # Every code in the array is checked; the error names the missing ones.
+    with pytest.raises(CatalogueError, match=r"\['OILSEED'\] are not values of list CROP_GROUP") as e:
+        await s.upsert_draft_values("CROP", [crop("SESAME", ["CEREAL", "OILSEED"])], MAKER)
+    assert e.value.code == "G2P-CAT-400"
+    # The schema still applies: a single code is not a list, an empty list is too short.
+    with pytest.raises(CatalogueError, match="attributes invalid at groups"):
+        await s.upsert_draft_values("CROP", [crop("SESAME", "CEREAL")], MAKER)
+    with pytest.raises(CatalogueError, match="attributes invalid at groups"):
+        await s.upsert_draft_values("CROP", [crop("SESAME", [])], MAKER)
+    await submit_and_approve("CROP")
+
+    # Reads return the list as stored; a filter matches entries whose list contains the code.
+    _, _, maize = await s.get_list_value("CROP", "MAIZE", None)
+    assert maize.attributes == {"groups": ["CEREAL", "FODDER"]}
+    _, _, vals, total = await s.get_list_values("CROP", None, attribute_filters={"groups": ["FODDER"]})
+    assert total == 1 and vals[0].value_code == "MAIZE"
+
+    # Checked against the version in effect: once FODDER is retired, it can no longer be
+    # added, and a CROP draft that still carries it (MAIZE) cannot be submitted.
+    await s.create_list_draft(CreateListDraftPayload(list_code="CROP_GROUP"), MAKER)
+    await s.retire_draft_values("CROP_GROUP", ["FODDER"], False, MAKER)
+    await submit_and_approve("CROP_GROUP")
+    await s.create_list_draft(CreateListDraftPayload(list_code="CROP"), MAKER)
+    with pytest.raises(CatalogueError, match=r"\['FODDER'\] are not values of list CROP_GROUP \(version 2"):
+        await s.upsert_draft_values("CROP", [crop("LENTIL", ["PULSE", "FODDER"])], MAKER)
+    await s.upsert_draft_values("CROP", [DraftValueInput(value_code="LENTIL", display="Red lentil")], MAKER)
+    with pytest.raises(CatalogueError, match=r"value 'MAIZE'|\['FODDER'\] are not values of list CROP_GROUP"):
+        await s.submit_draft(SubmitDraftPayload(list_code="CROP"), MAKER)
+    await s.upsert_draft_values("CROP", [crop("MAIZE", ["CEREAL"])], MAKER)
+    assert (await submit_and_approve("CROP")).version_no == 2

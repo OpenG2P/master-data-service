@@ -65,6 +65,9 @@ function ListRefSelect({
 
     if (multiple) {
         const selected = Array.isArray(value) ? value.map(String) : [];
+        // Keep stored codes that are no longer active in the referenced list selectable, so saving
+        // does not silently drop them.
+        const stale = loading ? [] : selected.filter((c) => !values.some((v) => v.value_code === c));
         return (
             <select
                 multiple
@@ -76,6 +79,11 @@ function ListRefSelect({
                 }}
                 className={`${textareaClass} min-h-28`}
             >
+                {stale.map((c) => (
+                    <option key={`stale-${c}`} value={c}>
+                        {c}
+                    </option>
+                ))}
                 {options}
             </select>
         );

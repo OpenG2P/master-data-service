@@ -580,3 +580,42 @@ def test_loader_sets_geography_licence_from_manifest_and_keeps_an_admins(tmp_pat
     out = run_loader(pack, "--load", "geo")
     assert "geography licence already set — kept" in out
     assert q("SELECT text_value FROM g2p_catalogue_state WHERE key = 'geo.licence_label'") == [("CC0",)]
+
+
+def test_loader_refuses_a_pack_that_changes_a_published_code(tmp_path):
+    """A published code never changes. A pack that gives an already-published entry
+    (same value_id) a new value_code stops the load with G2P-CAT-CODE-IMMUTABLE and
+    writes nothing; a recode done the right way (new value_id, old entry dropped)
+    loads as retire + add."""
+    pack, _ = _mini_pack(tmp_path)
+    run_loader(pack, "--load", "codelists")
+    gender = json.loads((pack / "codelists" / "gender.json").read_text())
+    gender["values"][0]["value_code"] = "FEMALE"  # value_id F keeps its id, changes its code
+    (pack / "codelists" / "gender.json").write_text(json.dumps(gender, ensure_ascii=False))
+    for extra in ((), ("--publish",)):
+        proc = subprocess.run(
+            [sys.executable, str(LOADER), "--pack", str(pack), "--db", DB_NAME, "--load", "codelists", *extra],
+            env=_env(DB_NAME),
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        out = proc.stdout + proc.stderr
+        assert proc.returncode != 0
+        assert "G2P-CAT-CODE-IMMUTABLE" in out and "value_id F: F (published in version 1) -> FEMALE" in out
+        assert q("SELECT version_no, status FROM g2p_list_versions WHERE list_id = 'GENDER'") == [(1, "PUBLISHED")]
+
+    # The recode as a pack should express it: a new entry, the old one dropped.
+    gender["values"][0] = {
+        "value_id": "FEMALE",
+        "value_code": "FEMALE",
+        "value_display": "Female",
+        "sort_order": 1,
+    }
+    (pack / "codelists" / "gender.json").write_text(json.dumps(gender, ensure_ascii=False))
+    run_loader(pack, "--load", "codelists", "--publish")
+    assert q(
+        "SELECT value_id, value_code, status FROM g2p_list_version_values "
+        "WHERE list_id = 'GENDER' AND version_no = 2 ORDER BY 1"
+    ) == [("F", "F", "RETIRED"), ("FEMALE", "FEMALE", "ACTIVE"), ("M", "M", "ACTIVE"), ("X", "X", "ACTIVE")]
+    shutil.rmtree(pack)

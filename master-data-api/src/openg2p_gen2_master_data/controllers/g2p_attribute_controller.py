@@ -167,7 +167,8 @@ class G2PAttributeController(BaseController):
             responses={200: {"model": UpdateAttributeValueResponse}},
             methods=["POST"],
             summary="Update an entry (in the draft)",
-            description=_DRAFT_NOTE + " Permission: `referenceData:edit`.",
+            description=_DRAFT_NOTE + " `value_code` can change only for an entry that was never published"
+            " (`G2P-CAT-CODE-IMMUTABLE` otherwise). Permission: `referenceData:edit`.",
         )
 
         self.router.add_api_route(

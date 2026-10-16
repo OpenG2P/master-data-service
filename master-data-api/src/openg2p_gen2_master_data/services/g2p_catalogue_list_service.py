@@ -12,7 +12,9 @@ reused (a discarded or rejected version keeps its number for good).
 One open (DRAFT or SUBMITTED) version per list. A draft starts as a copy of the
 highest published version (its base). Values are never deleted from anything
 published: a value removed in a draft is RETIRED there (a value that was only
-ever in the draft is simply removed). Publishing refreshes the legacy tables
+ever in the draft is simply removed). A value's code is fixed once the value has
+been in a published version (G2P-CAT-CODE-IMMUTABLE): labels, attributes, parent
+and sort order stay editable; a recode is retire + add. Publishing refreshes the legacy tables
 (g2p_attributes / g2p_attribute_values) in the same transaction, through the
 database function g2p_catalogue_publish_list.
 """
@@ -176,6 +178,22 @@ def _value(row: G2PListVersionValue) -> ListValue:
 
 def _same(a: Any, b: Any) -> bool:
     return (a if a not in ("", {}, []) else None) == (b if b not in ("", {}, []) else None)
+
+
+# An entry's code is immutable once the entry is in a published version
+# (registries store codes). A real recode is: retire the old entry, add a new one.
+CODE_IMMUTABLE = "G2P-CAT-CODE-IMMUTABLE"
+
+
+def code_immutable_error(
+    list_code: str, value_id: str, published_code: str, new_code: str, version_no: int
+) -> CatalogueError:
+    return CatalogueError(
+        CODE_IMMUTABLE,
+        f"list {list_code}: entry {value_id} has code {published_code} in published version {version_no}; "
+        f"a published code cannot change (to {new_code}). Retire {published_code} and add a new entry "
+        f"with code {new_code} instead",
+    )
 
 
 class G2PCatalogueListService(BaseService):
@@ -484,6 +502,45 @@ class G2PCatalogueListService(BaseService):
             .all()
         )
         return {r.value_id: r for r in rows}
+
+    @staticmethod
+    async def _published_codes(
+        session, list_id: str, value_ids: Optional[List[str]] = None
+    ) -> Dict[str, Tuple[str, int]]:
+        """{value_id: (code, version_no)} of entries that are in a published version
+        of the list: the code of the highest published version holding each entry.
+        ``value_ids`` limits the lookup."""
+        V, LV = G2PListVersionValue, G2PListVersion
+        stmt = (
+            select(V.value_id, V.value_code, V.version_no)
+            .join(LV, (LV.list_id == V.list_id) & (LV.version_no == V.version_no))
+            .where(V.list_id == list_id, LV.status == VersionStatus.PUBLISHED)
+            .distinct(V.value_id)
+            .order_by(V.value_id, V.version_no.desc())
+        )
+        if value_ids is not None:
+            if not value_ids:
+                return {}
+            stmt = stmt.where(V.value_id.in_(value_ids))
+        return {vid: (code, no) for vid, code, no in (await session.execute(stmt)).all()}
+
+    async def _check_code_change(self, s, attr, value_id: str, new_code: str) -> None:
+        """Refuse a code change of an entry that has been published."""
+        published = (await self._published_codes(s, attr.attribute_id, [value_id])).get(value_id)
+        if published is not None and published[0] != new_code:
+            raise code_immutable_error(attr.attribute_code, value_id, published[0], new_code, published[1])
+
+    async def _check_published_codes(self, s, attr, version: G2PListVersion) -> None:
+        """Every entry of ``version`` that was published keeps its published code
+        (on submit; publishing checks it again in the database)."""
+        published = await self._published_codes(s, attr.attribute_id)
+        if not published:
+            return
+        rows = await self._values_map(s, attr.attribute_id, version.version_no)
+        for vid in sorted(rows):
+            was = published.get(vid)
+            if was is not None and was[0] != rows[vid].value_code:
+                raise code_immutable_error(attr.attribute_code, vid, was[0], rows[vid].value_code, was[1])
 
     async def get_list_diff(self, list_code: str, from_version: Optional[int], to_version) -> Dict[str, Any]:
         async with get_async_session_maker()() as session:
@@ -934,11 +991,16 @@ class G2PCatalogueListService(BaseService):
                     )
                     if row.value_id in rows:
                         row.value_id = str(uuid.uuid4())
+                    elif item.value_id:
+                        # An entry brought back under its published id keeps its code.
+                        await self._check_code_change(s, attr, row.value_id, code)
                     s.add(row)
                     rows[row.value_id] = row
                     created.append(code)
                 else:
                     if row.value_code != code:
+                        # Only an entry that was never published may change its code.
+                        await self._check_code_change(s, attr, row.value_id, code)
                         clash = by_code.get(code)
                         if clash is not None and clash.value_id != row.value_id:
                             raise CatalogueError(
@@ -1254,6 +1316,7 @@ class G2PCatalogueListService(BaseService):
                 await self._check_effective_from(s, attr, payload.effective_from)
                 draft.effective_from = as_aware(payload.effective_from)
             await self.validate_version(s, attr, draft)
+            await self._check_published_codes(s, attr, draft)
             if draft.base_version_no is not None:
                 base = await self._get_version(s, attr.attribute_id, draft.base_version_no)
                 diff = await self._diff(s, attr, base, draft)
@@ -1658,7 +1721,10 @@ class G2PCatalogueListService(BaseService):
                         "G2P-ATTR-409",
                         f"value_code already exists for attribute '{attr.attribute_id}': {code}",
                     )
-                # Children follow a recoded parent.
+                if code != row.value_code:
+                    # Only an entry that was never published may change its code.
+                    await self._check_code_change(s, attr, row.value_id, code)
+                # Children follow a recoded (never published) parent.
                 await s.execute(
                     update(G2PListVersionValue)
                     .where(

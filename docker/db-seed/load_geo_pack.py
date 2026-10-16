@@ -658,6 +658,42 @@ def _upsert_values(cur, list_id, version_no, values):
     )
 
 
+def refuse_published_recodes(cur, list_id, list_code, values, pack_label):
+    """A published code never changes (the API refuses it with G2P-CAT-CODE-IMMUTABLE,
+    and so does g2p_catalogue_publish_list). A pack that gives an entry already
+    published (same value_id) a different value_code is refused before anything is
+    written: the load stops and no list is loaded.
+
+    To recode in a pack, give the new code a NEW value_id and drop the old entry:
+    the loader then retires the old entry and adds the new one."""
+    if not values:
+        return
+    cur.execute(
+        """SELECT DISTINCT ON (x.value_id) x.value_id, x.value_code, x.version_no
+             FROM g2p_list_version_values x
+             JOIN g2p_list_versions v ON v.list_id = x.list_id AND v.version_no = x.version_no
+            WHERE x.list_id = %s AND v.status = 'PUBLISHED' AND x.value_id = ANY(%s)
+            ORDER BY x.value_id, x.version_no DESC""",
+        (list_id, list(values)),
+    )
+    recoded = [
+        (vid, code, no, values[vid]["value_code"])
+        for vid, code, no in cur.fetchall()
+        if values[vid]["value_code"] != code
+    ]
+    if recoded:
+        shown = "; ".join(
+            f"value_id {vid}: {old} (published in version {no}) -> {new}" for vid, old, no, new in recoded[:10]
+        )
+        more = f" (+{len(recoded) - 10} more)" if len(recoded) > 10 else ""
+        raise SystemExit(
+            f"[geo-pack] ERROR G2P-CAT-CODE-IMMUTABLE: {pack_label} changes published code(s) of list "
+            f"{list_code}: {shown}{more}. A published code cannot change. To recode, give the new code a "
+            "new value_id and drop the old entry from the pack (the loader then retires the old entry and "
+            "adds the new one). No dataset was loaded."
+        )
+
+
 def load_list(cur, doc, domain, args, log, pack_label):
     """Returns one of: created, published, draft, unchanged, skipped."""
     list_id = doc["attribute_id"]
@@ -753,6 +789,7 @@ def load_list(cur, doc, domain, args, log, pack_label):
     retire = sorted(vid for vid, h in have.items() if h["status"] == "ACTIVE" and vid not in values)
     if not (meta_changed or changed or retire):
         return "unchanged"
+    refuse_published_recodes(cur, list_id, meta["list_code"], changed, pack_label)
 
     cur.execute("SELECT g2p_catalogue_next_list_version(%s)", (list_id,))
     new_no = cur.fetchone()[0]

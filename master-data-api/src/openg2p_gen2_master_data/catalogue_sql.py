@@ -487,6 +487,7 @@ DECLARE
   r g2p_list_versions%ROWTYPE;
   prev g2p_list_versions%ROWTYPE;
   eff timestamptz;
+  recoded record;
 BEGIN
   SELECT * INTO r FROM g2p_list_versions
    WHERE list_id = p_list_id AND version_no = p_version_no FOR UPDATE;
@@ -506,6 +507,25 @@ BEGIN
   IF FOUND AND eff < prev.effective_from THEN
     RAISE EXCEPTION 'G2P-CAT-400: effective_from % is earlier than version %''s effective_from %',
       eff, prev.version_no, prev.effective_from;
+  END IF;
+  -- A published code never changes: an entry (value_id) that is in a published
+  -- version keeps the code it has there (a recode is retire + add). Checked here
+  -- too so every caller (API, country-pack loader) is held to it.
+  SELECT d.value_id, d.value_code AS new_code, p.value_code AS old_code, p.version_no INTO recoded
+    FROM g2p_list_version_values d
+    JOIN LATERAL (
+      SELECT pv.value_code, pv.version_no
+        FROM g2p_list_version_values pv
+        JOIN g2p_list_versions v ON v.list_id = pv.list_id AND v.version_no = pv.version_no
+       WHERE pv.list_id = d.list_id AND pv.value_id = d.value_id AND v.status = 'PUBLISHED'
+       ORDER BY pv.version_no DESC LIMIT 1
+    ) p ON true
+   WHERE d.list_id = p_list_id AND d.version_no = p_version_no AND p.value_code <> d.value_code
+   ORDER BY d.value_id LIMIT 1;
+  IF FOUND THEN
+    RAISE EXCEPTION 'G2P-CAT-CODE-IMMUTABLE: list %: entry % has code % in published version %; a published code cannot change (to %). Retire % and add a new entry with code % instead',
+      coalesce(r.list_code, p_list_id), recoded.value_id, recoded.old_code, recoded.version_no,
+      recoded.new_code, recoded.old_code, recoded.new_code;
   END IF;
   UPDATE g2p_list_versions
      SET status = 'PUBLISHED', effective_from = eff, published_at = now(),

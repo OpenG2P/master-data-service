@@ -143,7 +143,8 @@ class G2PListVersionValue(BaseORMModel):
 
     list_id: Mapped[str] = mapped_column(String, primary_key=True)
     version_no: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # Stable across versions (a RECODE keeps the id and changes the code).
+    # Stable across versions. Once the value is published its code is fixed too
+    # (a recode is retire + add); only a never-published value's code may change.
     value_id: Mapped[str] = mapped_column(String, primary_key=True)
     value_code: Mapped[str] = mapped_column(String, nullable=False, index=True)
     display: Mapped[Optional[str]] = mapped_column(String, nullable=True)

@@ -418,7 +418,9 @@ class G2PCatalogueController(BaseController):
             description="Registers a new list (code, label, labels per locale, description, owner_org, domain, "
             "visibility (private by default), licence_uri / licence_label, hierarchy flag, attribute_schema) and opens its first draft (version 1). Nothing is published "
             "until that draft is submitted and approved. `attribute_schema` is a JSON Schema (2020-12) for "
-            'each value\'s `attributes`; a property may carry `"x-list-ref": "<LIST_CODE>"`.',
+            'each value\'s `attributes`; a property may carry `"x-list-ref": "<LIST_CODE>"` (its value is a '
+            "code of that list), and so may the `items` of an array property (a list of codes, e.g. "
+            '`{"type": "array", "items": {"type": "string", "x-list-ref": "CROP_GROUP"}}`).',
         )
 
         async def update_list(req, body, p):
@@ -483,8 +485,11 @@ class G2PCatalogueController(BaseController):
             permissions={"referenceData:edit"},
             tag=TAG_LISTS,
             summary="Add or change entries in the draft (batch)",
-            description="Each item is matched on `value_id` when given (which lets a value change its code), "
-            "else on `value_code`; unmatched items are added. Only fields present are changed. Upserting a "
+            description="Each item is matched on `value_id` when given, else on `value_code`; unmatched items "
+            "are added. Only fields present are changed. Labels, attributes, parent and sort order stay "
+            "editable; a code can change (item with `value_id`) only for an entry that was never published — "
+            "a published code is refused with `G2P-CAT-CODE-IMMUTABLE` (retire it and add a new entry "
+            "instead). Upserting a "
             "retired code re-activates it. `attributes` are validated against the draft's attribute_schema, "
             "and `x-list-ref` codes must be ACTIVE values of the referenced list's version in effect (now, or "
             "at the draft's future effective_from) — never its draft: publish a referenced list first."

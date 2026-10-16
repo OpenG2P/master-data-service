@@ -4,11 +4,17 @@ import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import { toast } from "react-toastify";
-import { errorMessage, useCatalogueApi } from "@/features/catalogue/api";
+import { errorMessage, useCatalogueApi, useCatalogueQuery } from "@/features/catalogue/api";
 import I18nLabelsEditor from "@/features/catalogue/components/I18nLabelsEditor";
 import TypedAttributeFields from "@/features/catalogue/components/TypedAttributeFields";
 import { ErrorBox, Field, Modal, inputClass, localizedLabel } from "@/features/catalogue/components/ui";
-import type { DraftValueInput, ListSummary, ListValue, UpsertDraftValuesResponse } from "@/features/catalogue/types";
+import type {
+    DraftValueInput,
+    GetListValueResponse,
+    ListSummary,
+    ListValue,
+    UpsertDraftValuesResponse,
+} from "@/features/catalogue/types";
 
 type AttributeValueDialogProps = {
     open: boolean;
@@ -39,9 +45,10 @@ function subtree(code: string, values: ListValue[]): Set<string> {
 }
 
 /**
- * Add or change a value in the list's draft (`upsert_draft_values`): code (a changed code keeps the
- * value id, i.e. a RECODE), label, labels per locale, parent (hierarchical lists), sort order and
- * the typed attributes described by the list's attribute schema. Mount while open to reset.
+ * Add or change a value in the list's draft (`upsert_draft_values`): code, label, labels per locale,
+ * parent (hierarchical lists), sort order and the typed attributes described by the list's attribute
+ * schema. The code of an entry that is in a published version is read-only (codes are immutable once
+ * published; a recode is retire + add). Mount while open to reset.
  */
 export default function AttributeValueDialog({
     open,
@@ -66,6 +73,16 @@ export default function AttributeValueDialog({
     const [error, setError] = useState("");
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+
+    // Is this entry (same value_id) in the latest published version? Then its code is fixed.
+    const publishedNo = list.latest_published_version_no ?? null;
+    const published = useCatalogueQuery<GetListValueResponse>(
+        "get_list_value",
+        mode === "edit" && value && publishedNo != null
+            ? { list_code: list.list_id, value_code: value.value_code, version: publishedNo }
+            : null,
+    );
+    const codeLocked = published.data?.value?.value_id != null && published.data.value.value_id === value?.value_id;
 
     const parentChoices = useMemo(() => {
         if (!list.is_hierarchical) return [];
@@ -122,13 +139,18 @@ export default function AttributeValueDialog({
                 }}
                 className="space-y-4"
             >
-                <Field label={t("value_code")} required hint={mode === "edit" ? t("cat_recode_hint") : undefined}>
+                <Field
+                    label={t("value_code")}
+                    required
+                    hint={mode === "edit" ? t(codeLocked ? "cat_code_locked_hint" : "cat_recode_hint") : undefined}
+                >
                     <input
                         type="text"
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
-                        autoFocus
-                        className={inputClass}
+                        readOnly={codeLocked}
+                        autoFocus={!codeLocked}
+                        className={`${inputClass}${codeLocked ? " bg-gray-100 text-gray-600" : ""}`}
                         placeholder={t("value_code_placeholder")}
                     />
                     {error && <p className="text-[14px] text-red-500">{error}</p>}

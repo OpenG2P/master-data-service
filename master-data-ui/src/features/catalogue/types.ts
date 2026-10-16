@@ -130,6 +130,12 @@ export interface GetListValuesResponse {
     total: number;
 }
 
+export interface GetListValueResponse {
+    list_code: string;
+    version: VersionInfo;
+    value: ListValue;
+}
+
 export interface GetListVersionsResponse {
     list_code: string;
     versions: VersionInfo[];

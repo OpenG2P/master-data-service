@@ -19,10 +19,13 @@ export function schemaProperties(schema: JsonSchema | null | undefined): SchemaP
         .map(([name, s]) => ({ name, schema: s as Record<string, unknown>, required: required.has(name) }));
 }
 
-/** `x-list-ref` of a property or of its array items. */
+/**
+ * `x-list-ref` of a property or of its array items. An array of references (a list of codes, e.g.
+ * `{"type": "array", "items": {"type": "string", "x-list-ref": "CROP_GROUP"}}`) is `multiple`.
+ */
 export function listRefOf(prop: Record<string, unknown>): { ref: string; multiple: boolean } | null {
     if (typeof prop["x-list-ref"] === "string" && prop["x-list-ref"]) {
-        return { ref: prop["x-list-ref"] as string, multiple: false };
+        return { ref: prop["x-list-ref"] as string, multiple: prop.type === "array" };
     }
     const items = prop.items;
     if (prop.type === "array" && isObject(items) && typeof items["x-list-ref"] === "string" && items["x-list-ref"]) {
