@@ -209,16 +209,16 @@ def test_migration_backfills_display_names_and_keeps_published_rows_frozen():
 def test_loader_eth_pack_initial_then_idempotent():
     out = run_loader(PACKS / "ETH", "--load", "geo,codelists,samples", "--domains", "agriculture")
     assert "geography: version 1 published (1271 units)" in out
-    assert q("SELECT status, count(*) FROM g2p_list_versions GROUP BY 1") == [("PUBLISHED", 60)]
+    assert q("SELECT status, count(*) FROM g2p_list_versions GROUP BY 1") == [("PUBLISHED", 69)]
     assert q("SELECT count(*) FROM g2p_geo_level_values") == [(1271,)]
-    assert q("SELECT count(*) FROM g2p_attribute_values") == [(332,)]
+    assert q("SELECT count(*) FROM g2p_attribute_values") == [(477,)]
     assert q(
         "SELECT roles FROM g2p_list_version_values WHERE list_id = 'GENDER' AND value_code = 'FEMALE'"
     ) == [(["female"],)]
     assert q("SELECT country, effective_from IS NOT NULL FROM g2p_geo_versions") == [("ETH", True)]
     out = run_loader(PACKS / "ETH", "--load", "geo,codelists", "--domains", "agriculture")
-    assert "pack matches published version 1" in out and "codelists unchanged: 60" in out
-    assert q("SELECT count(*) FROM g2p_list_versions") == [(60,)]
+    assert "pack matches published version 1" in out and "codelists unchanged: 69" in out
+    assert q("SELECT count(*) FROM g2p_list_versions") == [(69,)]
     assert q("SELECT count(*) FROM g2p_geo_versions") == [(1,)]
 
 
