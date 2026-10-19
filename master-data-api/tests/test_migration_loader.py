@@ -594,7 +594,17 @@ def test_loader_refuses_a_pack_that_changes_a_published_code(tmp_path):
     (pack / "codelists" / "gender.json").write_text(json.dumps(gender, ensure_ascii=False))
     for extra in ((), ("--publish",)):
         proc = subprocess.run(
-            [sys.executable, str(LOADER), "--pack", str(pack), "--db", DB_NAME, "--load", "codelists", *extra],
+            [
+                sys.executable,
+                str(LOADER),
+                "--pack",
+                str(pack),
+                "--db",
+                DB_NAME,
+                "--load",
+                "codelists",
+                *extra,
+            ],
             env=_env(DB_NAME),
             capture_output=True,
             text=True,
@@ -603,7 +613,9 @@ def test_loader_refuses_a_pack_that_changes_a_published_code(tmp_path):
         out = proc.stdout + proc.stderr
         assert proc.returncode != 0
         assert "G2P-CAT-CODE-IMMUTABLE" in out and "value_id F: F (published in version 1) -> FEMALE" in out
-        assert q("SELECT version_no, status FROM g2p_list_versions WHERE list_id = 'GENDER'") == [(1, "PUBLISHED")]
+        assert q("SELECT version_no, status FROM g2p_list_versions WHERE list_id = 'GENDER'") == [
+            (1, "PUBLISHED")
+        ]
 
     # The recode as a pack should express it: a new entry, the old one dropped.
     gender["values"][0] = {
