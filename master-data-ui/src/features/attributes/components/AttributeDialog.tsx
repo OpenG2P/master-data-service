@@ -101,6 +101,37 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
         }
     };
 
+    // Settings apply at once on edit (update_list); on create they are saved with the dataset.
+    const settingsFields = (
+        <>
+            <Field label={t("cat_description")}>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={textareaClass} />
+            </Field>
+            <Field label={t("cat_owner_org")} hint={t("cat_owner_org_hint")}>
+                <input type="text" value={ownerOrg} onChange={(e) => setOwnerOrg(e.target.value)} className={inputClass} />
+            </Field>
+            <Field label={t("cat_theme")} hint={t("cat_theme_hint")}>
+                <input
+                    type="text"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    className={inputClass}
+                    list="dataset-theme-options"
+                    placeholder={t("cat_theme_placeholder")}
+                />
+                <datalist id="dataset-theme-options">
+                    <option value="core" />
+                    <option value="agriculture" />
+                </datalist>
+            </Field>
+            <PublicationFields
+                value={publication}
+                onChange={setPublication}
+                publicCatalogueEnabled={config?.public_catalogue_enabled}
+            />
+        </>
+    );
+
     return (
         <Modal open={open} title={mode === "edit" ? t("edit_reference_data") : t("add_new_attribute")} onClose={onClose} maxWidth={680}>
             <form
@@ -115,12 +146,15 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                 ) : (
                     <p className="rounded bg-blue-50 px-3 py-2 text-[13px] text-blue-800">{t("cat_list_create_hint")}</p>
                 )}
+                {mode === "edit" ? <h3 className="text-[14px] font-semibold text-black">{t("cat_settings_now")}</h3> : null}
+                {mode === "edit" ? settingsFields : null}
+                {mode === "edit" ? <h3 className="text-[14px] font-semibold text-black">{t("cat_settings_draft")}</h3> : null}
                 <Field label={t("attribute_code")} required>
                     <input
                         type="text"
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
-                        autoFocus
+                        autoFocus={mode === "add"}
                         className={inputClass}
                         placeholder={t("attr_code_placeholder")}
                     />
@@ -132,31 +166,6 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                 <Field label={t("cat_display_i18n")} group>
                     <I18nLabelsEditor value={displayI18n} onChange={setDisplayI18n} />
                 </Field>
-                <Field label={t("cat_description")}>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={textareaClass} />
-                </Field>
-                <Field label={t("cat_owner_org")} hint={t("cat_owner_org_hint")}>
-                    <input type="text" value={ownerOrg} onChange={(e) => setOwnerOrg(e.target.value)} className={inputClass} />
-                </Field>
-                <Field label={t("cat_theme")} hint={t("cat_theme_hint")}>
-                    <input
-                        type="text"
-                        value={domain}
-                        onChange={(e) => setDomain(e.target.value)}
-                        className={inputClass}
-                        list="dataset-theme-options"
-                        placeholder={t("cat_theme_placeholder")}
-                    />
-                    <datalist id="dataset-theme-options">
-                        <option value="core" />
-                        <option value="agriculture" />
-                    </datalist>
-                </Field>
-                <PublicationFields
-                    value={publication}
-                    onChange={setPublication}
-                    publicCatalogueEnabled={config?.public_catalogue_enabled}
-                />
                 <label className="flex cursor-pointer items-center gap-3">
                     <input
                         type="checkbox"
@@ -166,6 +175,7 @@ export default function AttributeDialog({ open, mode, attribute, onClose, onSucc
                     />
                     <span className="text-[16px] font-medium text-black">{t("is_hierarchical")}</span>
                 </label>
+                {mode === "add" ? settingsFields : null}
                 {mode === "add" ? (
                     <Field label={t("cat_change_note")}>
                         <input type="text" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} className={inputClass} />

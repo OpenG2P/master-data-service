@@ -327,6 +327,11 @@ export default function VersionBar({
                 </div>
             </div>
 
+            {!draft && canEdit ? (
+                <p className="text-[13px] text-gray-600">
+                    {latest ? t("cat_open_draft_hint", { no: latest.version_no }) : t("cat_open_draft_hint_first")}
+                </p>
+            ) : null}
             {draft?.status === "SUBMITTED" ? (
                 <p className="rounded bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
                     {approvalMode === "awe"
