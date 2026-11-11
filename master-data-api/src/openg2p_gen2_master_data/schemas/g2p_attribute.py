@@ -75,11 +75,25 @@ class GetAttributeValuesRequestPayload(BaseModel):
         default=None,
         description="Code-list id. When set, returns all values for that attribute.",
     )
+    parent_value_id: Optional[str] = Field(
+        default=None,
+        description="When set, only children of this value. Use an empty string for roots.",
+    )
+    q: Optional[str] = Field(
+        default=None,
+        description="Case-insensitive match on value_display and value_code.",
+    )
+    include_inactive: bool = Field(
+        default=False,
+        description="Published rows are active only. Kept so callers can ask for retired values later.",
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "attribute_id": "string",
+                "attribute_id": "IFSC_DIRECTORY",
+                "parent_value_id": "HDFC",
+                "q": "Fort",
             }
         }
     )
