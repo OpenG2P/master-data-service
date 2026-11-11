@@ -48,7 +48,7 @@ PostgreSQL database and role inside `commons-postgresql`, and the PVCs/PVs.
 ./scripts/uninstall-master-data.sh --namespace <ns> --dry-run
 
 # For real (prompts for confirmation):
-./scripts/uninstall-master-data.sh --namespace <ns> [--release master-data]
+./scripts/uninstall-master-data.sh --namespace <ns> [--release master-data] 
 ```
  
 See the script header (`--help`) for all options.
