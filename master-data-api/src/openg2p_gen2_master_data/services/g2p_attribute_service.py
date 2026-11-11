@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from ..helpers.data_policy_helper import DataPolicyHelper
 from ..models import G2PAttribute, G2PAttributeValue
@@ -80,6 +80,9 @@ class G2PAttributeService(BaseService):
         page_size: int = 1000,
         page_number: int = 1,
         data_policies: Optional[List[dict]] = None,
+        parent_value_id: Optional[str] = None,
+        q: Optional[str] = None,
+        include_inactive: bool = False,
     ) -> tuple[List[AttributeValueData], int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
@@ -92,6 +95,23 @@ class G2PAttributeService(BaseService):
             def scoped(stmt):
                 if attribute_id:
                     stmt = stmt.where(G2PAttributeValue.attribute_id == attribute_id)
+                if parent_value_id is not None:
+                    parent = parent_value_id.strip()
+                    if parent:
+                        stmt = stmt.where(G2PAttributeValue.parent_value_id == parent)
+                    else:
+                        stmt = stmt.where(G2PAttributeValue.parent_value_id.is_(None))
+                if q and q.strip():
+                    needle = f"%{q.strip()}%"
+                    stmt = stmt.where(
+                        or_(
+                            G2PAttributeValue.value_display.ilike(needle),
+                            G2PAttributeValue.value_code.ilike(needle),
+                        )
+                    )
+                # Published rows are already ACTIVE (catalogue materialise drops RETIRED).
+                # include_inactive is part of the request so the cache key changes with it.
+                _ = include_inactive
                 if policy_condition is not None:
                     stmt = stmt.where(policy_condition)
                 return stmt

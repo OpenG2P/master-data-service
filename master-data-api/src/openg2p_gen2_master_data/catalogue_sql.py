@@ -176,6 +176,11 @@ _INDEXES = [
          ON g2p_geo_changes USING gin (from_units)""",
     """CREATE INDEX IF NOT EXISTS ix_g2p_geo_changes_to
          ON g2p_geo_changes USING gin (to_units)""",
+    """CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_parent
+         ON g2p_attribute_values (attribute_id, parent_value_id)""",
+    """CREATE EXTENSION IF NOT EXISTS pg_trgm""",
+    """CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_display_trgm
+         ON g2p_attribute_values USING gin (value_display gin_trgm_ops)""",
 ]
 
 _GUARDS = [
