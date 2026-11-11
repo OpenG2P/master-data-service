@@ -409,7 +409,7 @@
   "cat_no_successors": "No matching units.",
   "cat_unmapped": "Without a successor / predecessor",
   "cat_crosswalk_path": "Change events followed",
-  "cat_releases_hint": "A release pins one published version of each chosen dataset plus a geography version, so consumers can pin everything at once.",
+  "cat_releases_hint": "A catalogue release is a named, fixed set of versions across the catalogue: one published version of each dataset it includes, and of the geography. A consumer reading by release gets all of them at once. It is not the publishing of a dataset: each dataset has its own versions.",
   "cat_create_release": "Create release",
   "cat_release_code": "Release code",
   "cat_release_code_hint": "For example 2027.1",
