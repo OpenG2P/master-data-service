@@ -40,6 +40,9 @@ class AttributeValueData(BaseModel):
     value_display: Optional[str] = None
     parent_value_id: Optional[str] = None
     sort_order: Optional[int] = None
+    # Per-code object declared by the list's attribute_schema. Empty for lists
+    # that only have a code and a label.
+    attributes: Optional[dict] = None
 
 
 # ---- get_all_attributes -----------------------------------------------------

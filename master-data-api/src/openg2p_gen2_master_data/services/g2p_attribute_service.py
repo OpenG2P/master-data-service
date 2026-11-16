@@ -65,6 +65,7 @@ class G2PAttributeService(BaseService):
             value_display=row.value_display,
             parent_value_id=row.parent_value_id,
             sort_order=row.sort_order,
+            attributes=row.attributes,
         )
 
     async def get_attributes(self) -> List[AttributeData]:
