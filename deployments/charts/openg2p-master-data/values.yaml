@@ -203,6 +203,7 @@ masterDataAPI:
     MASTER_DATA_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
     # Auth / CSRF (iam-core fields inherited on master-data Settings).
     MASTER_DATA_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    MASTER_DATA_API_AUTH_OIDC_CLIENT_ID: staff-portal
     MASTER_DATA_API_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
     MASTER_DATA_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}-master:6379/0'
     MASTER_DATA_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
@@ -236,6 +237,13 @@ masterDataAPI:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    # staff-portal client secret for iam-core token refresh. Optional so the
+    # chart installs before keycloak-init has created the Secret.
+    MASTER_DATA_API_AUTH_OIDC_CLIENT_SECRET:
+      secretKeyRef:
+        name: staff-portal
+        key: client_secret
+        optional: true
     # Optional: the API still starts (boundary upload / streaming disabled, AWE
     # callbacks rejected) when these Secrets do not exist.
     MASTER_DATA_API_BOUNDARY_S3_ACCESS_KEY:
