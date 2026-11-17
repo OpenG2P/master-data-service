@@ -73,6 +73,7 @@ _ALTER_LEGACY = [
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS visibility varchar",
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS licence_uri varchar",
     "ALTER TABLE g2p_attributes ADD COLUMN IF NOT EXISTS licence_label varchar",
+    "ALTER TABLE g2p_attribute_values ADD COLUMN IF NOT EXISTS attributes jsonb",
 ]
 
 
@@ -176,6 +177,11 @@ _INDEXES = [
          ON g2p_geo_changes USING gin (from_units)""",
     """CREATE INDEX IF NOT EXISTS ix_g2p_geo_changes_to
          ON g2p_geo_changes USING gin (to_units)""",
+    """CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_parent
+         ON g2p_attribute_values (attribute_id, parent_value_id)""",
+    """CREATE EXTENSION IF NOT EXISTS pg_trgm""",
+    """CREATE INDEX IF NOT EXISTS ix_g2p_attribute_values_display_trgm
+         ON g2p_attribute_values USING gin (value_display gin_trgm_ops)""",
 ]
 
 _GUARDS = [
@@ -443,8 +449,8 @@ BEGIN
   -- Only ACTIVE values: the legacy tables are the CURRENT state, and a retired
   -- value must stop appearing in registry dropdowns.
   INSERT INTO g2p_attribute_values
-    (value_id, attribute_id, value_code, value_display, parent_value_id, sort_order)
-  SELECT x.value_id, x.list_id, x.value_code, x.display, p.value_id, x.sort_order
+    (value_id, attribute_id, value_code, value_display, parent_value_id, sort_order, attributes)
+  SELECT x.value_id, x.list_id, x.value_code, x.display, p.value_id, x.sort_order, x.attributes
     FROM g2p_list_version_values x
     LEFT JOIN g2p_list_version_values p
       ON p.list_id = x.list_id AND p.version_no = x.version_no AND p.value_code = x.parent_value_code
@@ -685,9 +691,9 @@ BEGIN
        a.display_i18n, coalesce(a.is_hierarchical, false), a.attribute_schema,
        'Version 1: migrated from the pre-catalogue tables', eff, p_actor, now(), p_actor, now());
     INSERT INTO g2p_list_version_values
-      (list_id, version_no, value_id, value_code, display, parent_value_code, sort_order, status)
+      (list_id, version_no, value_id, value_code, display, parent_value_code, sort_order, attributes, status)
     SELECT x.attribute_id, v, x.value_id, coalesce(x.value_code, x.value_id), x.value_display,
-           p.value_code, x.sort_order, 'ACTIVE'
+           p.value_code, x.sort_order, x.attributes, 'ACTIVE'
       FROM g2p_attribute_values x
       LEFT JOIN g2p_attribute_values p
         ON p.attribute_id = x.attribute_id AND p.value_id = x.parent_value_id

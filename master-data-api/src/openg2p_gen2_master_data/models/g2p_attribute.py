@@ -65,3 +65,6 @@ class G2PAttributeValue(BaseORMModel):
     value_display: Mapped[str] = mapped_column(String, nullable=True)
     parent_value_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=True)
+    # Copied from the published list version. Holds per-code data the schema
+    # describes, for example a financial-address handler or a provider's services.
+    attributes: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)

@@ -220,6 +220,9 @@ class G2PAttributeController(BaseController):
                 page_size=page_size,
                 page_number=page_number,
                 data_policies=get_data_policies(http_request),
+                parent_value_id=payload.parent_value_id if payload else None,
+                q=payload.q if payload else None,
+                include_inactive=payload.include_inactive if payload else False,
             )
 
             _logger.debug("Attribute values: %s of %s", len(values), total)
