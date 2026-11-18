@@ -206,6 +206,10 @@ masterDataAPI:
     MASTER_DATA_API_AUTH_OIDC_CLIENT_ID: staff-portal
     MASTER_DATA_API_AUTH_PROVIDER_API_URL: '{{ tpl .Values.global.authProviderApiUrl $ }}'
     MASTER_DATA_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}-master:6379/0'
+    # Same idle window as the Keycloak staff realm ssoSessionIdleTimeout.
+    MASTER_DATA_API_AUTH_REFRESH_TOKEN_TTL_SECONDS: "1800"
+    MASTER_DATA_API_AUTH_COOKIE_MAX_AGE: "1800"
+    MASTER_DATA_API_AUTH_COOKIE_SET_EXPIRES: true
     MASTER_DATA_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
     # Catalogue (see masterDataAPI.catalogue below).
     MASTER_DATA_API_CATALOGUE_APPROVAL_MODE: '{{ .Values.catalogue.approvalMode }}'
