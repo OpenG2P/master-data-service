@@ -12,6 +12,7 @@ from ..config import Settings
 from ..helpers import RequestResponseHelper
 from ..helpers.data_policy_request_helper import get_data_policies, get_data_policy_mnemonics
 from ..schemas import (
+    AttributeValueData,
     AddAttributeRequest,
     AddAttributeResponse,
     AddAttributeValueRequest,
@@ -30,7 +31,8 @@ from ..schemas import (
     UpdateAttributeValueResponse,
 )
 from ..services import G2PAttributeService, G2PCatalogueListService
-from ..services.catalogue_common import actor_from_request
+from ..schemas.g2p_catalogue import VersionSelector
+from ..services.catalogue_common import CatalogueError, actor_from_request
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -120,9 +122,10 @@ class G2PAttributeController(BaseController):
             methods=["POST"],
             summary="Entries of datasets (current published version)",
             description="Values of the current published version (active values only). "
-            "`list_versions` (additive) maps each attribute_id returned to that version. "
-            "For other versions use /catalogue/get_list_values. ATTRIBUTE data policies filter the "
-            "result. Cached per worker. Permission: any authenticated caller.",
+            "Pass one of `version`, `as_of`, or `release` with `attribute_id` to read another version; "
+            "the response shape stays `attribute_values` with `value_display`. "
+            "`list_versions` maps each attribute_id to the version the values came from. "
+            "ATTRIBUTE data policies filter the result. Cached per worker. Permission: any authenticated caller.",
         )
 
         self.router.add_api_route(
@@ -214,22 +217,60 @@ class G2PAttributeController(BaseController):
             pagination = body.pagination_request
             page_size = pagination.page_size if pagination else 1000
             page_number = pagination.current_page if pagination else 1
-
-            values, total = await self.attribute_service.get_attribute_values(
-                attribute_id=payload.attribute_id if payload else None,
-                page_size=page_size,
-                page_number=page_number,
-                data_policies=get_data_policies(http_request),
-                parent_value_id=payload.parent_value_id if payload else None,
-                q=payload.q if payload else None,
-                include_inactive=payload.include_inactive if payload else False,
+            selector = VersionSelector(
+                version=payload.version if payload else None,
+                as_of=payload.as_of if payload else None,
+                release=payload.release if payload else None,
             )
+
+            if selector.version is not None or selector.as_of is not None or selector.release is not None:
+                if not payload or not payload.attribute_id:
+                    raise CatalogueError("G2P-CAT-400", "attribute_id is required to select a version")
+
+                summary, _ = await self.catalogue.get_list(payload.attribute_id, selector)
+
+                _, version, catalogue_values, total = await self.catalogue.get_list_values(
+                    payload.attribute_id,
+                    selector,
+                    include_retired=bool(payload.include_inactive),
+                    search=payload.q,
+                    page_size=page_size,
+                    page_number=page_number,
+                    data_policies=get_data_policies(http_request),
+                )
+
+                by_code = {value.value_code: value.value_id for value in catalogue_values}
+
+                values = [
+                    AttributeValueData(
+                        attribute_id=summary.list_id,
+                        value_id=value.value_id,
+                        value_code=value.value_code,
+                        value_display=value.display,
+                        parent_value_id=by_code.get(value.parent_code) if value.parent_code else None,
+                        sort_order=value.sort_order,
+                        attributes=value.attributes,
+                    )
+                    for value in catalogue_values
+                ]
+                list_versions = {summary.list_id: version.version_no}
+                
+            else:
+                values, total = await self.attribute_service.get_attribute_values(
+                    attribute_id=payload.attribute_id if payload else None,
+                    page_size=page_size,
+                    page_number=page_number,
+                    data_policies=get_data_policies(http_request),
+                    parent_value_id=payload.parent_value_id if payload else None,
+                    q=payload.q if payload else None,
+                    include_inactive=payload.include_inactive if payload else False,
+                )
+                list_versions = await self.attribute_service.get_list_versions(
+                    [v.attribute_id for v in values]
+                    or ([payload.attribute_id] if payload and payload.attribute_id else [])
+                )
 
             _logger.debug("Attribute values: %s of %s", len(values), total)
-            list_versions = await self.attribute_service.get_list_versions(
-                [v.attribute_id for v in values]
-                or ([payload.attribute_id] if payload and payload.attribute_id else [])
-            )
 
             return self.request_response_helper.construct_attribute_values_success_response(
                 get_attribute_values_request, values, total, page_size=page_size, list_versions=list_versions

@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Literal, Optional, Union
 
 from openg2p_fastapi_common.schemas import (
     G2PRequest,
@@ -88,7 +89,20 @@ class GetAttributeValuesRequestPayload(BaseModel):
     )
     include_inactive: bool = Field(
         default=False,
-        description="Published rows are active only. Kept so callers can ask for retired values later.",
+        description="Published rows are active only. With a version selector, true also returns retired entries.",
+    )
+    version: Optional[Union[int, Literal["latest", "draft"]]] = Field(
+        default=None,
+        description='Version number, "latest", or "draft". Omit for the published version in effect. '
+        "Give at most one of version, as_of, release. Requires attribute_id.",
+    )
+    as_of: Optional[datetime] = Field(
+        default=None,
+        description="Published version in effect at this date/time. Requires attribute_id.",
+    )
+    release: Optional[str] = Field(
+        default=None,
+        description="Version pinned by this catalogue release. Requires attribute_id.",
     )
 
     model_config = ConfigDict(
