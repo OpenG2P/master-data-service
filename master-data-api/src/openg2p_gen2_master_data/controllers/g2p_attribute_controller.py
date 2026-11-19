@@ -254,7 +254,7 @@ class G2PAttributeController(BaseController):
                     for value in catalogue_values
                 ]
                 list_versions = {summary.list_id: version.version_no}
-                
+
             else:
                 values, total = await self.attribute_service.get_attribute_values(
                     attribute_id=payload.attribute_id if payload else None,
