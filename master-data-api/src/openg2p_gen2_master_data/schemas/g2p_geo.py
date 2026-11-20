@@ -1,6 +1,7 @@
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from openg2p_fastapi_common.schemas import (
     G2PRequest,
     G2PRequestBody,
@@ -62,6 +63,19 @@ class GeoLevelValueData(BaseModel):
 class GetGeoLevelValuesRequestPayload(BaseModel):
     level_id: str
     parent_level_value_id: Optional[str] = None
+    version: Optional[Union[int, Literal["latest", "draft"]]] = Field(
+        default=None,
+        description='Version number, "latest", or "draft". Omit for the published geography in effect. '
+        "Give at most one of version, as_of, release.",
+    )
+    as_of: Optional[datetime] = Field(
+        default=None,
+        description="Published geography version in effect at this date/time.",
+    )
+    release: Optional[str] = Field(
+        default=None,
+        description="Geography version pinned by this catalogue release.",
+    )
 
 
 class GetGeoLevelValuesRequestBody(G2PRequestBody):

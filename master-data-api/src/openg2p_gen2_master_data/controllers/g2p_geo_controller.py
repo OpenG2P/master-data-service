@@ -22,6 +22,7 @@ from ..schemas import (
     DeleteGeoLevelValueResponse,
     GetAllGeoLevelsRequest,
     GetAllGeoLevelsResponse,
+    GeoLevelValueData,
     GetGeoLevelValuesRequest,
     GetGeoLevelValuesResponse,
     UpdateGeoLevelRequest,
@@ -29,6 +30,7 @@ from ..schemas import (
     UpdateGeoLevelValueRequest,
     UpdateGeoLevelValueResponse,
 )
+from ..schemas.g2p_catalogue import VersionSelector
 from ..services import G2PCatalogueGeoService, G2PGeoService
 from ..services.catalogue_common import actor_from_request
 
@@ -101,10 +103,11 @@ class G2PGeoController(BaseController):
             self.get_geo_level_values,
             responses={200: {"model": GetGeoLevelValuesResponse}},
             methods=["POST"],
-            summary="Units of a geography level (current published version)",
-            description="Units of `level_id`, optionally only the children of `parent_level_value_id`, "
-            "from the geography version in effect. Data policies filter the result. For other versions "
-            "use /catalogue/get_geo_units. Cached per worker. Permission: any authenticated caller.",
+            summary="Units of a geography level",
+            description="Units of `level_id`, optionally only the children of `parent_level_value_id`. "
+            "Omit `version`, `as_of`, and `release` for the geography in effect. Pass one of them to read "
+            'another version (a number, "latest", "draft", a date/time, or a catalogue release). '
+            "Data policies filter the result. Cached per worker. Permission: any authenticated caller.",
         )
 
         self.router.add_api_route(
@@ -194,12 +197,45 @@ class G2PGeoController(BaseController):
             payload = get_geo_level_values_request.request_body.request_payload
             level_id = payload.level_id
             parent_level_value_id = payload.parent_level_value_id
-
-            geo_level_values = await self.geo_service.get_geo_level_values(
-                level_id,
-                parent_level_value_id,
-                data_policies=get_data_policies(http_request),
+            selector = VersionSelector(
+                version=payload.version,
+                as_of=payload.as_of,
+                release=payload.release,
             )
+            policies = get_data_policies(http_request)
+
+            if selector.version is not None or selector.as_of is not None or selector.release is not None:
+                page_size = 1000
+                page = 1
+                units = []
+                while True:
+                    _, page_units, total = await self.catalogue.get_geo_units(
+                        selector,
+                        level=level_id,
+                        parent_unit_id=parent_level_value_id or None,
+                        page_size=page_size,
+                        page_number=page,
+                        data_policies=policies,
+                    )
+                    units.extend(page_units)
+                    if len(units) >= total or not page_units:
+                        break
+                    page += 1
+                geo_level_values = [
+                    GeoLevelValueData(
+                        level_value_id=unit.unit_id,
+                        level_id=unit.level_id,
+                        level_value_mnemonic=unit.name,
+                        parent_level_value_id=unit.parent_unit_id,
+                    )
+                    for unit in units
+                ]
+            else:
+                geo_level_values = await self.geo_service.get_geo_level_values(
+                    level_id,
+                    parent_level_value_id,
+                    data_policies=policies,
+                )
 
             _logger.debug("Geo level values: %s", geo_level_values)
 
